@@ -1,0 +1,217 @@
+Project Report for Food Scanning Feature with AI Integration
+Project Overview
+This feature allows users to capture a food image via the app's camera and analyze it using the Google Gemini API 1.5 Pro. The analysis provides the food's name and nutritional values, which are then logged into a dedicated Scanned Food Log section. The implementation will use TypeScript to ensure type safety and robust development.
+
+Project Scope
+Camera Integration:
+
+Use the expo-camera package to capture food images.
+Ensure permissions for camera access.
+AI Integration:
+
+Use the Google Gemini API for food analysis.
+Send the captured image in multipart/form-data.
+Handle API responses with TypeScript interfaces for structured data.
+Scanned Food Log:
+
+Create a separate screen to display only AI-analyzed food items.
+Use React Navigation to manage screens.
+Store scanned food data in a local state or persistent storage.
+User Experience:
+
+Provide feedback during image uploading and analysis (e.g., loading spinners).
+Handle errors gracefully with user-friendly messages.
+Tools and Libraries
+Expo Camera: Capture images.
+Axios: Make API requests.
+React Navigation: Manage screen transitions.
+Google Gemini API: AI for food analysis.
+AsyncStorage or Secure Storage: Store scanned food logs locally.
+Step-by-Step Implementation
+1. Setup the Project
+Create a new Expo project with TypeScript:
+
+bash
+Copy code
+expo init FoodScannerApp --template expo-template-blank-typescript
+cd FoodScannerApp
+Install dependencies:
+
+bash
+Copy code
+yarn add expo-camera axios react-navigation react-native-async-storage/async-storage
+yarn add @react-navigation/native @react-navigation/stack
+2. Implement the Camera Screen
+Camera Permissions: Request permissions at runtime using Expo Camera.
+
+Code Example (CameraScreen.tsx):
+
+tsx
+Copy code
+import React, { useRef, useState } from 'react';
+import { View, Button, StyleSheet } from 'react-native';
+import { Camera, CameraCapturedPicture } from 'expo-camera';
+
+const CameraScreen: React.FC = () => {
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const cameraRef = useRef<Camera>(null);
+
+  React.useEffect(() => {
+    (async () => {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      setHasPermission(status === 'granted');
+    })();
+  }, []);
+
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      const photo: CameraCapturedPicture = await cameraRef.current.takePictureAsync();
+      console.log(photo.uri); // Send this URI to the API
+    }
+  };
+
+  if (hasPermission === null) return <View />;
+  if (hasPermission === false) return <View><Text>No access to camera</Text></View>;
+
+  return (
+    <View style={styles.container}>
+      <Camera style={styles.camera} ref={cameraRef} />
+      <Button title="Capture" onPress={takePicture} />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  camera: { flex: 1 },
+});
+
+export default CameraScreen;
+3. Connect to the Google Gemini API
+API Request with Axios:
+
+Send the captured image (photo.uri) as multipart/form-data.
+Handle responses in a strongly typed way.
+Code Example (apiService.ts):
+
+tsx
+Copy code
+import axios from 'axios';
+
+interface FoodAnalysisResponse {
+  foodName: string;
+  nutrients: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+}
+
+export const analyzeFood = async (imageUri: string): Promise<FoodAnalysisResponse> => {
+  const formData = new FormData();
+  formData.append('image', {
+    uri: imageUri,
+    type: 'image/jpeg',
+    name: 'food.jpg',
+  });
+
+  const response = await axios.post<FoodAnalysisResponse>('https://gemini-api-url.com/analyze', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      Authorization: `Bearer YOUR_API_KEY`,
+    },
+  });
+
+  return response.data;
+};
+4. Log Scanned Food
+Separate Scanned Food Log:
+
+Create a dedicated screen and store analyzed results using AsyncStorage.
+Code Example (ScannedFoodLog.tsx):
+
+tsx
+Copy code
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+interface ScannedFood {
+  foodName: string;
+  nutrients: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+}
+
+const ScannedFoodLog: React.FC = () => {
+  const [foodLog, setFoodLog] = useState<ScannedFood[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const data = await AsyncStorage.getItem('scannedFoodLog');
+      if (data) setFoodLog(JSON.parse(data));
+    })();
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={foodLog}
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.item}>
+            <Text>{item.foodName}</Text>
+            <Text>Calories: {item.nutrients.calories}</Text>
+          </View>
+        )}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 16 },
+  item: { padding: 8, borderBottomWidth: 1 },
+});
+
+export default ScannedFoodLog;
+5. Combine Screens with Navigation
+Use React Navigation to manage screen transitions.
+
+Code Example (App.tsx):
+
+tsx
+Copy code
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+
+import CameraScreen from './CameraScreen';
+import ScannedFoodLog from './ScannedFoodLog';
+
+const Stack = createStackNavigator();
+
+export default function App() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator>
+        <Stack.Screen name="Camera" component={CameraScreen} />
+        <Stack.Screen name="Food Log" component={ScannedFoodLog} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+Testing
+Test the Camera: Verify image capture functionality.
+Test API Integration: Use Postman or mock data to simulate API responses.
+Test State Management: Ensure food logs are saved and retrieved correctly.
+Resources
+Expo Camera Documentation
+Google Gemini API Docs
+React Navigation Docs
+Axios Docs
+AsyncStorage Docs

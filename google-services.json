@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "822972139614",
+    "project_id": "ai-fitness-be667",
+    "storage_bucket": "ai-fitness-be667.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:822972139614:android:f2337a71711689f51a4ccf",
+        "android_client_info": {
+          "package_name": "com.aifit.aifitness"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC29iWAOAY09SDEf9poSzPFeQiTdhWFnW0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

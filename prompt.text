@@ -1,0 +1,35 @@
+Objective:
+Let’s integrate AI functionality into the app by enhancing the Food Log and Workout screens using the Google Gemini API. The goal is to maintain the existing design philosophy while adding AI-driven features seamlessly.
+
+Details:
+
+Food Log Screen Enhancements:
+
+Add a button labeled "Generate Weekly Meal Plan" that allows users to create a personalized meal plan for the entire week using AI.
+Ensure the AI-generated meal plan integrates into the existing layout of the Food Log screen.
+Retain the functionality for users to manually add food entries, alongside the AI-generated plans.
+Workout Screen Enhancements:
+
+Implement a similar AI feature on the Workout Screen to create personalized, tailored workout plans for users.
+Synchronize the AI-generated workout plans with the current layout of the Workout screen.
+Retain the option for users to manually log their workouts.
+User Interaction and Experience:
+
+Include a splash card/loader when the AI is generating personalized plans:
+For the Food Log screen: "AI is creating your personalized weekly meal plan."
+For the Workout screen: "AI is crafting your tailored workout plan."
+The splash card should fit seamlessly into the current UI without disrupting the user experience.
+Design Considerations:
+
+Avoid making drastic changes to the existing layouts of the screens.
+Ensure the new AI-driven features align with the app’s overall design philosophy.
+Maintain a minimalistic, user-friendly, and cohesive aesthetic.
+Personalization:
+
+AI-generated plans (meal and workout) should be tailored to the user’s specific information collected during the onboarding process.
+Leverage this data to craft highly personalized outputs that feel relevant and useful.
+Requirements:
+
+Follow a step-by-step process to understand the current codebase and functionality.
+Implement the new features without breaking existing functionality.
+Keep the app’s performance optimized despite the addition of AI functionalities.
