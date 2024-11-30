@@ -4,10 +4,10 @@
   "description": "AI-powered fitness and wellness platform",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
-    "start": "node --max_old_space_size=4096 node_modules/expo/AppEntry.js",
-    "android": "SET NODE_OPTIONS=--max_old_space_size=4096 && expo start --android",
-    "ios": "SET NODE_OPTIONS=--max_old_space_size=4096 && expo start --ios",
-    "web": "SET NODE_OPTIONS=--max_old_space_size=4096 && expo start --web",
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
     "test": "jest"
   },
   "dependencies": {
@@ -31,6 +31,7 @@
     "expo-build-properties": "^0.13.1",
     "expo-camera": "~16.0.0",
     "expo-constants": "^17.0.3",
+    "expo-dev-client": "~5.0.4",
     "expo-file-system": "^18.0.4",
     "expo-font": "^13.0.1",
     "expo-linear-gradient": "~14.0.1",

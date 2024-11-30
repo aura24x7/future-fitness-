@@ -173,6 +173,24 @@ class GroupService {
     }
   }
 
+  // Get groups for a specific user
+  async getUserGroups(userId: string): Promise<Group[]> {
+    try {
+      // Get all members to find the user's group memberships
+      const members = await this.getAllGroupMembers();
+      const userGroupIds = members
+        .filter(member => member.userId === userId)
+        .map(member => member.groupId);
+      
+      // Get all groups and filter to only include user's groups
+      const allGroups = await this.getAllGroups();
+      return allGroups.filter(group => userGroupIds.includes(group.id));
+    } catch (error) {
+      console.error('Error getting user groups:', error);
+      throw new Error('Failed to get user groups');
+    }
+  }
+
   // Workout Sharing
   async shareWorkout(workout: SharedWorkout): Promise<void> {
     try {
@@ -206,92 +224,149 @@ class GroupService {
     }
   }
 
-  // Invite Management
-  async createInvite(invite: Omit<GroupInvite, 'id' | 'status' | 'createdAt'>): Promise<GroupInvite> {
+  // Group Invites
+  async createInvite(invite: GroupInvite): Promise<void> {
     try {
-      const invites = await this.getAllInvites();
-      const newInvite: GroupInvite = {
-        ...invite,
-        id: generateUUID(),
-        status: 'pending',
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days expiry
-      };
-
+      const invites = await this.getGroupInvites(invite.groupId);
       await AsyncStorage.setItem(
-        GROUP_INVITES_KEY,
-        JSON.stringify([...invites, newInvite])
+        `${GROUP_INVITES_KEY}_${invite.groupId}`,
+        JSON.stringify([...invites, invite])
       );
-
-      return newInvite;
     } catch (error) {
       console.error('Error creating invite:', error);
       throw new Error('Failed to create invite');
     }
   }
 
-  async getInvitesByUserId(userId: string): Promise<GroupInvite[]> {
+  async getGroupInvites(groupId: string): Promise<GroupInvite[]> {
     try {
-      const invites = await this.getAllInvites();
-      return invites.filter(invite => invite.invitedBy === userId);
+      const invitesJson = await AsyncStorage.getItem(`${GROUP_INVITES_KEY}_${groupId}`);
+      return invitesJson ? JSON.parse(invitesJson) : [];
     } catch (error) {
       console.error('Error getting invites:', error);
       throw new Error('Failed to get invites');
     }
   }
 
-  async getInvitesByGroupId(groupId: string): Promise<GroupInvite[]> {
-    try {
-      const invites = await this.getAllInvites();
-      return invites.filter(invite => invite.groupId === groupId);
-    } catch (error) {
-      console.error('Error getting group invites:', error);
-      throw new Error('Failed to get group invites');
-    }
-  }
-
-  async updateInviteStatus(inviteId: string, status: GroupInvite['status']): Promise<GroupInvite> {
-    try {
-      const invites = await this.getAllInvites();
-      const index = invites.findIndex(invite => invite.id === inviteId);
-      
-      if (index === -1) {
-        throw new Error('Invite not found');
-      }
-
-      const updatedInvite = {
-        ...invites[index],
-        status,
-      };
-
-      invites[index] = updatedInvite;
-      await AsyncStorage.setItem(GROUP_INVITES_KEY, JSON.stringify(invites));
-
-      return updatedInvite;
-    } catch (error) {
-      console.error('Error updating invite:', error);
-      throw new Error('Failed to update invite');
-    }
-  }
-
-  private async getAllInvites(): Promise<GroupInvite[]> {
-    try {
-      const invitesJson = await AsyncStorage.getItem(GROUP_INVITES_KEY);
-      return invitesJson ? JSON.parse(invitesJson) : [];
-    } catch (error) {
-      console.error('Error getting all invites:', error);
-      throw new Error('Failed to get all invites');
-    }
-  }
-
   private async deleteGroupInvites(groupId: string): Promise<void> {
     try {
-      const invites = await this.getAllInvites();
-      const filteredInvites = invites.filter(invite => invite.groupId !== groupId);
-      await AsyncStorage.setItem(GROUP_INVITES_KEY, JSON.stringify(filteredInvites));
+      await AsyncStorage.removeItem(`${GROUP_INVITES_KEY}_${groupId}`);
     } catch (error) {
       console.error('Error deleting group invites:', error);
       throw new Error('Failed to delete group invites');
+    }
+  }
+
+  // For testing - add mock data
+  async addMockData() {
+    try {
+      // Create mock groups
+      const mockGroups: Group[] = [
+        {
+          id: 'group1',
+          name: 'Fitness Buddies',
+          adminId: 'current-user',
+          description: 'A group for workout enthusiasts',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          memberCount: 5
+        },
+        {
+          id: 'group2',
+          name: 'Weight Loss Support',
+          adminId: 'current-user',
+          description: 'Support group for weight loss journey',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          memberCount: 4
+        }
+      ];
+
+      // Create mock members
+      const mockMembers: GroupMember[] = [
+        {
+          id: 'member1',
+          groupId: 'group1',
+          userId: 'current-user',
+          role: 'admin',
+          joinedAt: new Date(),
+          displayName: 'Current User'
+        },
+        {
+          id: 'member2',
+          groupId: 'group1',
+          userId: 'user2',
+          role: 'member',
+          joinedAt: new Date(),
+          displayName: 'John Doe'
+        },
+        {
+          id: 'member3',
+          groupId: 'group1',
+          userId: 'user3',
+          role: 'member',
+          joinedAt: new Date(),
+          displayName: 'Jane Smith'
+        },
+        {
+          id: 'member4',
+          groupId: 'group1',
+          userId: 'user4',
+          role: 'member',
+          joinedAt: new Date(),
+          displayName: 'Mike Wilson'
+        },
+        {
+          id: 'member5',
+          groupId: 'group1',
+          userId: 'user5',
+          role: 'member',
+          joinedAt: new Date(),
+          displayName: 'Sarah Brown'
+        },
+        {
+          id: 'member6',
+          groupId: 'group2',
+          userId: 'current-user',
+          role: 'admin',
+          joinedAt: new Date(),
+          displayName: 'Current User'
+        },
+        {
+          id: 'member7',
+          groupId: 'group2',
+          userId: 'user6',
+          role: 'member',
+          joinedAt: new Date(),
+          displayName: 'David Lee'
+        },
+        {
+          id: 'member8',
+          groupId: 'group2',
+          userId: 'user7',
+          role: 'member',
+          joinedAt: new Date(),
+          displayName: 'Emma Davis'
+        },
+        {
+          id: 'member9',
+          groupId: 'group2',
+          userId: 'user8',
+          role: 'member',
+          joinedAt: new Date(),
+          displayName: 'Tom Harris'
+        }
+      ];
+
+      // Store mock data
+      await AsyncStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(mockGroups));
+      await AsyncStorage.setItem(GROUP_MEMBERS_KEY, JSON.stringify(mockMembers));
+
+      console.log('Mock data added successfully');
+      return true;
+    } catch (error) {
+      console.error('Error adding mock data:', error);
+      return false;
     }
   }
 }

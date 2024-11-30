@@ -7,12 +7,14 @@ import { useOnboarding } from '../context/OnboardingContext';
 import { BlurView } from 'expo-blur';
 import Animated from 'react-native-reanimated';
 import { useScrollToTabBar } from '../hooks/useScrollToTabBar';
+import { useTheme } from '../theme/ThemeProvider';
 
 const { width } = Dimensions.get('window');
 
 const ProfileScreen = () => {
   const { onboardingData } = useOnboarding();
   const { handleScroll } = useScrollToTabBar();
+  const { theme, isDarkMode } = useTheme();
   const AnimatedScrollView = Animated.ScrollView;
   
   const userStats = {
@@ -24,17 +26,21 @@ const ProfileScreen = () => {
   const GlassBackground = ({ children, style }) => {
     return Platform.OS === 'ios' ? (
       <BlurView
-        tint="default"
-        intensity={30}
+        tint={isDarkMode ? "dark" : "light"}
+        intensity={isDarkMode ? 50 : 30}
         style={[styles.glassBackground, style]}
       >
-        <View style={styles.glassContent}>
+        <View style={[styles.glassContent, { backgroundColor: 'transparent' }]}>
           {children}
         </View>
       </BlurView>
     ) : (
-      <View style={[styles.glassBackgroundAndroid, style]}>
-        <View style={styles.glassContent}>
+      <View style={[
+        styles.glassBackgroundAndroid,
+        { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)' },
+        style
+      ]}>
+        <View style={[styles.glassContent, { backgroundColor: 'transparent' }]}>
           {children}
         </View>
       </View>
@@ -42,9 +48,12 @@ const ProfileScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <LinearGradient
-        colors={['#6366f1', '#818cf8', '#a5b4fc']}
+        colors={isDarkMode ? 
+          [theme.colors.primary, '#2d3748', theme.colors.background] :
+          [theme.colors.primary, '#818cf8', '#a5b4fc']
+        }
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.backgroundGradient}
@@ -59,29 +68,43 @@ const ProfileScreen = () => {
                   source={{ uri: 'https://via.placeholder.com/100' }}
                   style={styles.avatar}
                 />
-                <TouchableOpacity style={styles.editAvatarButton}>
+                <TouchableOpacity style={[
+                  styles.editAvatarButton,
+                  { backgroundColor: theme.colors.primary }
+                ]}>
                   <Ionicons name="camera" size={16} color="#fff" />
                 </TouchableOpacity>
               </View>
             </View>
             <TouchableOpacity style={styles.editProfileButton}>
               <LinearGradient
-                colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.15)']}
+                colors={isDarkMode ? 
+                  ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] :
+                  ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.15)']
+                }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.editProfileGradient}
               >
-                <Text style={styles.editProfileText}>Edit Profile</Text>
+                <Text style={[styles.editProfileText, { color: theme.colors.text }]}>
+                  Edit Profile
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
           
           <View style={styles.userInfoSection}>
-            <Text style={styles.userName}>John Doe</Text>
-            <Text style={styles.userEmail}>@johndoe</Text>
+            <Text style={[styles.userName, { color: theme.colors.text }]}>John Doe</Text>
+            <Text style={[styles.userEmail, { color: theme.colors.secondaryText }]}>@johndoe</Text>
             <View style={styles.joinedSection}>
-              <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.joinedText}>Joined December 2023</Text>
+              <Ionicons 
+                name="calendar-outline" 
+                size={14} 
+                color={theme.colors.secondaryText} 
+              />
+              <Text style={[styles.joinedText, { color: theme.colors.secondaryText }]}>
+                Joined December 2023
+              </Text>
             </View>
           </View>
         </View>
@@ -94,34 +117,37 @@ const ProfileScreen = () => {
         scrollEventThrottle={16}
       >
         <LinearGradient
-          colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+          colors={isDarkMode ? 
+            ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)'] :
+            ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']
+          }
           style={[styles.section, styles.glassEffect]}
         >
-          <Text style={styles.sectionTitle}>
-            <Ionicons name="body-outline" size={20} color="#6366f1" /> Basic Information
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            <Ionicons name="body-outline" size={20} color={theme.colors.primary} /> Basic Information
           </Text>
           <View style={styles.infoGrid}>
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Height</Text>
-              <Text style={styles.infoValue}>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Height</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
                 {onboardingData.height?.value || 175} cm
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Weight</Text>
-              <Text style={styles.infoValue}>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Weight</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
                 {onboardingData.weight?.value || 70} kg
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Goal</Text>
-              <Text style={styles.infoValue}>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Goal</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
                 {onboardingData.fitnessGoal?.replace(/_/g, ' ').toLowerCase() || 'Weight Loss'}
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Activity Level</Text>
-              <Text style={styles.infoValue}>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Activity Level</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
                 {onboardingData.activityLevel?.toLowerCase() || 'Moderate'}
               </Text>
             </View>
@@ -130,64 +156,76 @@ const ProfileScreen = () => {
 
         <View style={styles.statsContainer}>
           <LinearGradient
-            colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+            colors={isDarkMode ? 
+              ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)'] :
+              ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']
+            }
             style={[styles.statCard, styles.glassEffect]}
           >
-            <View style={styles.statIconContainer}>
-              <Ionicons name="fitness-outline" size={24} color="#6366f1" />
+            <View style={[styles.statIconContainer, { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
+              <Ionicons name="fitness-outline" size={24} color={theme.colors.primary} />
             </View>
-            <Text style={styles.statValue}>{userStats.workouts}</Text>
-            <Text style={styles.statLabel}>Workouts</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{userStats.workouts}</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.secondaryText }]}>Workouts</Text>
           </LinearGradient>
           
           <LinearGradient
-            colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+            colors={isDarkMode ? 
+              ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)'] :
+              ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']
+            }
             style={[styles.statCard, styles.glassEffect]}
           >
-            <View style={styles.statIconContainer}>
-              <Ionicons name="flame-outline" size={24} color="#6366f1" />
+            <View style={[styles.statIconContainer, { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
+              <Ionicons name="flame-outline" size={24} color={theme.colors.primary} />
             </View>
-            <Text style={styles.statValue}>{userStats.calories}</Text>
-            <Text style={styles.statLabel}>Calories</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{userStats.calories}</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.secondaryText }]}>Calories</Text>
           </LinearGradient>
-
+          
           <LinearGradient
-            colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+            colors={isDarkMode ? 
+              ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)'] :
+              ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']
+            }
             style={[styles.statCard, styles.glassEffect]}
           >
-            <View style={styles.statIconContainer}>
-              <Ionicons name="time-outline" size={24} color="#6366f1" />
+            <View style={[styles.statIconContainer, { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
+              <Ionicons name="time-outline" size={24} color={theme.colors.primary} />
             </View>
-            <Text style={styles.statValue}>{userStats.hours}h</Text>
-            <Text style={styles.statLabel}>Time</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{userStats.hours}</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.secondaryText }]}>Hours</Text>
           </LinearGradient>
         </View>
 
         <LinearGradient
-          colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+          colors={isDarkMode ? 
+            ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)'] :
+            ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']
+          }
           style={[styles.section, styles.glassEffect]}
         >
-          <Text style={styles.sectionTitle}>
-            <Ionicons name="settings-outline" size={20} color="#6366f1" /> Settings
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            <Ionicons name="settings-outline" size={20} color={theme.colors.primary} /> Settings
           </Text>
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuItemContent}>
-              <Ionicons name="person-outline" size={24} color="#6366f1" />
-              <Text style={styles.menuItemText}>Edit Profile</Text>
+              <Ionicons name="person-outline" size={24} color={theme.colors.primary} />
+              <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Edit Profile</Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuItemContent}>
-              <Ionicons name="notifications-outline" size={24} color="#6366f1" />
-              <Text style={styles.menuItemText}>Notifications</Text>
+              <Ionicons name="notifications-outline" size={24} color={theme.colors.primary} />
+              <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Notifications</Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuItemContent}>
-              <Ionicons name="lock-closed-outline" size={24} color="#6366f1" />
-              <Text style={styles.menuItemText}>Privacy</Text>
+              <Ionicons name="lock-closed-outline" size={24} color={theme.colors.primary} />
+              <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Privacy</Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
           </TouchableOpacity>
@@ -195,7 +233,7 @@ const ProfileScreen = () => {
 
         <TouchableOpacity style={styles.logoutButton}>
           <Ionicons name="log-out-outline" size={24} color="#ef4444" />
-          <Text style={styles.logoutButtonText}>Log Out</Text>
+          <Text style={[styles.logoutButtonText, { color: theme.colors.text }]}>Log Out</Text>
         </TouchableOpacity>
       </AnimatedScrollView>
     </View>

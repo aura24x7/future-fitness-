@@ -1,35 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { SharedWorkoutCard } from '../components/SharedWorkoutCard';
+import { ShareWorkoutModal } from '../components/ShareWorkoutModal';
+import { workoutSharingService } from '../services/workoutSharingService';
 import { SharedWorkout } from '../types/group';
+import { AIWorkoutPlan } from '../types/workout';
 
 interface ShareWorkoutScreenProps {
   route: {
     params: {
-      groupId: string;
-      workout: {
-        id: string;
-        name: string;
-        exercises: {
-          name: string;
-          sets: number;
-          reps: number;
-          weight?: number;
-        }[];
-        duration: number;
-        calories: number;
-      };
+      workoutPlan: AIWorkoutPlan;
+      currentUserId: string;
+      currentUserName: string;
     };
   };
 }
@@ -37,207 +29,89 @@ interface ShareWorkoutScreenProps {
 const ShareWorkoutScreen: React.FC<ShareWorkoutScreenProps> = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { groupId, workout } = route.params as ShareWorkoutScreenProps['route']['params'];
+  const { workoutPlan, currentUserId, currentUserName } = route.params as ShareWorkoutScreenProps['route']['params'];
 
-  const [description, setDescription] = useState('');
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
-  const [intensity, setIntensity] = useState(5);
-  const [muscleGroups, setMuscleGroups] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [sharedWorkouts, setSharedWorkouts] = useState<SharedWorkout[]>([]);
+  const [showShareModal, setShowShareModal] = useState(false);
 
-  const handleShare = async () => {
+  useEffect(() => {
+    loadSharedWorkouts();
+  }, []);
+
+  const loadSharedWorkouts = async () => {
     try {
       setLoading(true);
-
-      // TODO: Replace with actual API call
-      const sharedWorkout: SharedWorkout = {
-        id: `shared-${workout.id}`,
-        groupId,
-        userId: 'current-user-id', // Replace with actual user ID
-        userName: 'John Doe', // Replace with actual user name
-        workoutId: workout.id,
-        workoutName: workout.name,
-        description,
-        duration: workout.duration,
-        calories: workout.calories,
-        exercises: workout.exercises,
-        likes: [],
-        comments: [],
-        metrics: {
-          difficulty,
-          intensity,
-          muscleGroups,
-        },
-        sharedAt: new Date().toISOString(),
-      };
-
-      // TODO: Call API to share workout
-      console.log('Sharing workout:', sharedWorkout);
-
-      Alert.alert('Success', 'Workout shared successfully!');
-      navigation.goBack();
+      const workouts = await workoutSharingService.getSharedWorkouts();
+      setSharedWorkouts(workouts);
     } catch (error) {
-      console.error('Error sharing workout:', error);
-      Alert.alert('Error', 'Failed to share workout');
+      console.error('Error loading shared workouts:', error);
+      Alert.alert('Error', 'Failed to load shared workouts');
     } finally {
       setLoading(false);
     }
   };
 
-  const difficultyOptions: Array<'easy' | 'medium' | 'hard'> = [
-    'easy',
-    'medium',
-    'hard',
-  ];
+  const handleLike = async (workoutId: string) => {
+    // TODO: Implement like functionality
+    Alert.alert('Coming Soon', 'Workout like feature will be available soon!');
+  };
 
-  const commonMuscleGroups = [
-    'Chest',
-    'Back',
-    'Legs',
-    'Shoulders',
-    'Arms',
-    'Core',
-    'Full Body',
-  ];
+  const handleComment = async (workoutId: string, content: string) => {
+    // TODO: Implement comment functionality
+    Alert.alert('Coming Soon', 'Workout comment feature will be available soon!');
+  };
+
+  const handleViewDetails = (workout: SharedWorkout) => {
+    // TODO: Navigate to workout details screen
+    Alert.alert('Coming Soon', 'Workout details view will be available soon!');
+  };
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#6366F1', '#4F46E5']}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Share Workout</Text>
-          <TouchableOpacity
-            style={[styles.shareButton, loading && styles.shareButtonDisabled]}
-            onPress={handleShare}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.shareButtonText}>Share</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.title}>Share Workout</Text>
+        <TouchableOpacity onPress={() => setShowShareModal(true)} style={styles.shareButton}>
+          <Ionicons name="share-social" size={24} color="#4CAF50" />
+        </TouchableOpacity>
+      </View>
 
-      <ScrollView style={styles.content}>
-        <View style={styles.workoutInfo}>
-          <Text style={styles.workoutName}>{workout.name}</Text>
-          <View style={styles.workoutStats}>
-            <View style={styles.statItem}>
-              <Ionicons name="time-outline" size={16} color="#6B7280" />
-              <Text style={styles.statText}>{workout.duration} min</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Ionicons name="flame-outline" size={16} color="#6B7280" />
-              <Text style={styles.statText}>{workout.calories} cal</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Ionicons name="barbell-outline" size={16} color="#6B7280" />
-              <Text style={styles.statText}>
-                {workout.exercises.length} exercises
+      {loading ? (
+        <ActivityIndicator style={styles.loader} size="large" color="#4CAF50" />
+      ) : (
+        <ScrollView style={styles.content}>
+          {sharedWorkouts.map((workout) => (
+            <SharedWorkoutCard
+              key={workout.id}
+              workout={workout}
+              currentUserId={currentUserId}
+              onLike={handleLike}
+              onComment={handleComment}
+              onViewDetails={handleViewDetails}
+            />
+          ))}
+          {sharedWorkouts.length === 0 && (
+            <View style={styles.emptyState}>
+              <Ionicons name="fitness-outline" size={48} color="#666" />
+              <Text style={styles.emptyStateText}>No shared workouts yet</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Share your workout plan with friends and see their shared workouts here!
               </Text>
             </View>
-          </View>
-        </View>
+          )}
+        </ScrollView>
+      )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Description</Text>
-          <TextInput
-            style={styles.descriptionInput}
-            placeholder="Add a description..."
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            maxLength={500}
-            textAlignVertical="top"
-          />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Difficulty</Text>
-          <View style={styles.difficultyOptions}>
-            {difficultyOptions.map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[
-                  styles.difficultyButton,
-                  difficulty === option && styles.difficultyButtonActive,
-                ]}
-                onPress={() => setDifficulty(option)}
-              >
-                <Text
-                  style={[
-                    styles.difficultyButtonText,
-                    difficulty === option && styles.difficultyButtonTextActive,
-                  ]}
-                >
-                  {option.charAt(0).toUpperCase() + option.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Intensity (1-10)</Text>
-          <View style={styles.intensityContainer}>
-            <TouchableOpacity
-              style={styles.intensityButton}
-              onPress={() => setIntensity(Math.max(1, intensity - 1))}
-            >
-              <Ionicons name="remove" size={24} color="#6366F1" />
-            </TouchableOpacity>
-            <Text style={styles.intensityValue}>{intensity}</Text>
-            <TouchableOpacity
-              style={styles.intensityButton}
-              onPress={() => setIntensity(Math.min(10, intensity + 1))}
-            >
-              <Ionicons name="add" size={24} color="#6366F1" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Muscle Groups</Text>
-          <View style={styles.muscleGroupsContainer}>
-            {commonMuscleGroups.map((group) => (
-              <TouchableOpacity
-                key={group}
-                style={[
-                  styles.muscleGroupButton,
-                  muscleGroups.includes(group) && styles.muscleGroupButtonActive,
-                ]}
-                onPress={() => {
-                  if (muscleGroups.includes(group)) {
-                    setMuscleGroups(muscleGroups.filter((g) => g !== group));
-                  } else {
-                    setMuscleGroups([...muscleGroups, group]);
-                  }
-                }}
-              >
-                <Text
-                  style={[
-                    styles.muscleGroupButtonText,
-                    muscleGroups.includes(group) &&
-                      styles.muscleGroupButtonTextActive,
-                  ]}
-                >
-                  {group}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </ScrollView>
+      <ShareWorkoutModal
+        visible={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        workoutPlan={workoutPlan}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+      />
     </View>
   );
 };
@@ -248,145 +122,51 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    paddingTop: 48,
-    paddingBottom: 16,
-  },
-  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
   },
   backButton: {
-    padding: 8,
+    padding: 5,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   shareButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  shareButtonDisabled: {
-    opacity: 0.5,
-  },
-  shareButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    padding: 5,
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: 20,
   },
-  workoutInfo: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  workoutName: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  workoutStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  descriptionInput: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    padding: 12,
-    height: 100,
-    fontSize: 14,
-  },
-  difficultyOptions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  difficultyButton: {
+  loader: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-  },
-  difficultyButtonActive: {
-    backgroundColor: '#EEF2FF',
-  },
-  difficultyButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  difficultyButtonTextActive: {
-    color: '#6366F1',
-  },
-  intensityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  intensityButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EEF2FF',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  intensityValue: {
-    fontSize: 24,
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
-    width: 40,
-    textAlign: 'center',
+    color: '#666',
+    marginTop: 16,
   },
-  muscleGroupsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  muscleGroupButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-  },
-  muscleGroupButtonActive: {
-    backgroundColor: '#EEF2FF',
-  },
-  muscleGroupButtonText: {
+  emptyStateSubtext: {
     fontSize: 14,
-    color: '#6B7280',
-  },
-  muscleGroupButtonTextActive: {
-    color: '#6366F1',
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 40,
   },
 });
 

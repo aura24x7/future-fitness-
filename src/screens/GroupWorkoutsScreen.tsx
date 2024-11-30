@@ -58,7 +58,7 @@ const GroupWorkoutsScreen: React.FC<GroupWorkoutsScreenProps> = () => {
               id: 'comment1',
               userId: 'user2',
               userName: 'Jane Smith',
-              content: "Great workout! I will try this tomorrow.",
+              content: "Great workout! I'll try this tomorrow.",
               createdAt: new Date().toISOString(),
             },
           ],

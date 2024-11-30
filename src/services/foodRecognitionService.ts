@@ -1,23 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MealType, MealLog } from '../types/calorie';
+import { GEMINI_API_KEY, GEMINI_MODELS } from '../config/api.config';
 
-const genAI = new GoogleGenerativeAI('AIzaSyDjzBDnbMEY-j2ngJnUIij6Afg8H28o_yA');
-
-export interface NutritionInfo {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  servingSize?: string;
-}
-
-export interface FoodAnalysisResult {
-  foodName: string;
-  nutritionInfo: NutritionInfo;
-  confidence: number;
-  description?: string;
-}
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 const MEALS_STORAGE_KEY = '@meals';
 const getStorageKeyForDate = (date: Date) => `${MEALS_STORAGE_KEY}_${date.toISOString().split('T')[0]}`;
@@ -31,36 +17,68 @@ const getMealTypeFromTime = (date: Date): MealType => {
   return MealType.Snack;
 };
 
-const FOOD_ANALYSIS_PROMPT = `You are a nutrition expert analyzing food images. For the provided food image:
-1. Identify the food item(s)
-2. Provide detailed nutritional information
-3. Give a brief description
-4. Assess confidence level
-
-Respond in this exact JSON format:
+const FOOD_ANALYSIS_PROMPT = `Analyze the food in this image and provide detailed nutritional information. 
+Return the result as a JSON object with the following structure:
 {
-  "foodName": "name of the food",
+  "foodName": "Name of the food",
+  "confidence": 0.95,
   "nutritionInfo": {
-    "calories": number,
-    "protein": number (in grams),
-    "carbs": number (in grams),
-    "fat": number (in grams),
-    "servingSize": "standard serving size"
+    "calories": 250,
+    "protein": 12,
+    "carbs": 30,
+    "fat": 8,
+    "fiber": 4,
+    "sugar": 2
   },
-  "confidence": number (between 0 and 1),
-  "description": "brief description of the food"
+  "ingredients": ["ingredient1", "ingredient2"],
+  "servingSize": "1 cup",
+  "mealType": "breakfast|lunch|dinner|snack",
+  "healthyScore": 8.5,
+  "dietaryInfo": {
+    "isVegetarian": true,
+    "isVegan": false,
+    "isGlutenFree": true,
+    "isDairyFree": true
+  }
 }`;
+
+export interface NutritionInfo {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sugar: number;
+}
+
+export interface FoodAnalysisResult {
+  foodName: string;
+  confidence: number;
+  nutritionInfo: NutritionInfo;
+  ingredients: string[];
+  servingSize: string;
+  mealType: string;
+  healthyScore: number;
+  dietaryInfo: {
+    isVegetarian: boolean;
+    isVegan: boolean;
+    isGlutenFree: boolean;
+    isDairyFree: boolean;
+  };
+}
 
 export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysisResult> => {
   try {
+    console.log('Starting food analysis...');
     console.log('Initializing Gemini model...');
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODELS.VISION });
     
     console.log('Preparing request...');
     const prompt = {
       text: FOOD_ANALYSIS_PROMPT,
     };
     
+    // Convert base64 to parts array for Gemini API
     const imagePart = {
       inlineData: {
         data: imageBase64,
@@ -87,7 +105,31 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
         throw new Error('Invalid response format from API');
       }
 
-      return parsedResult as FoodAnalysisResult;
+      // Ensure all required fields exist with defaults if missing
+      const validatedResult: FoodAnalysisResult = {
+        foodName: parsedResult.foodName,
+        confidence: parsedResult.confidence || 0.8,
+        nutritionInfo: {
+          calories: parsedResult.nutritionInfo.calories || 0,
+          protein: parsedResult.nutritionInfo.protein || 0,
+          carbs: parsedResult.nutritionInfo.carbs || 0,
+          fat: parsedResult.nutritionInfo.fat || 0,
+          fiber: parsedResult.nutritionInfo.fiber || 0,
+          sugar: parsedResult.nutritionInfo.sugar || 0
+        },
+        ingredients: parsedResult.ingredients || [],
+        servingSize: parsedResult.servingSize || "1 serving",
+        mealType: parsedResult.mealType || "snack",
+        healthyScore: parsedResult.healthyScore || 5.0,
+        dietaryInfo: {
+          isVegetarian: parsedResult.dietaryInfo?.isVegetarian || false,
+          isVegan: parsedResult.dietaryInfo?.isVegan || false,
+          isGlutenFree: parsedResult.dietaryInfo?.isGlutenFree || false,
+          isDairyFree: parsedResult.dietaryInfo?.isDairyFree || false
+        }
+      };
+
+      return validatedResult;
     } catch (parseError) {
       console.error('Error parsing Gemini response:', parseError);
       console.error('Raw text that failed to parse:', text);
@@ -96,11 +138,15 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
   } catch (error) {
     console.error('Error analyzing food image:', error);
     if (error instanceof Error) {
-      if (error.message.includes('model not found')) {
-        throw new Error('The food recognition service is temporarily unavailable. Please try again later.');
+      // Check for specific API key errors
+      if (error.message.includes('API key not valid') || error.message.includes('API_KEY_INVALID')) {
+        throw new Error('Food analysis service is not properly configured. Please check your API settings.');
       }
-      // Pass through the original error message for debugging
-      throw new Error(`Food analysis failed: ${error.message}`);
+      // Check for model availability errors
+      if (error.message.includes('model not found')) {
+        throw new Error('The selected food analysis model is currently unavailable. Please try again later.');
+      }
+      throw new Error(`Error analyzing food: ${error.message}`);
     }
     throw error;
   }
@@ -120,8 +166,8 @@ export const saveFoodAnalysis = async (result: FoodAnalysisResult, date: Date = 
       completed: true,
       mealType: getMealTypeFromTime(date),
       date: date,
-      ingredients: [], // Optional: could be extracted from description if needed
-      instructions: result.description,
+      ingredients: result.ingredients, 
+      instructions: result.dietaryInfo.isVegetarian ? 'Vegetarian' : 'Non-Vegetarian',
       servings: 1
     };
 

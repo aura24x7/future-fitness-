@@ -13,14 +13,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Group } from '../types/group';
 import { groupService } from '../services/groupService';
 import { useScrollToTabBar } from '../hooks/useScrollToTabBar';
-import { useRoute } from '@react-navigation/native';
 
 const GroupsScreen = ({ navigation }) => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { handleScroll } = useScrollToTabBar();
-  const route = useRoute();
 
   const loadGroups = async () => {
     try {
@@ -47,45 +45,9 @@ const GroupsScreen = ({ navigation }) => {
     navigation.navigate('CreateGroup');
   };
 
-  const handleGroupPress = (groupId: string) => {
-    if (route.params?.onGroupSelect) {
-      // If we have a group selection callback, call it and return
-      route.params.onGroupSelect(groupId);
-      return;
-    }
-
-    // Otherwise, navigate to group details
-    navigation.navigate('GroupDetails', { groupId });
+  const handleGroupPress = (group: Group) => {
+    navigation.navigate('GroupDetails', { groupId: group.id });
   };
-
-  const renderGroupCard = (group: Group) => (
-    <TouchableOpacity
-      key={group.id}
-      style={styles.groupCard}
-      onPress={() => handleGroupPress(group.id)}
-    >
-      <LinearGradient
-        colors={['#6366F1', '#4F46E5']}
-        style={styles.groupCardGradient}
-      >
-        <View style={styles.groupIcon}>
-          <Ionicons name="people" size={24} color="#FFFFFF" />
-        </View>
-        <View style={styles.groupInfo}>
-          <Text style={styles.groupName}>{group.name}</Text>
-          <Text style={styles.groupMembers}>
-            {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
-          </Text>
-        </View>
-        <Ionicons
-          name="chevron-forward"
-          size={24}
-          color="#6B7280"
-          style={styles.arrow}
-        />
-      </LinearGradient>
-    </TouchableOpacity>
-  );
 
   if (loading) {
     return (
@@ -154,7 +116,34 @@ const GroupsScreen = ({ navigation }) => {
           </View>
         ) : (
           <View style={styles.groupsList}>
-            {groups.map((group) => renderGroupCard(group))}
+            {groups.map((group) => (
+              <TouchableOpacity
+                key={group.id}
+                style={styles.groupCard}
+                onPress={() => handleGroupPress(group)}
+              >
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                  style={styles.groupCardContent}
+                >
+                  <View style={styles.groupIcon}>
+                    <Ionicons name="people" size={24} color="#6366F1" />
+                  </View>
+                  <View style={styles.groupInfo}>
+                    <Text style={styles.groupName}>{group.name}</Text>
+                    <Text style={styles.groupMembers}>
+                      {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={24}
+                    color="#6B7280"
+                    style={styles.arrow}
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
       </ScrollView>
@@ -258,7 +247,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
   },
-  groupCardGradient: {
+  groupCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,

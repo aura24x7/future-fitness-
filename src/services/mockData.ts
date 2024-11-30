@@ -59,7 +59,7 @@ export const mockMealService = {
 
   trackMeal: async (mealData: any) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split("T")[0];
       const existingMealsStr = await AsyncStorage.getItem(STORAGE_KEYS.MEALS);
       const meals = existingMealsStr ? JSON.parse(existingMealsStr) : {};
       
@@ -76,8 +76,8 @@ export const mockMealService = {
       await AsyncStorage.setItem(STORAGE_KEYS.MEALS, JSON.stringify(meals));
       return newMeal;
     } catch (error) {
-      console.error('Error tracking meal:', error);
-      throw new Error('Failed to track meal');
+      console.error("Error tracking meal:", error);
+      throw new Error("Failed to track meal");
     }
   },
 

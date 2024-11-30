@@ -1,4 +1,3 @@
-import './src/config/firebaseInit';  
 import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
 import { StatusBar, View } from 'react-native';
@@ -9,8 +8,10 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { OnboardingProvider } from './src/context/OnboardingContext';
 import { AppProvider } from './src/context/AppContext';
 import { TabBarProvider } from './src/context/TabBarContext';
+import { AuthProvider } from './src/context/AuthContext';
 import { auth } from './src/config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
@@ -40,18 +41,30 @@ export default function App() {
   }
 
   return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}
+
+function AppContent() {
+  const { theme } = useTheme();
+
+  return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AppProvider>
-          <OnboardingProvider>
-            <TabBarProvider>
-              <NavigationContainer>
-                <StatusBar barStyle="light-content" />
-                <AppNavigator />
-              </NavigationContainer>
-            </TabBarProvider>
-          </OnboardingProvider>
-        </AppProvider>
+        <AuthProvider>
+          <AppProvider>
+            <OnboardingProvider>
+              <TabBarProvider>
+                <NavigationContainer theme={theme}>
+                  <StatusBar barStyle={theme.dark ? 'light' : 'dark'} />
+                  <AppNavigator />
+                </NavigationContainer>
+              </TabBarProvider>
+            </OnboardingProvider>
+          </AppProvider>
+        </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

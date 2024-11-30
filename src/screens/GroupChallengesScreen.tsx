@@ -26,16 +26,7 @@ interface GroupChallengesScreenProps {
 const GroupChallengesScreen: React.FC<GroupChallengesScreenProps> = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [groupName, setGroupName] = useState<string>('');
-
-  useEffect(() => {
-    if (route.params) {
-      const { groupId, groupName } = route.params as GroupChallengesScreenProps['route']['params'];
-      setSelectedGroupId(groupId);
-      setGroupName(groupName);
-    }
-  }, [route.params]);
+  const { groupId, groupName } = route.params as GroupChallengesScreenProps['route']['params'];
 
   const [challenges, setChallenges] = useState<WorkoutChallenge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,16 +34,11 @@ const GroupChallengesScreen: React.FC<GroupChallengesScreenProps> = () => {
 
   const loadChallenges = async () => {
     try {
-      if (!selectedGroupId) {
-        setChallenges([]);
-        setLoading(false);
-        return;
-      }
-
+      // TODO: Replace with actual API call
       const mockChallenges: WorkoutChallenge[] = [
         {
           id: 'challenge1',
-          groupId: selectedGroupId,
+          groupId,
           creatorId: 'user1',
           title: '30-Day Consistency Challenge',
           description: 'Complete at least 20 workouts in 30 days',
@@ -192,94 +178,80 @@ const GroupChallengesScreen: React.FC<GroupChallengesScreenProps> = () => {
     );
   };
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#6366F1" />
-        </View>
-      );
-    }
-
-    if (!selectedGroupId) {
-      return (
-        <View style={styles.centerContainer}>
-          <Text style={styles.noGroupText}>Select a group to view its challenges</Text>
-          <TouchableOpacity
-            style={styles.selectGroupButton}
-            onPress={() => navigation.navigate('Groups')}
-          >
-            <Text style={styles.selectGroupButtonText}>Go to Groups</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (challenges.length === 0) {
-      return (
-        <View style={styles.centerContainer}>
-          <Text style={styles.noChallengesText}>No {selectedTab} challenges found</Text>
-          {selectedTab === 'active' && (
-            <TouchableOpacity
-              style={styles.createButton}
-              onPress={() => navigation.navigate('CreateChallenge', { groupId: selectedGroupId })}
-            >
-              <Text style={styles.createButtonText}>Create Challenge</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      );
-    }
-
-    return (
-      <ScrollView style={styles.challengesList}>
-        {challenges
-          .filter(c => 
-            selectedTab === 'active'
-              ? c.status === 'active'
-              : c.status === 'completed'
-          )
-          .map(challenge => renderChallengeCard(challenge))}
-      </ScrollView>
-    );
-  };
-
   return (
     <View style={styles.container}>
-      {selectedGroupId && (
-        <View style={styles.header}>
-          <Text style={styles.groupName}>{groupName}</Text>
+      <LinearGradient
+        colors={['#6366F1', '#4F46E5']}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{groupName} Challenges</Text>
           <TouchableOpacity
             style={styles.createButton}
-            onPress={() => navigation.navigate('CreateChallenge', { groupId: selectedGroupId })}
+            onPress={() => {
+              // TODO: Navigate to create challenge screen
+              console.log('Navigate to create challenge');
+            }}
           >
-            <Ionicons name="add-circle-outline" size={24} color="#6366F1" />
+            <Ionicons name="add" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
-      )}
-      
-      {selectedGroupId && (
-        <View style={styles.tabContainer}>
+
+        <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[styles.tab, selectedTab === 'active' && styles.activeTab]}
+            style={[styles.tab, selectedTab === 'active' && styles.tabActive]}
             onPress={() => setSelectedTab('active')}
           >
-            <Text style={[styles.tabText, selectedTab === 'active' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                selectedTab === 'active' && styles.tabTextActive,
+              ]}
+            >
               Active
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tab, selectedTab === 'completed' && styles.activeTab]}
+            style={[styles.tab, selectedTab === 'completed' && styles.tabActive]}
             onPress={() => setSelectedTab('completed')}
           >
-            <Text style={[styles.tabText, selectedTab === 'completed' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                selectedTab === 'completed' && styles.tabTextActive,
+              ]}
+            >
               Completed
             </Text>
           </TouchableOpacity>
         </View>
+      </LinearGradient>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6366F1" />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {challenges
+            .filter(c => 
+              selectedTab === 'active'
+                ? c.status === 'active'
+                : c.status === 'completed'
+            )
+            .map(challenge => renderChallengeCard(challenge))}
+        </ScrollView>
       )}
-      
-      {renderContent()}
     </View>
   );
 };
@@ -454,72 +426,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#6366F1',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  noGroupText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginBottom: 16,
-  },
-  selectGroupButton: {
-    backgroundColor: '#6366F1',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  selectGroupButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  noChallengesText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginBottom: 16,
-  },
-  createButton: {
-    backgroundColor: '#6366F1',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  createButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  challengesList: {
-    flex: 1,
-  },
-  groupName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#6366F1',
-  },
-  tabText: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  activeTabText: {
-    color: '#1F2937',
-    fontWeight: '600',
   },
 });
 

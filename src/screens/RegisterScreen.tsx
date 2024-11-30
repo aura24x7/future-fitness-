@@ -4,8 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import Card from '../components/Card';
-import { mockAuth } from '../services/mockData';
 import { AppError, ErrorCodes, validateEmail, validatePassword } from '../utils/errorHandling';
+import { useAuth } from '../context/AuthContext';
 
 const RegisterScreen = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -15,6 +15,7 @@ const RegisterScreen = ({ navigation }) => {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [nameError, setNameError] = useState('');
+  const { register } = useAuth();
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
@@ -96,7 +97,7 @@ const RegisterScreen = ({ navigation }) => {
       setLoading(true);
       
       try {
-        await mockAuth.register(name.trim(), email.trim(), password);
+        await register(name.trim(), email.trim(), password);
         navigation.replace('Welcome');  
       } catch (error) {
         // Handle authentication-specific errors

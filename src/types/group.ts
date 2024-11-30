@@ -165,38 +165,12 @@ export interface WorkoutChallenge {
   startDate: string;
   endDate: string;
   participants: string[];
-  progress: Record<string, number>; // userId -> progress mapping
-  createdAt: string;
-  status: 'upcoming' | 'active' | 'completed' | 'cancelled';
-  rules: string[];
-  rewards: string[];
-  metrics?: {
-    participationRate: number;
-    averageProgress: number;
-    topPerformer: string;
-  };
-}
-
-export interface ChallengeProgress {
-  challengeId: string;
-  userId: string;
-  currentValue: number;
-  lastUpdated: string;
-  milestones: Array<{
-    value: number;
-    achievedAt: string;
-  }>;
-}
-
-export interface ChallengeLeaderboard {
-  challengeId: string;
-  rankings: Array<{
+  leaderboard: Array<{
     userId: string;
-    displayName: string;
-    profilePicture?: string;
     progress: number;
     rank: number;
-    trend: 'up' | 'down' | 'same';
   }>;
-  lastUpdated: string;
+  status: 'active' | 'completed' | 'cancelled';
+  rules: string[];
+  rewards: string[];
 }

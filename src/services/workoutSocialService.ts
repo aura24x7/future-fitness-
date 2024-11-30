@@ -182,91 +182,10 @@ class WorkoutSocialService {
           },
           sharedAt: new Date().toISOString(),
         },
-        // Add more mock recommendations
       ];
       return mockRecommendations;
     } catch (error) {
       console.error('Error fetching workout recommendations:', error);
-      throw error;
-    }
-  }
-
-  // Workout Sharing
-  async shareWorkout(workoutId: string, groupId: string, message?: string): Promise<SharedWorkout> {
-    try {
-      // TODO: Replace with actual API call
-      const sharedWorkout: SharedWorkout = {
-        id: `shared_${workoutId}`,
-        workoutId,
-        groupId,
-        userId: 'currentUser', // This should come from auth context
-        message: message || '',
-        likes: 0,
-        comments: [],
-        sharedAt: new Date().toISOString(),
-      };
-
-      return sharedWorkout;
-    } catch (error) {
-      console.error('Error sharing workout:', error);
-      throw error;
-    }
-  }
-
-  async getSharedWorkouts(groupId: string): Promise<SharedWorkout[]> {
-    try {
-      // TODO: Replace with actual API call
-      return [
-        {
-          id: 'shared1',
-          workoutId: 'workout1',
-          groupId,
-          userId: 'user1',
-          message: 'Great chest day! 💪',
-          likes: 5,
-          comments: [
-            {
-              id: 'comment1',
-              userId: 'user2',
-              content: 'Amazing progress!',
-              createdAt: '2024-01-15T10:00:00Z'
-            }
-          ],
-          sharedAt: '2024-01-15T09:30:00Z'
-        },
-        {
-          id: 'shared2',
-          workoutId: 'workout2',
-          groupId,
-          userId: 'user3',
-          message: 'New PR on deadlifts! 🎉',
-          likes: 3,
-          comments: [],
-          sharedAt: '2024-01-14T15:20:00Z'
-        }
-      ];
-    } catch (error) {
-      console.error('Error fetching shared workouts:', error);
-      throw error;
-    }
-  }
-
-  async likeSharedWorkout(sharedWorkoutId: string): Promise<void> {
-    try {
-      // TODO: Replace with actual API call
-      console.log(`Liked workout: ${sharedWorkoutId}`);
-    } catch (error) {
-      console.error('Error liking workout:', error);
-      throw error;
-    }
-  }
-
-  async commentOnSharedWorkout(sharedWorkoutId: string, content: string): Promise<void> {
-    try {
-      // TODO: Replace with actual API call
-      console.log(`Commented on workout ${sharedWorkoutId}: ${content}`);
-    } catch (error) {
-      console.error('Error commenting on workout:', error);
       throw error;
     }
   }

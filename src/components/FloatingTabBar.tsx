@@ -43,8 +43,6 @@ export const FloatingTabBar = ({ state, navigation, descriptors }: BottomTabBarP
         return focused ? 'trending-up' : 'trending-up-outline';
       case 'Groups':
         return focused ? 'people' : 'people-outline';
-      case 'Challenges':
-        return focused ? 'trophy' : 'trophy-outline';
       case 'Profile':
         return focused ? 'person' : 'person-outline';
       default:

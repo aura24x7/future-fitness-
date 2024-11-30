@@ -1,10 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { TouchableOpacity } from 'react-native';
+import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 
 // Import screens
 import DashboardScreen from '../screens/DashboardScreen';
@@ -26,12 +23,7 @@ import SelectWorkoutScreen from '../screens/SelectWorkoutScreen';
 import ShareWorkoutScreen from '../screens/ShareWorkoutScreen';
 import GroupAnalyticsScreen from '../screens/GroupAnalyticsScreen';
 import GroupChallengesScreen from '../screens/GroupChallengesScreen';
-import AchievementsScreen from '../screens/AchievementsScreen';
-import CreateChallengeScreen from '../screens/CreateChallengeScreen';
-import ShareWorkoutPlanScreen from '../screens/ShareWorkoutPlanScreen';
-import SelectRecipientsScreen from '../screens/SelectRecipientsScreen';
-import QRScannerScreen from '../screens/QRScannerScreen';
-import NotificationsScreen from '../screens/NotificationsScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 
 // Import custom tab bar
 import { FloatingTabBar } from '../components/FloatingTabBar';
@@ -39,45 +31,7 @@ import { FloatingTabBar } from '../components/FloatingTabBar';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-export type MainStackParamList = {
-  MainTabs: undefined;
-  WorkoutDetails: undefined;
-  AddCustomWorkout: undefined;
-  FoodScanner: undefined;
-  ScannedFoodDetails: undefined;
-  CreateGroup: undefined;
-  GroupDetails: undefined;
-  InviteMembers: undefined;
-  ManageInvites: undefined;
-  GroupWorkouts: undefined;
-  SelectWorkout: undefined;
-  ShareWorkout: undefined;
-  GroupAnalytics: undefined;
-  GroupChallenges: undefined;
-  Achievements: undefined;
-  CreateChallenge: undefined;
-  ShareWorkoutPlan: undefined;
-  SelectRecipients: undefined;
-  QRScanner: undefined;
-  Notifications: undefined;
-};
-
 const TabNavigator = () => {
-  const navigation = useNavigation();
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    const loadUnreadCount = async () => {
-      const currentUser = await userService.getCurrentUser();
-      if (currentUser) {
-        const count = await workoutNotificationService.getUnreadCount(currentUser.id);
-        setUnreadCount(count);
-      }
-    };
-
-    loadUnreadCount();
-  }, []);
-
   return (
     <Tab.Navigator
       tabBar={props => <FloatingTabBar {...props} />}
@@ -126,6 +80,7 @@ const TabNavigator = () => {
         component={ProgressScreen}
         options={{
           title: 'Progress',
+          headerShown: false,
         }}
       />
       <Tab.Screen
@@ -133,43 +88,7 @@ const TabNavigator = () => {
         component={GroupsScreen}
         options={{
           title: 'Groups',
-        }}
-      />
-      <Tab.Screen
-        name="Challenges"
-        component={GroupChallengesScreen}
-        options={{
-          title: 'Challenges',
-          headerRight: () => (
-            <TouchableOpacity
-              style={{ marginRight: 16 }}
-              onPress={() => navigation.navigate('CreateChallenge')}
-            >
-              <Ionicons name="add-circle-outline" size={24} color="#6366F1" />
-            </TouchableOpacity>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{
-          tabBarIcon: ({ focused, color }) => (
-            <View>
-              <Ionicons
-                name={focused ? 'notifications' : 'notifications-outline'}
-                size={24}
-                color={color}
-              />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ),
+          headerShown: false,
         }}
       />
       <Tab.Screen
@@ -179,31 +98,18 @@ const TabNavigator = () => {
           title: 'Profile',
         }}
       />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          title: 'Settings',
+        }}
+      />
     </Tab.Navigator>
   );
 };
 
-const styles = {
-  badge: {
-    position: 'absolute',
-    top: -6,
-    right: -10,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-};
-
-const MainNavigator: React.FC = () => {
+const MainNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -327,54 +233,6 @@ const MainNavigator: React.FC = () => {
         options={{
           headerShown: false,
           animation: 'slide_from_right',
-        }}
-      />
-      <Stack.Screen 
-        name="Achievements" 
-        component={AchievementsScreen}
-        options={{
-          headerShown: false,
-          animation: 'slide_from_right',
-        }}
-      />
-      <Stack.Screen
-        name="CreateChallenge"
-        component={CreateChallengeScreen}
-        options={{
-          title: 'Create Challenge',
-          headerShown: true,
-          presentation: 'modal',
-        }}
-      />
-      <Stack.Screen
-        name="ShareWorkoutPlan"
-        component={ShareWorkoutPlanScreen}
-        options={{
-          title: 'Share Workout Plan',
-          headerShown: true,
-        }}
-      />
-      <Stack.Screen
-        name="SelectRecipients"
-        component={SelectRecipientsScreen}
-        options={{
-          title: 'Select Recipients',
-          headerShown: true,
-        }}
-      />
-      <Stack.Screen
-        name="QRScanner"
-        component={QRScannerScreen}
-        options={{
-          headerShown: false,
-          presentation: 'fullScreenModal',
-        }}
-      />
-      <Stack.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{
-          headerShown: true,
         }}
       />
     </Stack.Navigator>

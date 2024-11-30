@@ -21,6 +21,12 @@
         "backgroundColor": "#4c669f"
       }
     },
+    "extra": {
+      "GEMINI_API_KEY": "AIzaSyBAkq6elriSkPSj6Ab8xWY_sbtyZDNoUOg",
+      "eas": {
+        "projectId": "822972139614"
+      }
+    },
     "plugins": [
       [
         "expo-build-properties",
@@ -31,14 +37,7 @@
             "buildToolsVersion": "33.0.0"
           }
         }
-      ],
-      "expo-barcode-scanner"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "ai-fitness"
-      }
-    },
-    "newArchEnabled": true
+      ]
+    ]
   }
 }
