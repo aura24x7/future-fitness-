@@ -15,7 +15,6 @@ An AI-powered fitness and wellness platform designed to simplify and enhance you
 - Node.js >= 14.0.0
 - Expo CLI
 - Firebase Account
-- Google Cloud Account (for Gemini API)
 
 ## Setup Instructions
 
