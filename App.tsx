@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
-import { StatusBar, View } from 'react-native';
+import { StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -11,7 +11,9 @@ import { TabBarProvider } from './src/context/TabBarContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { auth } from './src/config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
+import { ThemeProvider } from '@tamagui/core';
+import { TamaguiProvider } from 'tamagui';
+import config from './tamagui.config';
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
@@ -20,52 +22,40 @@ export default function App() {
     try {
       // Set up auth state listener
       const unsubscribe = onAuthStateChanged(auth, (user) => {
-        console.log('Auth state changed:', user ? 'User logged in' : 'No user');
-        setIsReady(true);
-      }, (error) => {
-        console.error('Auth state change error:', error);
         setIsReady(true);
       });
 
-      return () => {
-        unsubscribe();
-      };
+      return () => unsubscribe();
     } catch (error) {
-      console.error('Error during app initialization:', error);
+      console.error('Error in auth state change:', error);
       setIsReady(true);
     }
   }, []);
 
   if (!isReady) {
-    return <View style={{ flex: 1, backgroundColor: '#4c669f' }} />;
+    return null;
   }
 
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
-  );
-}
-
-function AppContent() {
-  const { theme } = useTheme();
-
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <AppProvider>
-            <OnboardingProvider>
-              <TabBarProvider>
-                <NavigationContainer theme={theme}>
-                  <StatusBar barStyle={theme.dark ? 'light' : 'dark'} />
-                  <AppNavigator />
-                </NavigationContainer>
-              </TabBarProvider>
-            </OnboardingProvider>
-          </AppProvider>
-        </AuthProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <TamaguiProvider config={config}>
+      <ThemeProvider defaultTheme="light">
+        <SafeAreaProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <AuthProvider>
+              <AppProvider>
+                <OnboardingProvider>
+                  <TabBarProvider>
+                    <NavigationContainer>
+                      <StatusBar barStyle="dark-content" />
+                      <AppNavigator />
+                    </NavigationContainer>
+                  </TabBarProvider>
+                </OnboardingProvider>
+              </AppProvider>
+            </AuthProvider>
+          </GestureHandlerRootView>
+        </SafeAreaProvider>
+      </ThemeProvider>
+    </TamaguiProvider>
   );
 }

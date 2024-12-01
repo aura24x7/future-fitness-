@@ -1,7 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useTabBar } from '../context/TabBarContext';
 import { withTiming } from 'react-native-reanimated';
-import { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { NativeScrollEvent, NativeSyntheticEvent, ScrollView } from 'react-native';
 
 const TIMING_CONFIG = {
   duration: 200,
@@ -9,6 +9,7 @@ const TIMING_CONFIG = {
 
 export const useScrollToTabBar = () => {
   const { tabBarVisible } = useTabBar();
+  const scrollViewRef = useRef<ScrollView>(null);
   let lastOffset = 0;
   let lastScrollTime = 0;
 
@@ -50,5 +51,5 @@ export const useScrollToTabBar = () => {
     [tabBarVisible]
   );
 
-  return { handleScroll };
+  return { handleScroll, scrollViewRef };
 };

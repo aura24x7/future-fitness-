@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Exercise, AIWorkoutPlan as AIWorkoutPlanType } from '../types/workout';
 import { format, addDays, subDays, isToday } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../theme/ThemeProvider';
+import { useTheme } from 'tamagui';
 
 interface Props {
   workoutPlan: AIWorkoutPlanType[];
@@ -33,7 +33,7 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
   onDateChange,
   onExerciseComplete,
 }) => {
-  const { theme } = useTheme();
+  const theme = useTheme();
   const [error, setError] = useState<string | null>(null);
   const [currentWorkout, setCurrentWorkout] = useState<AIWorkoutPlanType | null>(null);
 
@@ -65,12 +65,12 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
 
   if (error) {
     return (
-      <View style={[styles.errorContainer, { backgroundColor: theme.colors.background }]}>
-        <Text style={[styles.errorText, { color: theme.colors.errorText }]}>
+      <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.errorText, { color: theme.errorText }]}>
           {error}
         </Text>
         <TouchableOpacity 
-          style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+          style={[styles.retryButton, { backgroundColor: theme.primary }]}
           onPress={() => setError(null)}
         >
           <Text style={styles.retryButtonText}>Retry</Text>
@@ -80,20 +80,20 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.dateSelector, { 
-        backgroundColor: theme.colors.headerBackground,
-        borderBottomColor: theme.colors.border 
+        backgroundColor: theme.headerBackground,
+        borderBottomColor: theme.border 
       }]}>
         <TouchableOpacity
           style={styles.dateButton}
           onPress={() => handleDateChange(subDays(selectedDate, 1))}
         >
-          <Ionicons name="chevron-back" size={24} color={theme.colors.primary} />
+          <Ionicons name="chevron-back" size={24} color={theme.primary} />
         </TouchableOpacity>
         
         <View style={styles.dateContainer}>
-          <Text style={[styles.dateText, { color: theme.colors.text }]}>
+          <Text style={[styles.dateText, { color: theme.text }]}>
             {isToday(selectedDate) ? 'Today' : format(selectedDate, 'MMM d, yyyy')}
           </Text>
         </View>
@@ -102,24 +102,24 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
           style={styles.dateButton}
           onPress={() => handleDateChange(addDays(selectedDate, 1))}
         >
-          <Ionicons name="chevron-forward" size={24} color={theme.colors.primary} />
+          <Ionicons name="chevron-forward" size={24} color={theme.primary} />
         </TouchableOpacity>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.secondaryText }]}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={[styles.loadingText, { color: theme.secondaryText }]}>
             Loading workout plan...
           </Text>
         </View>
       ) : !currentWorkout ? (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: theme.colors.secondaryText }]}>
+          <Text style={[styles.emptyText, { color: theme.secondaryText }]}>
             No workout plan for this date
           </Text>
           <TouchableOpacity 
-            style={[styles.generateButton, { backgroundColor: theme.colors.primary }]}
+            style={[styles.generateButton, { backgroundColor: theme.primary }]}
             onPress={onGenerateNew}
           >
             <Text style={styles.generateButtonText}>Generate New Plan</Text>
@@ -127,12 +127,12 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
         </View>
       ) : (
         <ScrollView style={styles.scrollContainer}>
-          <View style={[styles.workoutHeader, { backgroundColor: theme.colors.cardBackground }]}>
+          <View style={[styles.workoutHeader, { backgroundColor: theme.cardBackground }]}>
             <View style={styles.workoutInfo}>
-              <Text style={[styles.workoutName, { color: theme.colors.text }]}>
+              <Text style={[styles.workoutName, { color: theme.text }]}>
                 {currentWorkout.name}
               </Text>
-              <Text style={[styles.workoutDescription, { color: theme.colors.secondaryText }]}>
+              <Text style={[styles.workoutDescription, { color: theme.secondaryText }]}>
                 {currentWorkout.description}
               </Text>
             </View>
@@ -141,8 +141,8 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
               style={styles.addExerciseButton}
               onPress={onAddCustomExercise}
             >
-              <Ionicons name="add-circle-outline" size={24} color={theme.colors.primary} />
-              <Text style={[styles.addExerciseText, { color: theme.colors.primary }]}>
+              <Ionicons name="add-circle-outline" size={24} color={theme.primary} />
+              <Text style={[styles.addExerciseText, { color: theme.primary }]}>
                 Add Exercise
               </Text>
             </TouchableOpacity>
@@ -150,7 +150,7 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
 
           <View style={styles.statsContainer}>
             <LinearGradient
-              colors={[theme.colors.gradientStart, theme.colors.gradientEnd]}
+              colors={[theme.gradientStart, theme.gradientEnd]}
               style={styles.statsCard}
             >
               <View style={styles.statItem}>
@@ -180,17 +180,17 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
                 key={exercise.id}
                 style={[
                   styles.exerciseCard,
-                  { backgroundColor: theme.colors.exerciseCard },
+                  { backgroundColor: theme.exerciseCard },
                   exercise.completed && {
-                    backgroundColor: theme.colors.exerciseCardCompleted,
-                    borderColor: theme.colors.exerciseCardBorder,
+                    backgroundColor: theme.exerciseCardCompleted,
+                    borderColor: theme.exerciseCardBorder,
                   },
                 ]}
                 onPress={() => handleExerciseComplete(exercise.id)}
               >
                 <View style={styles.exerciseContent}>
                   <View style={styles.exerciseHeader}>
-                    <Text style={[styles.exerciseName, { color: theme.colors.text }]}>
+                    <Text style={[styles.exerciseName, { color: theme.text }]}>
                       {exercise.name}
                     </Text>
                     <TouchableOpacity
@@ -203,17 +203,17 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
                       <Ionicons
                         name={exercise.completed ? "checkmark-circle" : "checkmark-circle-outline"}
                         size={24}
-                        color={exercise.completed ? theme.colors.primary : theme.colors.secondaryText}
+                        color={exercise.completed ? theme.primary : theme.secondaryText}
                       />
                     </TouchableOpacity>
                   </View>
                   
-                  <Text style={[styles.exerciseDescription, { color: theme.colors.secondaryText }]}>
+                  <Text style={[styles.exerciseDescription, { color: theme.secondaryText }]}>
                     {exercise.description}
                   </Text>
                   
                   <View style={styles.exerciseDetails}>
-                    <Text style={[styles.exerciseDetail, { color: theme.colors.secondaryText }]}>
+                    <Text style={[styles.exerciseDetail, { color: theme.secondaryText }]}>
                       {exercise.sets} sets × {
                         exercise.type === 'repetition' 
                           ? `${exercise.reps} reps`
@@ -221,7 +221,7 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
                       }
                     </Text>
                     {exercise.equipment && exercise.equipment.length > 0 && (
-                      <Text style={[styles.exerciseDetail, { color: theme.colors.secondaryText }]}>
+                      <Text style={[styles.exerciseDetail, { color: theme.secondaryText }]}>
                         Equipment: {exercise.equipment.join(', ')}
                       </Text>
                     )}

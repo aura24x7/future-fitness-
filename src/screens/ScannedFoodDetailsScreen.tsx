@@ -100,9 +100,19 @@ const ScannedFoodDetailsScreen = () => {
 
   if (error) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
+      <SafeAreaView style={[styles.container, styles.centered]}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="warning-outline" size={64} color="#FF3B30" />
+          <Text style={styles.errorTitle}>Analysis Failed</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -184,11 +194,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  errorText: {
-    color: 'red',
+  errorContainer: {
+    alignItems: 'center',
+    padding: 20,
+    width: '100%',
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FF3B30',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorMessage: {
     fontSize: 16,
+    color: '#333',
     textAlign: 'center',
-    margin: 20,
+    marginBottom: 24,
+    paddingHorizontal: 32,
+  },
+  retryButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   detailsContainer: {
     padding: 20,

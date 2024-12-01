@@ -27,6 +27,7 @@
         "projectId": "822972139614"
       }
     },
+    "newArchEnabled": true,
     "plugins": [
       [
         "expo-build-properties",
