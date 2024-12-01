@@ -81,97 +81,100 @@ export class GeminiService {
         return GeminiService.instance;
     }
 
-    private async generateText(prompt: string): Promise<string> {
+    private async generateText(prompt: string, retryCount = 0): Promise<string> {
         try {
-            const result = await this.model.generateContent(prompt);
+            const result = await this.model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.8,
+                    maxOutputTokens: 2048,
+                },
+                safetySettings: [
+                    {
+                        category: 'HARM_CATEGORY_HARASSMENT',
+                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+                    },
+                    {
+                        category: 'HARM_CATEGORY_HATE_SPEECH',
+                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+                    }
+                ]
+            });
+
             const response = await result.response;
-            const text = response.text();
-            console.log('Raw text response:', text); // Debug log
-            return text;
+            return response.text();
         } catch (error: any) {
             console.error('Error generating text:', error);
+            
+            if (error.message?.includes('RECITATION') && retryCount < 3) {
+                console.log(`Retrying due to RECITATION error (attempt ${retryCount + 1})`);
+                // Add randomization to the prompt to avoid recitation
+                const randomSeed = Math.random().toString(36).substring(7);
+                const modifiedPrompt = `${prompt}\n\nNote: This is a unique request (${randomSeed}). Please provide a fresh, original response.`;
+                // Wait before retry with exponential backoff
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+                return this.generateText(modifiedPrompt, retryCount + 1);
+            }
+            
             throw error;
         }
     }
 
-    private cleanJsonText(text: string): string {
-        console.log('Cleaning text:', text); // Debug input
-
-        // Step 1: Remove markdown code blocks
-        let cleaned = text.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1');
-        console.log('After removing code blocks:', cleaned);
-
-        // Step 2: Remove backticks
-        cleaned = cleaned.replace(/`/g, '');
-        console.log('After removing backticks:', cleaned);
-
-        // Step 3: Find JSON content
-        const jsonMatch = cleaned.match(/(\{[\s\S]*\})/);
-        if (!jsonMatch) {
-            throw new Error('No JSON object found in response');
-        }
-        cleaned = jsonMatch[1];
-        console.log('After extracting JSON:', cleaned);
-
-        // Step 4: Clean up the JSON structure
-        cleaned = cleaned
-            .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces
-            .replace(/[\r\n\t]/g, ' ') // Normalize whitespace
-            .replace(/\s+/g, ' ') // Collapse multiple spaces
-            .replace(/,\s*([\]}])/g, '$1') // Remove trailing commas
-            .replace(/([{[,])\s*"([^"]+)"\s*:\s*"(true|false)"\s*([,}\]])/g, '$1"$2":$3$4') // Fix boolean strings
-            .replace(/([{[,])\s*"([^"]+)"\s*:\s*"(\d+)"\s*([,}\]])/g, '$1"$2":$3$4'); // Fix number strings
-
-        console.log('Final cleaned JSON:', cleaned); // Debug output
-        return cleaned;
-    }
-
     private async generateStructuredResponse<T>(prompt: string): Promise<T> {
         try {
-            const jsonPrompt = `${prompt}
+            const jsonPrompt = `You are a JSON generator. Your task is to generate a valid JSON response based on the following request. 
+        
+REQUEST:
+${prompt}
 
-IMPORTANT: Respond with a valid JSON object only.
-- No backticks
-- No markdown formatting
-- No code blocks
-- No comments
-- Must start with { and end with }
-- All strings must be in double quotes
-- Arrays and objects should not be quoted`;
+RESPONSE REQUIREMENTS:
+1. Respond ONLY with a valid JSON object
+2. Do not include any explanatory text
+3. Do not use backticks, markdown, or code blocks
+4. Start with { and end with }
+5. Use double quotes for all strings
+6. Do not quote arrays or objects
+7. Ensure all JSON keys match the expected interface exactly
+
+Example format:
+{
+    "key1": "value1",
+    "key2": ["item1", "item2"],
+    "key3": {
+        "nestedKey": "nestedValue"
+    }
+}
+
+Generate JSON response:`;
 
             const text = await this.generateText(jsonPrompt);
-            console.log('Initial response:', text);
+            console.log('Raw response:', text);
 
-            let jsonStr: string;
+            // Remove any potential prefixes or suffixes
+            let cleanedText = text.trim()
+                .replace(/^[^{]*/, '') // Remove anything before the first {
+                .replace(/[^}]*$/, ''); // Remove anything after the last }
+
             try {
-                // First attempt: direct parse
-                jsonStr = text;
-                console.log('Attempting direct parse of:', jsonStr);
-                return JSON.parse(jsonStr);
-            } catch (firstError) {
-                console.log('Direct parse failed:', firstError);
+                return JSON.parse(cleanedText);
+            } catch (parseError) {
+                console.error('Initial parse failed:', parseError);
                 
-                // Second attempt: clean and parse
+                // Try to fix common JSON issues
+                cleanedText = cleanedText
+                    .replace(/[\u201C\u201D]/g, '"') // Replace smart quotes
+                    .replace(/[\n\r\t]/g, ' ') // Remove newlines and tabs
+                    .replace(/,\s*}/g, '}') // Remove trailing commas
+                    .replace(/([{,]\s*)(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '$1"$3":') // Ensure property names are quoted
+                    .replace(/:\s*(['"])?([^"'[\]{},\s]+)(['"])?([\s,}])/g, ':"$2"$4'); // Quote unquoted string values
+
                 try {
-                    jsonStr = this.cleanJsonText(text);
-                    console.log('Attempting parse of cleaned JSON:', jsonStr);
-                    return JSON.parse(jsonStr);
-                } catch (secondError) {
-                    console.error('Clean parse failed:', secondError);
-                    
-                    // Third attempt: try to extract just the JSON part
-                    try {
-                        const matches = text.match(/\{(?:[^{}]|{[^{}]*})*\}/g);
-                        if (matches && matches.length > 0) {
-                            jsonStr = matches[0];
-                            console.log('Attempting parse of extracted JSON:', jsonStr);
-                            return JSON.parse(jsonStr);
-                        }
-                    } catch (thirdError) {
-                        console.error('Extract parse failed:', thirdError);
-                    }
-                    
-                    throw new Error('Failed to parse response as JSON after multiple attempts');
+                    return JSON.parse(cleanedText);
+                } catch (finalError) {
+                    console.error('Failed to parse cleaned JSON:', finalError);
+                    throw new Error('Failed to generate valid JSON response. Please try again with more specific instructions.');
                 }
             }
         } catch (error) {
@@ -215,15 +218,16 @@ IMPORTANT: Respond with a valid JSON object only.
     private generateWorkoutPrompt(preferences: WorkoutPreferences): string {
         const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const currentDay = preferences.dayOfWeek || daysOfWeek[new Date().getDay()];
+        const randomSeed = Math.random().toString(36).substring(7);
         
-        return `Create a workout plan with the following specifications:
-Experience Level: ${preferences.fitnessLevel || 'intermediate'}
+        return `Generate a unique workout plan (ID: ${randomSeed}) with these requirements:
+Level: ${preferences.fitnessLevel || 'intermediate'}
 Duration: ${preferences.duration || 45} minutes
 Equipment: ${preferences.equipment?.join(', ') || 'bodyweight only'}
-Focus Areas: ${preferences.focusAreas?.join(', ') || 'full body'}
+Focus: ${preferences.focusAreas?.join(', ') || 'full body'}
 ${preferences.limitations?.length ? `Limitations: ${preferences.limitations.join(', ')}` : ''}
 
-Respond with a JSON object that follows this EXACT structure. IMPORTANT: ALL values must be in quotes, including numbers and booleans:
+Respond with a JSON object following this structure:
 {
   "dayOfWeek": "${currentDay}",
   "totalDuration": "45",
@@ -245,15 +249,7 @@ Respond with a JSON object that follows this EXACT structure. IMPORTANT: ALL val
   ],
   "completed": "false",
   "notes": ""
-}
-
-IMPORTANT:
-1. Use EXACTLY this structure
-2. ALL values (including numbers and booleans) must be in quotes
-3. Only arrays and objects should not be quoted
-4. For bodyweight exercises, use "reps": "AMRAP"
-5. No trailing commas
-6. No comments or additional text`;
+}`;
     }
 
     public static async generateWeeklyWorkoutPlan(basePreferences: WorkoutPreferences): Promise<WeeklyWorkoutPlan> {
