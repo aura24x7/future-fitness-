@@ -5,107 +5,83 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-  Text,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
+import { Text, YStack } from 'tamagui';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
-import { AIWorkoutPlanComponent } from '../components/AIWorkoutPlanComponent';
-import { GeminiService } from '../services/ai/core/gemini.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { WorkoutPlanLoadingScreen } from '../components/WorkoutPlanLoadingScreen';
-import { AIWorkoutPlan, Exercise } from '../types/workout';
-import { TestDataButton } from '../components/TestDataButton';
-import { ShareWorkoutModal } from '../components/ShareWorkoutModal';
+import WorkoutPlanLoadingScreen from '../components/WorkoutPlanLoadingScreen';
+import { workoutService, WorkoutPreferences, WeeklyWorkoutPlan, Exercise, DailyWorkout } from '../services/ai/workout.service';
+import { LinearGradient } from 'expo-linear-gradient';
+import { format, isToday } from 'date-fns';
+import DateSelector from '../components/DateSelector';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Workout'>;
 
 const STORAGE_KEY = '@workout_plans';
-const DEFAULT_WORKOUT_DAYS = 7;
+
+const getDayOfWeek = (date: Date): string => {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return days[date.getDay()];
+};
 
 const WorkoutScreen: React.FC<Props> = ({ navigation }) => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
-  const [aiWorkoutPlan, setAiWorkoutPlan] = useState<AIWorkoutPlan[]>([]);
+  const [weeklyWorkoutPlan, setWeeklyWorkoutPlan] = useState<WeeklyWorkoutPlan | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(getDayOfWeek(new Date()));
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showShareModal, setShowShareModal] = useState(false);
 
-  const loadWorkoutPlans = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const storedPlans = await AsyncStorage.getItem(STORAGE_KEY);
-      if (storedPlans) {
-        setAiWorkoutPlan(JSON.parse(storedPlans));
-      } else {
-        // Generate initial workout plan if none exists
-        await generateWorkoutPlan();
-      }
-    } catch (error) {
-      console.error('Error loading workout plans:', error);
-      setError('Failed to load workout plans');
-    } finally {
-      setIsLoading(false);
+  // Update selected day when date changes
+  useEffect(() => {
+    const dayOfWeek = getDayOfWeek(selectedDate);
+    if (dayOfWeek !== selectedDay) {
+      setSelectedDay(dayOfWeek);
     }
+  }, [selectedDate]);
+
+  // Load workout plan from storage
+  useEffect(() => {
+    const loadWorkoutPlan = async () => {
+      try {
+        const storedPlan = await AsyncStorage.getItem(STORAGE_KEY);
+        if (storedPlan) {
+          setWeeklyWorkoutPlan(JSON.parse(storedPlan));
+        }
+      } catch (error) {
+        console.error('Error loading workout plan:', error);
+        setError('Failed to load workout plan');
+      }
+    };
+
+    loadWorkoutPlan();
   }, []);
 
-  useEffect(() => {
-    loadWorkoutPlans();
-  }, [loadWorkoutPlans]);
-
-  const saveWorkoutPlans = async (plans: AIWorkoutPlan[]) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
-    } catch (error) {
-      console.error('Error saving workout plans:', error);
-      Alert.alert('Error', 'Failed to save workout plans');
-    }
-  };
-
+  // Generate new workout plan
   const generateWorkoutPlan = useCallback(async () => {
     try {
       setIsGeneratingPlan(true);
       setError(null);
+
+      const preferences: WorkoutPreferences = {
+        fitnessLevel: 'intermediate',
+        goals: ['strength', 'endurance'],
+        equipment: ['bodyweight', 'dumbbells'],
+        duration: 45,
+        focusAreas: ['full body'],
+        limitations: []
+      };
+
+      const newPlan = await workoutService.generateWeeklyWorkoutPlan(preferences);
       
-      const focusAreas = [
-        'Chest and Triceps',
-        'Back and Biceps',
-        'Legs',
-        'Shoulders and Abs',
-        'Full Body HIIT',
-        'Cardio',
-        'Recovery and Mobility'
-      ];
-
-      const newWorkoutPlan: AIWorkoutPlan[] = [];
-      
-      for (let i = 0; i < DEFAULT_WORKOUT_DAYS; i++) {
-        try {
-          const plan = await GeminiService.generateWorkoutPlan({
-            fitnessLevel: 'intermediate',
-            duration: 45,
-            equipment: ['dumbbells', 'bodyweight'],
-            focusAreas: [focusAreas[i]],
-            goals: ['strength', 'endurance']
-          });
-
-          // Set the day index
-          plan.day = i;
-          plan.date = new Date().toISOString().split('T')[0];
-          newWorkoutPlan.push(plan);
-
-        } catch (error) {
-          console.error(`Failed to generate workout for day ${i}:`, error);
-          throw new Error(`Failed to generate workout for ${focusAreas[i]}`);
-        }
+      if (!newPlan || !newPlan.weeklyPlan || newPlan.weeklyPlan.length === 0) {
+        throw new Error('Failed to generate a valid workout plan');
       }
 
-      if (newWorkoutPlan.length !== DEFAULT_WORKOUT_DAYS) {
-        throw new Error('Failed to generate complete workout plan');
-      }
-
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newWorkoutPlan));
-      setAiWorkoutPlan(newWorkoutPlan);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newPlan));
+      setWeeklyWorkoutPlan(newPlan);
     } catch (error) {
       console.error('Error generating workout plan:', error);
       setError(error instanceof Error ? error.message : 'Failed to generate workout plan');
@@ -115,157 +91,116 @@ const WorkoutScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, []);
 
-  const handleGenerationSuccess = async () => {
-    setIsGeneratingPlan(false);
-    Alert.alert('Success', 'New workout plan generated!');
-  };
+  // Get current workout based on selected day
+  const getCurrentWorkout = useCallback((): DailyWorkout | null => {
+    if (!weeklyWorkoutPlan?.weeklyPlan) return null;
+    return weeklyWorkoutPlan.weeklyPlan.find(plan => plan.dayOfWeek === selectedDay) || null;
+  }, [weeklyWorkoutPlan, selectedDay]);
 
-  const handleExerciseComplete = async (exerciseId: string) => {
+  const handleExerciseComplete = async (exerciseName: string) => {
     try {
-      const updatedPlans = [...aiWorkoutPlan];
-      const currentDate = selectedDate.toISOString().split('T')[0];
-      
-      // Find the workout for the selected date
-      const workoutIndex = updatedPlans.findIndex(plan => 
-        plan.date.split('T')[0] === currentDate
-      );
-      
-      if (workoutIndex === -1) {
-        throw new Error('No workout found for selected date');
-      }
+      if (!weeklyWorkoutPlan) return;
 
-      const workout = updatedPlans[workoutIndex];
-      const exerciseIndex = workout.exercises.findIndex(ex => ex.id === exerciseId);
-      
-      if (exerciseIndex === -1) {
-        throw new Error('Exercise not found');
-      }
+      const updatedPlan = { ...weeklyWorkoutPlan };
+      const currentWorkoutIndex = updatedPlan.weeklyPlan.findIndex(plan => plan.dayOfWeek === selectedDay);
+      if (currentWorkoutIndex === -1) return;
+
+      const workout = updatedPlan.weeklyPlan[currentWorkoutIndex];
+      const exerciseIndex = workout.exercises.findIndex(ex => ex.name === exerciseName);
+      if (exerciseIndex === -1) return;
 
       // Toggle exercise completion
-      const exercise = workout.exercises[exerciseIndex];
-      exercise.completed = !exercise.completed;
+      workout.exercises[exerciseIndex].completed = !workout.exercises[exerciseIndex].completed;
 
-      // Update workout stats
-      if (exercise.completed) {
-        workout.completedExercises = (workout.completedExercises || 0) + 1;
-        workout.completedDuration = (workout.completedDuration || 0) + (exercise.duration || 0);
-        workout.completedCalories = (workout.completedCalories || 0) + (exercise.caloriesPerRep || 0);
-      } else {
-        workout.completedExercises = (workout.completedExercises || 0) - 1;
-        workout.completedDuration = (workout.completedDuration || 0) - (exercise.duration || 0);
-        workout.completedCalories = (workout.completedCalories || 0) - (exercise.caloriesPerRep || 0);
-      }
+      // Update workout completion status
+      workout.completed = workout.exercises.every(ex => ex.completed);
 
-      setAiWorkoutPlan(updatedPlans);
-      await saveWorkoutPlans(updatedPlans);
+      setWeeklyWorkoutPlan(updatedPlan);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPlan));
     } catch (error) {
       console.error('Error updating exercise:', error);
       Alert.alert('Error', 'Failed to update exercise status');
     }
   };
 
-  const handleAddCustomExercise = async () => {
-    try {
-      // Navigate to custom exercise form
-      navigation.navigate('AddExercise', {
-        onSave: async (exercise: Exercise) => {
-          const updatedPlans = [...aiWorkoutPlan];
-          const currentDate = selectedDate.toISOString().split('T')[0];
-          
-          // Find the workout for the selected date
-          const workoutIndex = updatedPlans.findIndex(plan => 
-            plan.date.split('T')[0] === currentDate
-          );
-          
-          if (workoutIndex === -1) {
-            throw new Error('No workout found for selected date');
-          }
+  const renderExercise = (exercise: Exercise, index: number) => (
+    <TouchableOpacity
+      key={`${exercise.name}-${index}`}
+      style={[styles.exerciseCard, exercise.completed && styles.completedExercise]}
+      onPress={() => handleExerciseComplete(exercise.name)}
+    >
+      <View style={styles.exerciseHeader}>
+        <Text style={styles.exerciseName}>{exercise.name}</Text>
+        <Text style={styles.exerciseDifficulty}>{exercise.difficulty}</Text>
+      </View>
+      <Text style={styles.exerciseDetails}>
+        {exercise.sets} sets × {typeof exercise.reps === 'number' ? `${exercise.reps} reps` : 'AMRAP'}
+      </Text>
+      <Text style={styles.exerciseInstructions}>{exercise.instructions}</Text>
+      <View style={styles.exerciseFooter}>
+        <Text style={styles.exerciseCalories}>{exercise.calories} calories</Text>
+        <Text style={styles.exerciseEquipment}>{exercise.equipment.join(', ')}</Text>
+      </View>
+    </TouchableOpacity>
+  );
 
-          const workout = updatedPlans[workoutIndex];
-          const newExercise = {
-            ...exercise,
-            id: `custom-${Date.now()}`,
-            completed: false,
-            duration: exercise.duration || 0,
-            caloriesPerRep: exercise.caloriesPerRep || 0,
-          };
-
-          workout.exercises.push(newExercise);
-          
-          setAiWorkoutPlan(updatedPlans);
-          await saveWorkoutPlans(updatedPlans);
-          Alert.alert('Success', 'Custom exercise added to your workout!');
-        },
-      });
-    } catch (error) {
-      console.error('Error adding custom exercise:', error);
-      Alert.alert('Error', 'Failed to add custom exercise');
-    }
-  };
-
-  const handleShareWorkout = () => {
-    setShowShareModal(true);
-  };
+  const currentWorkout = getCurrentWorkout();
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Your Workout Plan</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity 
-            style={styles.shareButton}
-            onPress={handleShareWorkout}
-            disabled={!aiWorkoutPlan || aiWorkoutPlan.length === 0}
-          >
-            <Text style={[styles.shareButtonText, (!aiWorkoutPlan || aiWorkoutPlan.length === 0) && styles.disabledText]}>Share</Text>
-          </TouchableOpacity>
-          <TestDataButton />
-        </View>
+        <Text size="$6" weight="bold" color="$gray12">Workout</Text>
       </View>
 
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4CAF50" />
-          <Text style={styles.loadingText}>Loading your workout plan...</Text>
-        </View>
+      <DateSelector
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
+        containerStyle={styles.dateSelector}
+      />
+
+      {isGeneratingPlan ? (
+        <WorkoutPlanLoadingScreen 
+          visible={isGeneratingPlan}
+          onSuccess={() => setIsGeneratingPlan(false)}
+        />
+      ) : !weeklyWorkoutPlan || !currentWorkout ? (
+        <YStack space="$4" style={styles.noWorkoutContainer}>
+          <Text style={styles.noWorkoutText} color="$gray11">
+            No workout plan available. Generate a personalized weekly workout plan to get started!
+          </Text>
+          <TouchableOpacity 
+            style={styles.generateButton}
+            onPress={generateWorkoutPlan}
+          >
+            <LinearGradient
+              colors={['#4CAF50', '#45a049']}
+              style={styles.generateButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.generateButtonText} color="white">Generate Workout Plan</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </YStack>
       ) : (
-        <View style={styles.contentContainer}>
-          {aiWorkoutPlan && aiWorkoutPlan.length > 0 ? (
-            <AIWorkoutPlanComponent
-              workoutPlan={aiWorkoutPlan}
-              isLoading={isGeneratingPlan}
-              onGenerateNew={generateWorkoutPlan}
-              selectedDate={selectedDate}
-              onDateChange={setSelectedDate}
-              onAddCustomExercise={handleAddCustomExercise}
-              onExerciseComplete={handleExerciseComplete}
-            />
-          ) : (
-            <View style={styles.emptyStateContainer}>
-              <Text style={styles.emptyStateText}>No workout plan available</Text>
-              <TouchableOpacity 
-                style={styles.generateButton}
-                onPress={generateWorkoutPlan}
-                disabled={isGeneratingPlan}
-              >
-                {isGeneratingPlan ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.generateButtonText}>Generate Plan</Text>
-                )}
-              </TouchableOpacity>
+        <ScrollView style={styles.workoutContainer}>
+          <View style={styles.workoutHeader}>
+            <Text style={styles.workoutTitle}>{currentWorkout.focusArea} Workout</Text>
+            <Text style={styles.workoutStats}>
+              Duration: {currentWorkout.totalDuration}min • {currentWorkout.totalCalories} calories
+            </Text>
+          </View>
+          <View style={styles.exerciseList}>
+            {currentWorkout.exercises.map((exercise, index) => renderExercise(exercise, index))}
+          </View>
+          {currentWorkout.notes && (
+            <View style={styles.notesContainer}>
+              <Text style={styles.notesTitle}>Notes</Text>
+              <Text style={styles.notesText}>{currentWorkout.notes}</Text>
             </View>
           )}
-        </View>
+        </ScrollView>
       )}
-
-      <ShareWorkoutModal
-        visible={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        workoutPlan={aiWorkoutPlan && aiWorkoutPlan.length > 0 ? aiWorkoutPlan[0] : null}
-        currentUserId="user123"
-        currentUserName="Test User"
-      />
     </SafeAreaView>
   );
 };
@@ -273,98 +208,138 @@ const WorkoutScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
+    backgroundColor: '#F3F4F6',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 16,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: '#E5E7EB',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  dateSelector: {
+    marginTop: 8,
+    marginBottom: 16,
   },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  shareButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  shareButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  disabledText: {
-    opacity: 0.5,
-  },
-  emptyStateContainer: {
+  noWorkoutContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    padding: 20,
   },
-  emptyStateText: {
+  noWorkoutText: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
+    color: '#6B7280',
     textAlign: 'center',
+    marginBottom: 20,
   },
   generateButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    width: '100%',
+    maxWidth: 300,
+    overflow: 'hidden',
     borderRadius: 8,
-    minWidth: 200,
+  },
+  generateButtonGradient: {
+    padding: 16,
     alignItems: 'center',
   },
   generateButtonText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
-  errorContainer: {
+  workoutContainer: {
     flex: 1,
-    justifyContent: 'center',
+    padding: 16,
+  },
+  workoutHeader: {
+    marginBottom: 16,
+  },
+  workoutTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  workoutStats: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  exerciseList: {
+    gap: 12,
+  },
+  exerciseCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  completedExercise: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
+    borderWidth: 1,
+  },
+  exerciseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    marginBottom: 8,
   },
-  errorText: {
+  exerciseName: {
     fontSize: 16,
-    color: '#FF3B30',
-    marginBottom: 20,
-    textAlign: 'center',
+    fontWeight: 'bold',
+    color: '#111827',
   },
-  retryButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+  exerciseDifficulty: {
+    fontSize: 12,
+    color: '#6B7280',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  exerciseDetails: {
+    fontSize: 14,
+    color: '#374151',
+    marginBottom: 8,
+  },
+  exerciseInstructions: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginBottom: 12,
+  },
+  exerciseFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  exerciseCalories: {
+    fontSize: 12,
+    color: '#059669',
+  },
+  exerciseEquipment: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  notesContainer: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: '#fff',
     borderRadius: 8,
   },
-  retryButtonText: {
-    color: '#FFFFFF',
+  notesTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  notesText: {
+    fontSize: 14,
+    color: '#4B5563',
   },
 });
 

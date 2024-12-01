@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from 'tamagui';
 
 interface Props {
-  workoutPlan: AIWorkoutPlanType[];
+  workoutPlan: AIWorkoutPlanType | null;
   isLoading: boolean;
   onGenerateNew: () => void;
   onAddCustomExercise: () => void;
@@ -35,19 +35,6 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
 }) => {
   const theme = useTheme();
   const [error, setError] = useState<string | null>(null);
-  const [currentWorkout, setCurrentWorkout] = useState<AIWorkoutPlanType | null>(null);
-
-  useEffect(() => {
-    try {
-      const currentDate = selectedDate.toISOString().split('T')[0];
-      const workout = workoutPlan.find(plan => plan.date.split('T')[0] === currentDate);
-      setCurrentWorkout(workout || null);
-      setError(null);
-    } catch (error) {
-      console.error('Error finding workout for date:', error);
-      setError('Failed to load workout for selected date');
-    }
-  }, [selectedDate, workoutPlan]);
 
   const handleDateChange = (newDate: Date) => {
     setError(null);
@@ -79,6 +66,24 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
     );
   }
 
+  if (!workoutPlan) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={styles.noWorkoutContainer}>
+          <Text style={[styles.noWorkoutText, { color: theme.text }]}>
+            No workout plan for this day
+          </Text>
+          <TouchableOpacity
+            style={[styles.generateButton, { backgroundColor: theme.primary }]}
+            onPress={onGenerateNew}
+          >
+            <Text style={styles.generateButtonText}>Generate Workout Plan</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.dateSelector, { 
@@ -89,149 +94,130 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
           style={styles.dateButton}
           onPress={() => handleDateChange(subDays(selectedDate, 1))}
         >
-          <Ionicons name="chevron-back" size={24} color={theme.primary} />
+          <Ionicons name="chevron-back" size={24} color={theme.text} />
         </TouchableOpacity>
         
-        <View style={styles.dateContainer}>
+        <View style={styles.dateInfo}>
           <Text style={[styles.dateText, { color: theme.text }]}>
-            {isToday(selectedDate) ? 'Today' : format(selectedDate, 'MMM d, yyyy')}
+            {format(selectedDate, 'MMMM d')}
+          </Text>
+          <Text style={[styles.dayText, { color: theme.textSecondary }]}>
+            {format(selectedDate, 'EEEE')}
           </Text>
         </View>
 
         <TouchableOpacity
           style={styles.dateButton}
           onPress={() => handleDateChange(addDays(selectedDate, 1))}
+          disabled={isToday(selectedDate)}
         >
-          <Ionicons name="chevron-forward" size={24} color={theme.primary} />
+          <Ionicons 
+            name="chevron-forward" 
+            size={24} 
+            color={isToday(selectedDate) ? theme.textDisabled : theme.text} 
+          />
         </TouchableOpacity>
       </View>
 
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={[styles.loadingText, { color: theme.secondaryText }]}>
-            Loading workout plan...
-          </Text>
-        </View>
-      ) : !currentWorkout ? (
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: theme.secondaryText }]}>
-            No workout plan for this date
-          </Text>
-          <TouchableOpacity 
-            style={[styles.generateButton, { backgroundColor: theme.primary }]}
-            onPress={onGenerateNew}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.workoutHeader}>
+          <View>
+            <Text style={[styles.workoutName, { color: theme.text }]}>
+              {workoutPlan.name}
+            </Text>
+            {workoutPlan.description && (
+              <Text style={[styles.workoutDescription, { color: theme.textSecondary }]}>
+                {workoutPlan.description}
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity
+            style={[styles.addButton, { backgroundColor: theme.primary }]}
+            onPress={onAddCustomExercise}
           >
-            <Text style={styles.generateButtonText}>Generate New Plan</Text>
+            <Ionicons name="add" size={24} color="white" />
           </TouchableOpacity>
         </View>
-      ) : (
-        <ScrollView style={styles.scrollContainer}>
-          <View style={[styles.workoutHeader, { backgroundColor: theme.cardBackground }]}>
-            <View style={styles.workoutInfo}>
-              <Text style={[styles.workoutName, { color: theme.text }]}>
-                {currentWorkout.name}
-              </Text>
-              <Text style={[styles.workoutDescription, { color: theme.secondaryText }]}>
-                {currentWorkout.description}
-              </Text>
-            </View>
-            
-            <TouchableOpacity
-              style={styles.addExerciseButton}
-              onPress={onAddCustomExercise}
-            >
-              <Ionicons name="add-circle-outline" size={24} color={theme.primary} />
-              <Text style={[styles.addExerciseText, { color: theme.primary }]}>
-                Add Exercise
-              </Text>
-            </TouchableOpacity>
-          </View>
 
-          <View style={styles.statsContainer}>
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Duration</Text>
+            <Text style={[styles.statValue, { color: theme.text }]}>
+              {workoutPlan.completedDuration} / {workoutPlan.totalDuration} min
+            </Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Calories</Text>
+            <Text style={[styles.statValue, { color: theme.text }]}>
+              {workoutPlan.completedCalories} / {workoutPlan.totalCalories} kcal
+            </Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Exercises</Text>
+            <Text style={[styles.statValue, { color: theme.text }]}>
+              {workoutPlan.completedExercises} / {workoutPlan.exercises.length}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.exerciseList}>
+          {workoutPlan.exercises.map((exercise, index) => (
             <LinearGradient
-              colors={[theme.gradientStart, theme.gradientEnd]}
-              style={styles.statsCard}
+              key={exercise.id}
+              colors={[
+                exercise.completed ? theme.successLight : theme.cardGradientStart,
+                exercise.completed ? theme.success : theme.cardGradientEnd
+              ]}
+              style={[styles.exerciseCard, index === 0 && styles.firstExerciseCard]}
             >
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Completed</Text>
-                <Text style={styles.statValue}>
-                  {currentWorkout.completedExercises || 0}/{currentWorkout.exercises.length}
-                </Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Duration</Text>
-                <Text style={styles.statValue}>
-                  {Math.round(currentWorkout.completedDuration / 60)} min
-                </Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Calories</Text>
-                <Text style={styles.statValue}>
-                  {Math.round(currentWorkout.completedCalories)}
-                </Text>
-              </View>
-            </LinearGradient>
-          </View>
-
-          <View style={styles.exercisesContainer}>
-            {currentWorkout.exercises.map((exercise, index) => (
               <TouchableOpacity
-                key={exercise.id}
-                style={[
-                  styles.exerciseCard,
-                  { backgroundColor: theme.exerciseCard },
-                  exercise.completed && {
-                    backgroundColor: theme.exerciseCardCompleted,
-                    borderColor: theme.exerciseCardBorder,
-                  },
-                ]}
+                style={styles.exerciseCardContent}
                 onPress={() => handleExerciseComplete(exercise.id)}
               >
-                <View style={styles.exerciseContent}>
-                  <View style={styles.exerciseHeader}>
-                    <Text style={[styles.exerciseName, { color: theme.text }]}>
-                      {exercise.name}
-                    </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.checkButton,
-                        exercise.completed && styles.checkButtonCompleted,
-                      ]}
-                      onPress={() => handleExerciseComplete(exercise.id)}
-                    >
-                      <Ionicons
-                        name={exercise.completed ? "checkmark-circle" : "checkmark-circle-outline"}
-                        size={24}
-                        color={exercise.completed ? theme.primary : theme.secondaryText}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <Text style={[styles.exerciseDescription, { color: theme.secondaryText }]}>
-                    {exercise.description}
+                <View style={styles.exerciseHeader}>
+                  <Text style={[styles.exerciseName, { color: theme.text }]}>
+                    {exercise.name}
                   </Text>
-                  
-                  <View style={styles.exerciseDetails}>
-                    <Text style={[styles.exerciseDetail, { color: theme.secondaryText }]}>
-                      {exercise.sets} sets × {
-                        exercise.type === 'repetition' 
-                          ? `${exercise.reps} reps`
-                          : `${Math.round(exercise.duration / 60)} min`
-                      }
+                  {exercise.completed && (
+                    <Ionicons name="checkmark-circle" size={24} color={theme.success} />
+                  )}
+                </View>
+                
+                <Text style={[styles.exerciseDescription, { color: theme.textSecondary }]}>
+                  {exercise.description}
+                </Text>
+
+                <View style={styles.exerciseDetails}>
+                  <View style={styles.exerciseDetail}>
+                    <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>
+                      Sets
                     </Text>
-                    {exercise.equipment && exercise.equipment.length > 0 && (
-                      <Text style={[styles.exerciseDetail, { color: theme.secondaryText }]}>
-                        Equipment: {exercise.equipment.join(', ')}
-                      </Text>
-                    )}
+                    <Text style={[styles.detailValue, { color: theme.text }]}>
+                      {exercise.sets}
+                    </Text>
+                  </View>
+                  <View style={styles.exerciseDetail}>
+                    <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>
+                      {exercise.duration ? 'Duration' : 'Reps'}
+                    </Text>
+                    <Text style={[styles.detailValue, { color: theme.text }]}>
+                      {exercise.duration ? `${exercise.duration}s` : exercise.reps}
+                    </Text>
+                  </View>
+                  <View style={styles.exerciseDetail}>
+                    <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>
+                      Rest
+                    </Text>
+                    <Text style={[styles.detailValue, { color: theme.text }]}>
+                      {exercise.restPeriod}s
+                    </Text>
                   </View>
                 </View>
               </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-      )}
+            </LinearGradient>
+          ))}
+        </View>
+      </ScrollView>
     </View>
   );
 };
@@ -251,44 +237,18 @@ const styles = StyleSheet.create({
   dateButton: {
     padding: 8,
   },
-  dateContainer: {
-    flex: 1,
+  dateInfo: {
     alignItems: 'center',
   },
   dateText: {
     fontSize: 18,
     fontWeight: '600',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  dayText: {
+    fontSize: 14,
+    marginTop: 4,
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 16,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  generateButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  generateButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  scrollContainer: {
+  scrollView: {
     flex: 1,
   },
   workoutHeader: {
@@ -297,34 +257,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
   },
-  workoutInfo: {
-    flex: 1,
-  },
   workoutName: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
   },
   workoutDescription: {
     fontSize: 14,
     marginTop: 4,
   },
-  addExerciseButton: {
-    flexDirection: 'row',
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 8,
-  },
-  addExerciseText: {
-    marginLeft: 4,
-    fontWeight: '600',
   },
   statsContainer: {
-    padding: 16,
-  },
-  statsCard: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    padding: 16,
-    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
   },
   statItem: {
     alignItems: 'center',
@@ -334,10 +286,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  exercisesContainer: {
+  exerciseList: {
     padding: 16,
   },
   exerciseCard: {
@@ -345,7 +297,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     overflow: 'hidden',
   },
-  exerciseContent: {
+  firstExerciseCard: {
+    marginTop: 0,
+  },
+  exerciseCardContent: {
     padding: 16,
   },
   exerciseHeader: {
@@ -354,33 +309,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   exerciseName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    flex: 1,
-  },
-  checkButton: {
-    padding: 4,
-  },
-  checkButtonCompleted: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 20,
   },
   exerciseDescription: {
     fontSize: 14,
-    marginTop: 8,
+    marginTop: 4,
+    marginBottom: 12,
   },
   exerciseDetails: {
-    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   exerciseDetail: {
-    fontSize: 14,
+    alignItems: 'center',
+  },
+  detailLabel: {
+    fontSize: 12,
     marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
   },
   errorText: {
     fontSize: 16,
@@ -388,11 +344,33 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noWorkoutContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  noWorkoutText: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  generateButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  generateButtonText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },

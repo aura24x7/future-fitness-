@@ -9,6 +9,7 @@ interface WorkoutPreferences {
     duration?: number;
     focusAreas?: string[];
     limitations?: string[];
+    dayOfWeek?: string;
 }
 
 interface WorkoutGenerationResponse {
@@ -39,18 +40,28 @@ interface Exercise {
 }
 
 interface AIWorkoutPlan {
-    id: string;
-    name: string;
-    description: string;
-    day: number;
-    focusArea: string;
-    difficulty: string;
-    equipment: string[];
+    dayOfWeek: string;
     totalDuration: number;
     totalCalories: number;
-    completedDuration: number;
-    completedCalories: number;
-    exercises: Exercise[];
+    focusArea: string;
+    exercises: {
+        name: string;
+        sets: number;
+        reps: number | "AMRAP";
+        restBetweenSets: number;
+        equipment: string[];
+        instructions: string;
+        targetMuscles: string[];
+        difficulty: string;
+        completed: boolean;
+        calories: number;
+    }[];
+    completed: boolean;
+    notes: string;
+}
+
+interface WeeklyWorkoutPlan {
+    weeklyPlan: AIWorkoutPlan[];
 }
 
 export class GeminiService {
@@ -72,87 +83,96 @@ export class GeminiService {
 
     private async generateText(prompt: string): Promise<string> {
         try {
-            console.log('🤖 Generating text response...');
             const result = await this.model.generateContent(prompt);
             const response = await result.response;
             const text = response.text();
-            
-            if (!text) {
-                throw new Error('Empty response from Gemini API');
-            }
-            
-            return text.trim();
+            console.log('Raw text response:', text); // Debug log
+            return text;
         } catch (error: any) {
-            console.error('Generation error:', error.message);
+            console.error('Error generating text:', error);
             throw error;
         }
     }
 
-    private extractJSONFromText(text: string): string {
-        try {
-            // Remove code block markers if present
-            text = text.replace(/```json\n/g, '').replace(/```/g, '');
-            
-            // Remove any single-line comments
-            text = text.replace(/\/\/.*$/gm, '');
-            
-            // Remove any multi-line comments
-            text = text.replace(/\/\*[\s\S]*?\*\//g, '');
-            
-            // Try to find the JSON object
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) {
-                throw new Error('No valid JSON object found in response');
-            }
+    private cleanJsonText(text: string): string {
+        console.log('Cleaning text:', text); // Debug input
 
-            let jsonStr = jsonMatch[0];
-            
-            // Clean up any trailing commas before arrays or objects close
-            jsonStr = jsonStr.replace(/,(\s*[\]}])/g, '$1');
-            
-            // Remove any remaining comments that might be inside the JSON
-            jsonStr = jsonStr.replace(/\/\/[^\n]*\n/g, '\n').replace(/\/\*[\s\S]*?\*\//g, '');
-            
-            // Test if it's valid JSON
-            JSON.parse(jsonStr); // This will throw if invalid
-            
-            return jsonStr;
-        } catch (error) {
-            console.error('Error extracting JSON:', error);
-            throw error;
+        // Step 1: Remove markdown code blocks
+        let cleaned = text.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1');
+        console.log('After removing code blocks:', cleaned);
+
+        // Step 2: Remove backticks
+        cleaned = cleaned.replace(/`/g, '');
+        console.log('After removing backticks:', cleaned);
+
+        // Step 3: Find JSON content
+        const jsonMatch = cleaned.match(/(\{[\s\S]*\})/);
+        if (!jsonMatch) {
+            throw new Error('No JSON object found in response');
         }
+        cleaned = jsonMatch[1];
+        console.log('After extracting JSON:', cleaned);
+
+        // Step 4: Clean up the JSON structure
+        cleaned = cleaned
+            .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces
+            .replace(/[\r\n\t]/g, ' ') // Normalize whitespace
+            .replace(/\s+/g, ' ') // Collapse multiple spaces
+            .replace(/,\s*([\]}])/g, '$1') // Remove trailing commas
+            .replace(/([{[,])\s*"([^"]+)"\s*:\s*"(true|false)"\s*([,}\]])/g, '$1"$2":$3$4') // Fix boolean strings
+            .replace(/([{[,])\s*"([^"]+)"\s*:\s*"(\d+)"\s*([,}\]])/g, '$1"$2":$3$4'); // Fix number strings
+
+        console.log('Final cleaned JSON:', cleaned); // Debug output
+        return cleaned;
     }
 
-    private async generateStructuredResponse<T>(
-        prompt: string,
-        validator: (data: any) => T
-    ): Promise<T> {
+    private async generateStructuredResponse<T>(prompt: string): Promise<T> {
         try {
-            // Add explicit instruction for JSON response
             const jsonPrompt = `${prompt}
 
-IMPORTANT: Respond ONLY with a valid JSON object. Follow these rules:
-1. Do not include any text, comments, or explanations outside the JSON.
-2. Do not use comments inside the JSON.
-3. Do not use trailing commas.
-4. Format dates as "YYYY-MM-DD".
-5. All numeric values should be numbers, not strings.
-6. All arrays should be properly terminated.
-7. The response should start with { and end with }.`;
-            
+IMPORTANT: Respond with a valid JSON object only.
+- No backticks
+- No markdown formatting
+- No code blocks
+- No comments
+- Must start with { and end with }
+- All strings must be in double quotes
+- Arrays and objects should not be quoted`;
+
             const text = await this.generateText(jsonPrompt);
-            console.log('Raw response:', text); // Debug log
-            
-            // Try to extract JSON if it's wrapped in other text
-            const jsonStr = this.extractJSONFromText(text);
-            console.log('Extracted JSON:', jsonStr); // Debug log
-            
+            console.log('Initial response:', text);
+
+            let jsonStr: string;
             try {
-                const data = JSON.parse(jsonStr);
-                return validator(data);
-            } catch (parseError) {
-                console.error('JSON parse error:', parseError);
-                throw new Error('Failed to parse JSON response');
+                // First attempt: direct parse
+                jsonStr = text;
+                console.log('Attempting direct parse of:', jsonStr);
+                return JSON.parse(jsonStr);
+            } catch (firstError) {
+                console.log('Direct parse failed:', firstError);
+                
+                // Second attempt: clean and parse
+                try {
+                    jsonStr = this.cleanJsonText(text);
+                    console.log('Attempting parse of cleaned JSON:', jsonStr);
+                    return JSON.parse(jsonStr);
+                } catch (secondError) {
+                    console.error('Clean parse failed:', secondError);
+                    
+                    // Third attempt: try to extract just the JSON part
+                    try {
+                        const matches = text.match(/\{(?:[^{}]|{[^{}]*})*\}/g);
+                        if (matches && matches.length > 0) {
+                            jsonStr = matches[0];
+                            console.log('Attempting parse of extracted JSON:', jsonStr);
+                            return JSON.parse(jsonStr);
+                        }
+                    } catch (thirdError) {
+                        console.error('Extract parse failed:', thirdError);
+                    }
+                    
+                    throw new Error('Failed to parse response as JSON after multiple attempts');
+                }
             }
         } catch (error) {
             console.error('Failed to generate structured response:', error);
@@ -160,176 +180,119 @@ IMPORTANT: Respond ONLY with a valid JSON object. Follow these rules:
         }
     }
 
-    private static validateAndTransformExercise(exercise: any): Exercise {
+    public async generateWorkoutPlan(preferences: WorkoutPreferences): Promise<AIWorkoutPlan> {
         try {
-            // Validate base fields
-            const baseFields = ['id', 'name', 'description', 'sets'];
-            for (const field of baseFields) {
-                if (!(field in exercise)) {
-                    throw new Error(`Exercise missing required field: ${field}`);
-                }
-            }
-
-            const base = {
-                id: exercise.id,
-                name: exercise.name,
-                description: exercise.description,
-                sets: Number(exercise.sets), // Ensure sets is a number
-                restBetweenSets: Number(exercise.restBetweenSets) || 60,
-                completed: false,
-                equipment: Array.isArray(exercise.equipment) ? exercise.equipment : [],
-                difficulty: exercise.difficulty || 'intermediate'
-            };
-
-            // Handle duration-based exercises
-            if ('duration' in exercise && exercise.duration) {
-                return {
-                    ...base,
-                    type: 'duration',
-                    duration: Number(exercise.duration)
-                };
-            }
-
-            // Handle repetition-based exercises
-            if (!('reps' in exercise)) {
-                throw new Error(`Exercise ${exercise.name} missing required field: reps`);
-            }
-
-            // Convert reps to the correct format
-            let reps: number | 'AMRAP';
-            if (typeof exercise.reps === 'number') {
-                reps = exercise.reps;
-            } else if (typeof exercise.reps === 'string') {
-                const repsUpper = exercise.reps.toUpperCase();
-                if (repsUpper === 'AMRAP' || repsUpper.includes('AS MANY AS POSSIBLE')) {
-                    reps = 'AMRAP';
-                } else {
-                    const parsedReps = parseInt(exercise.reps);
-                    if (isNaN(parsedReps)) {
-                        throw new Error(`Invalid reps value for exercise ${exercise.name}: ${exercise.reps}`);
-                    }
-                    reps = parsedReps;
-                }
-            } else {
-                throw new Error(`Invalid reps type for exercise ${exercise.name}: ${typeof exercise.reps}`);
-            }
-
+            const prompt = this.generateWorkoutPrompt(preferences);
+            const data = await this.generateStructuredResponse<any>(prompt);
+            
+            // Parse and validate the response
             return {
-                ...base,
-                type: 'repetition',
-                reps,
-                weight: exercise.weight ? Number(exercise.weight) : undefined,
-                caloriesPerRep: exercise.caloriesPerRep ? Number(exercise.caloriesPerRep) : 5
+                dayOfWeek: String(data.dayOfWeek || ''),
+                totalDuration: Number(data.totalDuration || 0),
+                totalCalories: Number(data.totalCalories || 0),
+                focusArea: String(data.focusArea || ''),
+                exercises: Array.isArray(data.exercises) ? data.exercises.map((exercise: any) => ({
+                    name: String(exercise.name || ''),
+                    sets: Number(exercise.sets || 0),
+                    reps: exercise.reps === "AMRAP" ? "AMRAP" : Number(exercise.reps || 0),
+                    restBetweenSets: Number(exercise.restBetweenSets || 60),
+                    equipment: Array.isArray(exercise.equipment) ? exercise.equipment.map(String) : [],
+                    instructions: String(exercise.instructions || ''),
+                    targetMuscles: Array.isArray(exercise.targetMuscles) ? exercise.targetMuscles.map(String) : [],
+                    difficulty: String(exercise.difficulty || 'intermediate'),
+                    completed: Boolean(exercise.completed),
+                    calories: Number(exercise.calories || 0)
+                })) : [],
+                completed: Boolean(data.completed),
+                notes: String(data.notes || '')
             };
         } catch (error) {
-            console.error('Error validating exercise:', error);
+            console.error('Error generating workout plan:', error);
+            throw new Error('Failed to generate workout plan. Please try again.');
+        }
+    }
+
+    private generateWorkoutPrompt(preferences: WorkoutPreferences): string {
+        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const currentDay = preferences.dayOfWeek || daysOfWeek[new Date().getDay()];
+        
+        return `Create a workout plan with the following specifications:
+Experience Level: ${preferences.fitnessLevel || 'intermediate'}
+Duration: ${preferences.duration || 45} minutes
+Equipment: ${preferences.equipment?.join(', ') || 'bodyweight only'}
+Focus Areas: ${preferences.focusAreas?.join(', ') || 'full body'}
+${preferences.limitations?.length ? `Limitations: ${preferences.limitations.join(', ')}` : ''}
+
+Respond with a JSON object that follows this EXACT structure. IMPORTANT: ALL values must be in quotes, including numbers and booleans:
+{
+  "dayOfWeek": "${currentDay}",
+  "totalDuration": "45",
+  "totalCalories": "300",
+  "focusArea": "example focus",
+  "exercises": [
+    {
+      "name": "Exercise Name",
+      "sets": "3",
+      "reps": "10",
+      "restBetweenSets": "60",
+      "equipment": ["equipment1"],
+      "instructions": "exercise instructions",
+      "targetMuscles": ["muscle1"],
+      "difficulty": "intermediate",
+      "completed": "false",
+      "calories": "50"
+    }
+  ],
+  "completed": "false",
+  "notes": ""
+}
+
+IMPORTANT:
+1. Use EXACTLY this structure
+2. ALL values (including numbers and booleans) must be in quotes
+3. Only arrays and objects should not be quoted
+4. For bodyweight exercises, use "reps": "AMRAP"
+5. No trailing commas
+6. No comments or additional text`;
+    }
+
+    public static async generateWeeklyWorkoutPlan(basePreferences: WorkoutPreferences): Promise<WeeklyWorkoutPlan> {
+        const instance = GeminiService.getInstance();
+        try {
+            const weeklyPlan: AIWorkoutPlan[] = [];
+            const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            
+            for (const day of daysOfWeek) {
+                const focusAreas = instance.getFocusAreasForDay(day);
+                const preferences = {
+                    ...basePreferences,
+                    dayOfWeek: day,
+                    focusAreas,
+                };
+                
+                const workout = await instance.generateWorkoutPlan(preferences);
+                weeklyPlan.push(workout);
+            }
+            
+            return { weeklyPlan };
+        } catch (error) {
+            console.error('Error generating weekly workout plan:', error);
             throw error;
         }
     }
 
-    public static async generateWorkoutPlan(preferences?: WorkoutPreferences): Promise<AIWorkoutPlan> {
-        const instance = GeminiService.getInstance();
-
-        const prompt = `Generate a workout plan as a JSON object.
-
-Instructions:
-1. Respond ONLY with a valid JSON object
-2. Do not include any text before or after the JSON
-3. Follow this exact structure and types
-4. For exercises, specify either 'reps' (number or "AMRAP") or 'duration' (in seconds)
-5. All numeric values should be actual numbers, not strings
-
-Required specifications:
-${preferences ? `
-- Fitness Level: ${preferences.fitnessLevel || 'intermediate'}
-- Goals: ${preferences.goals?.join(', ') || 'general fitness'}
-- Equipment: ${preferences.equipment?.join(', ') || 'basic gym equipment'}
-- Duration: ${preferences.duration || 30} minutes
-- Focus Areas: ${preferences.focusAreas?.join(', ') || 'full body'}
-- Limitations: ${preferences.limitations?.join(', ') || 'none'}
-` : 'Create a balanced full-body workout for an intermediate fitness level.'}
-
-JSON Structure Example:
-{
-    "id": "workout-123",
-    "name": "Sample Workout",
-    "description": "A sample workout description",
-    "duration": 45,
-    "difficulty": "intermediate",
-    "focusAreas": ["Chest", "Triceps"],
-    "equipment": ["dumbbells", "bodyweight"],
-    "exercises": [
-        {
-            "id": "exercise-1",
-            "name": "Push-ups",
-            "description": "Standard push-ups",
-            "sets": 3,
-            "reps": 10,
-            "restBetweenSets": 60,
-            "completed": false,
-            "difficulty": "intermediate",
-            "equipment": ["bodyweight"]
-        },
-        {
-            "id": "exercise-2",
-            "name": "Plank",
-            "description": "Hold plank position",
-            "sets": 3,
-            "duration": 30,
-            "restBetweenSets": 45,
-            "completed": false,
-            "difficulty": "intermediate",
-            "equipment": ["bodyweight"]
-        }
-    ]
-}`;
-
-        try {
-            const response = await instance.generateStructuredResponse<WorkoutGenerationResponse>(
-                prompt,
-                (data: any): WorkoutGenerationResponse => {
-                    if (!data || typeof data !== 'object') {
-                        throw new Error('Invalid response format');
-                    }
-
-                    const requiredFields = ['id', 'name', 'description', 'duration', 'difficulty', 'focusAreas', 'equipment', 'exercises'];
-                    for (const field of requiredFields) {
-                        if (!(field in data)) {
-                            throw new Error(`Missing required field: ${field}`);
-                        }
-                    }
-
-                    if (!Array.isArray(data.exercises) || data.exercises.length === 0) {
-                        throw new Error('Exercises must be a non-empty array');
-                    }
-
-                    // Transform exercises with proper validation
-                    data.exercises = data.exercises.map(GeminiService.validateAndTransformExercise);
-
-                    return data as WorkoutGenerationResponse;
-                }
-            );
-
-            // Transform the response into our internal AIWorkoutPlan format
-            const workoutPlan: AIWorkoutPlan = {
-                id: response.id,
-                name: response.name,
-                description: response.description,
-                day: 0, // This will be set by the caller
-                focusArea: response.focusAreas[0] || 'General',
-                difficulty: response.difficulty,
-                equipment: response.equipment,
-                totalDuration: Number(response.duration),
-                totalCalories: 300, // Default value
-                completedDuration: 0,
-                completedCalories: 0,
-                exercises: response.exercises
-            };
-
-            return workoutPlan;
-        } catch (error) {
-            console.error('Error generating workout plan:', error);
-            throw error;
-        }
+    private getFocusAreasForDay(day: string): string[] {
+        // Define focus areas for each day of the week
+        const focusAreaMap: { [key: string]: string[] } = {
+            Sunday: ['Rest', 'Recovery', 'Stretching'],
+            Monday: ['Chest', 'Triceps'],
+            Tuesday: ['Back', 'Biceps'],
+            Wednesday: ['Legs', 'Core'],
+            Thursday: ['Shoulders', 'Abs'],
+            Friday: ['Full Body', 'HIIT'],
+            Saturday: ['Cardio', 'Core']
+        };
+        
+        return focusAreaMap[day] || ['Full Body'];
     }
 }

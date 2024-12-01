@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,9 +8,10 @@ import { format, addDays, subDays } from 'date-fns';
 interface DateSelectorProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
+  containerStyle?: ViewStyle;
 }
 
-const DateSelector: React.FC<DateSelectorProps> = ({ selectedDate, onDateChange }) => {
+const DateSelector: React.FC<DateSelectorProps> = ({ selectedDate, onDateChange, containerStyle }) => {
   const GlassContainer = ({ children }) => {
     return Platform.OS === 'ios' ? (
       <BlurView intensity={30} tint="light" style={styles.glassContainer}>
@@ -43,7 +44,7 @@ const DateSelector: React.FC<DateSelectorProps> = ({ selectedDate, onDateChange 
   return (
     <LinearGradient
       colors={['rgba(99, 102, 241, 0.1)', 'rgba(99, 102, 241, 0.05)']}
-      style={styles.container}
+      style={[styles.container, containerStyle]}
     >
       <GlassContainer>
         <View style={styles.content}>

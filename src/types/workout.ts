@@ -54,13 +54,18 @@ export interface WorkoutStats {
   averageCaloriesPerWorkout?: number;
 }
 
+// Weekly Workout Plan Interface
+export interface WeeklyWorkoutPlan {
+  weeklyPlan: AIWorkoutPlan[];
+}
+
 // AI Generated Workout Plan Interface
 export interface AIWorkoutPlan {
   id: string;
   name: string;
   description?: string;
-  day: number;
-  date: string;
+  dayOfWeek: string; // Changed from number to string (e.g., "Monday")
+  date?: string; // Made optional since we'll primarily use dayOfWeek
   focusArea: string;
   difficulty?: string;
   equipment?: string[];
@@ -80,6 +85,7 @@ export interface WorkoutPreferences {
   duration?: number;
   focusAreas?: string[];
   limitations?: string[];
+  dayOfWeek?: string; // Changed from number to string
 }
 
 // Workout Generation Response Interface
@@ -101,5 +107,7 @@ export interface WorkoutGenerationResponse {
     type: 'repetition' | 'duration';
     reps?: number | 'AMRAP';
     duration?: number;
+    equipment?: string[];
+    difficulty?: string;
   }[];
 }
