@@ -18,7 +18,9 @@ import Button from '../components/Button';
 import CalorieTracker from '../components/calorie/CalorieTracker';
 import { mockAuth, mockWaterService, mockWorkoutService } from '../services/mockData';
 import { workoutTrackingService } from '../services/workoutTrackingService';
-import { MealLog, CalorieGoal, CalorieStats, MealType, WorkoutLog } from '../types/calorie';
+import { MealType } from '../types/calorie';
+import { MealLog } from '../services/ai/meal/types';
+import { CalorieGoal, CalorieStats } from '../types/calorie';
 import { colors, shadows, spacing, borderRadius } from '../theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, {

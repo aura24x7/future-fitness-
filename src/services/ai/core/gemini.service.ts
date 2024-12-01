@@ -66,11 +66,22 @@ interface WeeklyWorkoutPlan {
 
 export class GeminiService {
     private static instance: GeminiService;
+    private genAI: GoogleGenerativeAI;
     private model: any;
+    private maxRetries = 3;
+    private retryDelay = 1000;
 
     private constructor() {
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        this.model = genAI.getGenerativeModel({ model: GEMINI_MODELS.TEXT });
+        this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        this.model = this.genAI.getGenerativeModel({ 
+            model: 'gemini-1.5-flash',
+            generationConfig: {
+                temperature: 0.7,
+                topK: 40,
+                topP: 0.8,
+                maxOutputTokens: 8192, // Increased token limit
+            }
+        });
         console.log('✅ Gemini service initialized');
     }
 
@@ -81,104 +92,83 @@ export class GeminiService {
         return GeminiService.instance;
     }
 
-    private async generateText(prompt: string, retryCount = 0): Promise<string> {
+    public async generateContent(prompt: string | any[], config?: any) {
         try {
-            const result = await this.model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: 0.7,
-                    topK: 40,
-                    topP: 0.8,
-                    maxOutputTokens: 2048,
-                },
-                safetySettings: [
-                    {
-                        category: 'HARM_CATEGORY_HARASSMENT',
-                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-                    },
-                    {
-                        category: 'HARM_CATEGORY_HATE_SPEECH',
-                        threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-                    }
-                ]
-            });
-
+            const result = await this.model.generateContent(prompt);
             const response = await result.response;
-            return response.text();
-        } catch (error: any) {
-            console.error('Error generating text:', error);
             
-            if (error.message?.includes('RECITATION') && retryCount < 3) {
-                console.log(`Retrying due to RECITATION error (attempt ${retryCount + 1})`);
-                // Add randomization to the prompt to avoid recitation
-                const randomSeed = Math.random().toString(36).substring(7);
-                const modifiedPrompt = `${prompt}\n\nNote: This is a unique request (${randomSeed}). Please provide a fresh, original response.`;
-                // Wait before retry with exponential backoff
-                await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
-                return this.generateText(modifiedPrompt, retryCount + 1);
+            if (!response) {
+                throw new Error('No response from Gemini API');
             }
             
+            return {
+                response: {
+                    text: () => {
+                        const text = response.text();
+                        console.log('Raw Gemini response:', text.substring(0, 100) + '...');
+                        return text;
+                    }
+                }
+            };
+        } catch (error) {
+            console.error('Error generating content:', error);
             throw error;
         }
     }
 
-    private async generateStructuredResponse<T>(prompt: string): Promise<T> {
+    public async generateText(prompt: string, retryCount = 0): Promise<string> {
         try {
-            const jsonPrompt = `You are a JSON generator. Your task is to generate a valid JSON response based on the following request. 
-        
-REQUEST:
-${prompt}
-
-RESPONSE REQUIREMENTS:
-1. Respond ONLY with a valid JSON object
-2. Do not include any explanatory text
-3. Do not use backticks, markdown, or code blocks
-4. Start with { and end with }
-5. Use double quotes for all strings
-6. Do not quote arrays or objects
-7. Ensure all JSON keys match the expected interface exactly
-
-Example format:
-{
-    "key1": "value1",
-    "key2": ["item1", "item2"],
-    "key3": {
-        "nestedKey": "nestedValue"
+            const result = await this.generateContent(prompt);
+            return result.response.text();
+        } catch (error) {
+            if (retryCount < this.maxRetries) {
+                console.log(`Retrying... Attempt ${retryCount + 1} of ${this.maxRetries}`);
+                await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+                return this.generateText(prompt, retryCount + 1);
+            }
+            throw error;
+        }
     }
-}
 
-Generate JSON response:`;
-
-            const text = await this.generateText(jsonPrompt);
-            console.log('Raw response:', text);
-
-            // Remove any potential prefixes or suffixes
-            let cleanedText = text.trim()
-                .replace(/^[^{]*/, '') // Remove anything before the first {
-                .replace(/[^}]*$/, ''); // Remove anything after the last }
-
+    public async generateStructuredResponse<T>(prompt: string, retryCount = 0): Promise<T> {
+        try {
+            const result = await this.generateContent(prompt);
+            const text = result.response.text();
+            console.log('Full response length:', text.length);
+            
+            // Clean the response
+            let cleanedText = text
+                .replace(/```json\s*/g, '')  // Remove json blocks with any whitespace
+                .replace(/```\s*/g, '')      // Remove backticks with any whitespace
+                .trim()
+                .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+                .replace(/[^\x20-\x7E]/g, '');
+            
+            // Extract JSON object if wrapped in text
+            const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                throw new Error('No valid JSON object found in response');
+            }
+            
+            cleanedText = jsonMatch[0];
+            
+            // Validate JSON structure before parsing
             try {
-                return JSON.parse(cleanedText);
+                const parsed = JSON.parse(cleanedText);
+                console.log('Successfully parsed JSON structure');
+                return parsed as T;
             } catch (parseError) {
-                console.error('Initial parse failed:', parseError);
-                
-                // Try to fix common JSON issues
-                cleanedText = cleanedText
-                    .replace(/[\u201C\u201D]/g, '"') // Replace smart quotes
-                    .replace(/[\n\r\t]/g, ' ') // Remove newlines and tabs
-                    .replace(/,\s*}/g, '}') // Remove trailing commas
-                    .replace(/([{,]\s*)(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '$1"$3":') // Ensure property names are quoted
-                    .replace(/:\s*(['"])?([^"'[\]{},\s]+)(['"])?([\s,}])/g, ':"$2"$4'); // Quote unquoted string values
-
-                try {
-                    return JSON.parse(cleanedText);
-                } catch (finalError) {
-                    console.error('Failed to parse cleaned JSON:', finalError);
-                    throw new Error('Failed to generate valid JSON response. Please try again with more specific instructions.');
-                }
+                console.error('JSON Parse Error:', parseError);
+                console.error('Failed JSON text:', cleanedText.substring(0, 200) + '...');
+                throw parseError;
             }
         } catch (error) {
-            console.error('Failed to generate structured response:', error);
+            if (retryCount < this.maxRetries) {
+                console.log(`Retrying... (${retryCount + 1}/${this.maxRetries})`);
+                // Add exponential backoff
+                await new Promise(resolve => setTimeout(resolve, this.retryDelay * Math.pow(2, retryCount)));
+                return this.generateStructuredResponse<T>(prompt, retryCount + 1);
+            }
             throw error;
         }
     }
@@ -220,36 +210,43 @@ Generate JSON response:`;
         const currentDay = preferences.dayOfWeek || daysOfWeek[new Date().getDay()];
         const randomSeed = Math.random().toString(36).substring(7);
         
-        return `Generate a unique workout plan (ID: ${randomSeed}) with these requirements:
-Level: ${preferences.fitnessLevel || 'intermediate'}
-Duration: ${preferences.duration || 45} minutes
-Equipment: ${preferences.equipment?.join(', ') || 'bodyweight only'}
-Focus: ${preferences.focusAreas?.join(', ') || 'full body'}
-${preferences.limitations?.length ? `Limitations: ${preferences.limitations.join(', ')}` : ''}
+        return `Generate a workout plan with these specifications:
+- ID: ${randomSeed}
+- Level: ${preferences.fitnessLevel || 'intermediate'}
+- Duration: ${preferences.duration || 45} minutes
+- Equipment: ${preferences.equipment?.join(', ') || 'bodyweight only'}
+- Focus: ${preferences.focusAreas?.join(', ') || 'full body'}
+${preferences.limitations?.length ? `- Limitations: ${preferences.limitations.join(', ')}` : ''}
 
-Respond with a JSON object following this structure:
+The response MUST follow this EXACT structure:
 {
-  "dayOfWeek": "${currentDay}",
-  "totalDuration": "45",
-  "totalCalories": "300",
-  "focusArea": "example focus",
+  "dayOfWeek": "Monday",
+  "totalDuration": 45,
+  "totalCalories": 300,
+  "focusArea": "Chest",
   "exercises": [
     {
-      "name": "Exercise Name",
-      "sets": "3",
-      "reps": "10",
-      "restBetweenSets": "60",
-      "equipment": ["equipment1"],
-      "instructions": "exercise instructions",
-      "targetMuscles": ["muscle1"],
+      "name": "Push-ups",
+      "sets": 3,
+      "reps": 12,
+      "restBetweenSets": 60,
+      "equipment": ["none"],
+      "instructions": "Start in plank position...",
+      "targetMuscles": ["chest", "triceps"],
       "difficulty": "intermediate",
-      "completed": "false",
-      "calories": "50"
+      "completed": false,
+      "calories": 50
     }
   ],
-  "completed": "false",
-  "notes": ""
-}`;
+  "completed": false,
+  "notes": "Remember to warm up properly"
+}
+
+IMPORTANT: 
+- Numeric values (sets, reps, etc.) must NOT be in quotes
+- Boolean values (completed) must be true/false, NOT strings
+- Arrays must contain properly formatted items
+- All fields are required`;
     }
 
     public static async generateWeeklyWorkoutPlan(basePreferences: WorkoutPreferences): Promise<WeeklyWorkoutPlan> {
@@ -290,5 +287,100 @@ Respond with a JSON object following this structure:
         };
         
         return focusAreaMap[day] || ['Full Body'];
+    }
+
+    private validateJson(jsonString: string): any {
+        try {
+            const parsed = JSON.parse(jsonString);
+            
+            // Validate basic structure
+            if (typeof parsed !== 'object' || parsed === null) {
+                throw new Error('JSON must be an object');
+            }
+
+            // Recursively validate all values
+            this.validateJsonValues(parsed);
+
+            return parsed;
+        } catch (error) {
+            throw new Error(`JSON validation failed: ${error.message}\nJSON string: ${jsonString}`);
+        }
+    }
+
+    private validateJsonValues(obj: any, path: string = ''): void {
+        if (Array.isArray(obj)) {
+            obj.forEach((item, index) => {
+                this.validateJsonValues(item, `${path}[${index}]`);
+            });
+        } else if (typeof obj === 'object' && obj !== null) {
+            for (const [key, value] of Object.entries(obj)) {
+                const newPath = path ? `${path}.${key}` : key;
+                
+                // Validate property name
+                if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+                    console.warn(`Warning: Property name "${key}" at path "${path}" may cause issues. Consider using camelCase.`);
+                }
+
+                // Validate value
+                if (value === undefined) {
+                    throw new Error(`Undefined value found at path: ${newPath}`);
+                }
+                if (value === null) {
+                    console.warn(`Warning: Null value found at path: ${newPath}`);
+                }
+                if (typeof value === 'number' && !isFinite(value)) {
+                    throw new Error(`Invalid number found at path: ${newPath}`);
+                }
+
+                this.validateJsonValues(value, newPath);
+            }
+        }
+    }
+
+    private cleanJsonText(text: string): string {
+        // Remove markdown code blocks
+        text = text.replace(/```json\n|\n```|```/g, '');
+        
+        try {
+            // Try to parse as is first
+            JSON.parse(text);
+            return text;
+        } catch (e) {
+            try {
+                // Extract JSON content
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                if (!jsonMatch) {
+                    throw new Error('No valid JSON object found in response');
+                }
+                
+                let cleanedText = jsonMatch[0];
+
+                // Fix common JSON issues
+                cleanedText = cleanedText
+                    // Remove comments
+                    .replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '')
+                    // Fix quotes
+                    .replace(/[\u201C\u201D\u2018\u2019]/g, '"')
+                    // Remove trailing commas
+                    .replace(/,(\s*[}\]])/g, '$1')
+                    // Quote unquoted keys
+                    .replace(/([{,]\s*)([\w-]+)(\s*:)/g, '$1"$2"$3')
+                    // Fix boolean values
+                    .replace(/"true"/gi, 'true')
+                    .replace(/"false"/gi, 'false')
+                    // Fix numeric values
+                    .replace(/"(-?\d+\.?\d*)"(?!\s*[,}\]])/g, '$1')
+                    // Remove extra whitespace
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                // Validate the cleaned JSON
+                JSON.parse(cleanedText);
+                return cleanedText;
+            } catch (error) {
+                console.error('Failed to clean JSON text:', error);
+                throw new Error('Failed to parse or clean JSON response');
+            }
+        }
     }
 }

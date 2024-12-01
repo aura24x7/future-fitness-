@@ -58,7 +58,9 @@ const ScannedFoodDetailsScreen = () => {
   }, [imageBase64]);
 
   const navigateToFoodLog = () => {
-    navigation.navigate('TabNavigator', { screen: 'FoodLog' });
+    navigation.navigate('Main', {
+      screen: 'FoodLog'
+    });
   };
 
   const handleSaveToLog = async () => {

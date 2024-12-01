@@ -11,8 +11,9 @@ import { TabBarProvider } from './src/context/TabBarContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { auth } from './src/config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { ThemeProvider } from '@tamagui/core';
+import { ThemeProvider as TamaguiThemeProvider } from '@tamagui/core';
 import { TamaguiProvider } from 'tamagui';
+import { ThemeProvider } from './src/theme/ThemeProvider';
 import config from './tamagui.config';
 
 export default function App() {
@@ -38,24 +39,26 @@ export default function App() {
 
   return (
     <TamaguiProvider config={config}>
-      <ThemeProvider defaultTheme="light">
+      <TamaguiThemeProvider defaultTheme="light">
         <SafeAreaProvider>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <AuthProvider>
               <AppProvider>
                 <OnboardingProvider>
                   <TabBarProvider>
-                    <NavigationContainer>
-                      <StatusBar barStyle="dark-content" />
-                      <AppNavigator />
-                    </NavigationContainer>
+                    <ThemeProvider>
+                      <NavigationContainer>
+                        <StatusBar barStyle="dark-content" />
+                        <AppNavigator />
+                      </NavigationContainer>
+                    </ThemeProvider>
                   </TabBarProvider>
                 </OnboardingProvider>
               </AppProvider>
             </AuthProvider>
           </GestureHandlerRootView>
         </SafeAreaProvider>
-      </ThemeProvider>
+      </TamaguiThemeProvider>
     </TamaguiProvider>
   );
 }

@@ -6,7 +6,10 @@ import { GEMINI_API_KEY, GEMINI_MODELS } from '../config/api.config';
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 const MEALS_STORAGE_KEY = '@meals';
-const getStorageKeyForDate = (date: Date) => `${MEALS_STORAGE_KEY}_${date.toISOString().split('T')[0]}`;
+
+// Function to generate storage key for a specific date
+const getStorageKeyForDate = (date: Date) => 
+  `${MEALS_STORAGE_KEY}_${date.toISOString().split('T')[0]}`;
 
 // Helper function to determine meal type based on time
 const getMealTypeFromTime = (date: Date): MealType => {
@@ -17,8 +20,8 @@ const getMealTypeFromTime = (date: Date): MealType => {
   return MealType.Snack;
 };
 
-const FOOD_ANALYSIS_PROMPT = `Analyze the food in this image and provide detailed nutritional information. 
-Return the result as a JSON object with the following structure:
+const FOOD_ANALYSIS_PROMPT = `You are a food analysis expert. Analyze the food in this image and provide nutritional information.
+Please respond ONLY with a valid JSON object in this exact format, with no additional text or markdown:
 {
   "foodName": "Name of the food",
   "confidence": 0.95,
@@ -69,16 +72,20 @@ export interface FoodAnalysisResult {
 
 export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysisResult> => {
   try {
-    console.log('Starting food analysis...');
-    console.log('Initializing Gemini model...');
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODELS.VISION });
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        temperature: 0.4,
+        topK: 32,
+        topP: 1,
+        maxOutputTokens: 1024
+      }
+    });
     
-    console.log('Preparing request...');
     const prompt = {
       text: FOOD_ANALYSIS_PROMPT,
     };
     
-    // Convert base64 to parts array for Gemini API
     const imagePart = {
       inlineData: {
         data: imageBase64,
@@ -86,109 +93,124 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
       }
     };
 
-    console.log('Sending request to Gemini API...');
     const result = await model.generateContent([prompt, imagePart]);
-    console.log('Received response from Gemini API');
-    
     const response = await result.response;
     const text = response.text();
-    console.log('Raw API response:', text);
-
+    
     try {
       // Clean the response text to ensure it's valid JSON
-      const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
-      const parsedResult = JSON.parse(cleanedText);
-      console.log('Parsed result:', parsedResult);
+      const cleanedText = text
+        .replace(/```json\n?|\n?```/g, '') // Remove any markdown code blocks
+        .replace(/[\u201C\u201D\u2018\u2019]/g, '"') // Replace smart quotes with straight quotes
+        .replace(/\n/g, '') // Remove newlines
+        .trim();
 
-      // Validate the parsed result
-      if (!parsedResult.foodName || !parsedResult.nutritionInfo) {
-        throw new Error('Invalid response format from API');
+      console.log('Cleaned response text:', cleanedText);
+      
+      let parsedResult;
+      try {
+        parsedResult = JSON.parse(cleanedText);
+      } catch (jsonError) {
+        console.error('First JSON parse attempt failed:', jsonError);
+        // Try to extract JSON from the text if it's wrapped in other content
+        const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsedResult = JSON.parse(jsonMatch[0]);
+        } else {
+          throw jsonError;
+        }
       }
 
-      // Ensure all required fields exist with defaults if missing
+      // Validate and normalize the result
       const validatedResult: FoodAnalysisResult = {
-        foodName: parsedResult.foodName,
-        confidence: parsedResult.confidence || 0.8,
+        foodName: String(parsedResult.foodName || 'Unknown Food'),
+        confidence: Number(parsedResult.confidence) || 0.8,
         nutritionInfo: {
-          calories: parsedResult.nutritionInfo.calories || 0,
-          protein: parsedResult.nutritionInfo.protein || 0,
-          carbs: parsedResult.nutritionInfo.carbs || 0,
-          fat: parsedResult.nutritionInfo.fat || 0,
-          fiber: parsedResult.nutritionInfo.fiber || 0,
-          sugar: parsedResult.nutritionInfo.sugar || 0
+          calories: Number(parsedResult.nutritionInfo?.calories) || 0,
+          protein: Number(parsedResult.nutritionInfo?.protein) || 0,
+          carbs: Number(parsedResult.nutritionInfo?.carbs) || 0,
+          fat: Number(parsedResult.nutritionInfo?.fat) || 0,
+          fiber: Number(parsedResult.nutritionInfo?.fiber) || 0,
+          sugar: Number(parsedResult.nutritionInfo?.sugar) || 0
         },
-        ingredients: parsedResult.ingredients || [],
-        servingSize: parsedResult.servingSize || "1 serving",
-        mealType: parsedResult.mealType || "snack",
-        healthyScore: parsedResult.healthyScore || 5.0,
+        ingredients: Array.isArray(parsedResult.ingredients) ? 
+          parsedResult.ingredients.map(i => String(i)) : [],
+        servingSize: String(parsedResult.servingSize || '1 serving'),
+        mealType: String(parsedResult.mealType || getMealTypeFromTime(new Date())),
+        healthyScore: Number(parsedResult.healthyScore) || 5,
         dietaryInfo: {
-          isVegetarian: parsedResult.dietaryInfo?.isVegetarian || false,
-          isVegan: parsedResult.dietaryInfo?.isVegan || false,
-          isGlutenFree: parsedResult.dietaryInfo?.isGlutenFree || false,
-          isDairyFree: parsedResult.dietaryInfo?.isDairyFree || false
+          isVegetarian: Boolean(parsedResult.dietaryInfo?.isVegetarian),
+          isVegan: Boolean(parsedResult.dietaryInfo?.isVegan),
+          isGlutenFree: Boolean(parsedResult.dietaryInfo?.isGlutenFree),
+          isDairyFree: Boolean(parsedResult.dietaryInfo?.isDairyFree)
         }
       };
 
+      console.log('Successfully validated result:', validatedResult);
       return validatedResult;
+      
     } catch (parseError) {
-      console.error('Error parsing Gemini response:', parseError);
-      console.error('Raw text that failed to parse:', text);
-      throw new Error('Failed to parse food analysis result. Please try again.');
+      console.error('Error parsing response:', parseError);
+      console.error('Raw response text:', text);
+      throw new Error('Failed to parse food analysis result');
     }
   } catch (error) {
     console.error('Error analyzing food image:', error);
-    if (error instanceof Error) {
-      // Check for specific API key errors
-      if (error.message.includes('API key not valid') || error.message.includes('API_KEY_INVALID')) {
-        throw new Error('Food analysis service is not properly configured. Please check your API settings.');
-      }
-      // Check for model availability errors
-      if (error.message.includes('model not found')) {
-        throw new Error('The selected food analysis model is currently unavailable. Please try again later.');
-      }
-      throw new Error(`Error analyzing food: ${error.message}`);
-    }
     throw error;
   }
 };
 
 export const saveFoodAnalysis = async (result: FoodAnalysisResult, date: Date = new Date()): Promise<void> => {
   try {
+    console.log('Saving food analysis to log:', result);
+    
+    // Get the storage key for today
     const storageKey = getStorageKeyForDate(date);
     
-    // Create meal log entry
-    const mealLog: MealLog = {
+    // Get existing meals for today
+    const existingMealsString = await AsyncStorage.getItem(storageKey);
+    let existingMeals = existingMealsString ? JSON.parse(existingMealsString) : {
+      breakfast: [],
+      lunch: [],
+      dinner: [],
+      snacks: []
+    };
+
+    // Create a new meal entry
+    const mealType = getMealTypeFromTime(date).toLowerCase();
+    const newMeal = {
+      id: `${Date.now()}-${result.foodName.toLowerCase().replace(/\s+/g, '-')}`,
       name: result.foodName,
       calories: result.nutritionInfo.calories,
       protein: result.nutritionInfo.protein,
       carbs: result.nutritionInfo.carbs,
       fat: result.nutritionInfo.fat,
+      fiber: result.nutritionInfo.fiber || 0,
+      sugar: result.nutritionInfo.sugar || 0,
+      ingredients: result.ingredients,
       completed: true,
-      mealType: getMealTypeFromTime(date),
-      date: date,
-      ingredients: result.ingredients, 
-      instructions: result.dietaryInfo.isVegetarian ? 'Vegetarian' : 'Non-Vegetarian',
-      servings: 1
+      mealType: mealType,
+      servingSize: result.servingSize,
+      date: date.toISOString(),
+      healthyScore: result.healthyScore,
+      dietaryInfo: result.dietaryInfo
     };
 
-    // Get existing meals for the day
-    const existingMealsJson = await AsyncStorage.getItem(storageKey);
-    let existingMeals: { [key: string]: MealLog[] } = existingMealsJson ? JSON.parse(existingMealsJson) : {
-      breakfast: [],
-      lunch: [],
-      dinner: [],
-      snack: []
-    };
+    // Ensure the meal type array exists
+    if (!existingMeals[mealType]) {
+      existingMeals[mealType] = [];
+    }
 
-    // Add new meal to appropriate category
-    const category = mealLog.mealType.toLowerCase();
-    existingMeals[category] = [...(existingMeals[category] || []), mealLog];
+    // Add the new meal
+    existingMeals[mealType].push(newMeal);
 
-    // Save back to AsyncStorage
+    // Save back to storage
+    console.log('Saving updated meals:', existingMeals);
     await AsyncStorage.setItem(storageKey, JSON.stringify(existingMeals));
-    console.log('Successfully saved food to log:', mealLog);
+    console.log('Successfully saved food to log');
+
   } catch (error) {
     console.error('Error saving food analysis:', error);
-    throw new Error('Failed to save food to log. Please try again.');
+    throw new Error('Failed to save food to log');
   }
 };

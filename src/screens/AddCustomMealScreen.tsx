@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { MealLog, MealType, AddCustomMealParams } from '../types/calorie';
+import { MealType } from '../types/calorie';
+import { MealLog } from '../services/ai/meal/types';
+import { AddCustomMealParams } from '../types/calorie';
 
 export default function AddCustomMealScreen({ route, navigation }) {
   const { onSave, selectedDate, meal, isEditing = false } = route.params;

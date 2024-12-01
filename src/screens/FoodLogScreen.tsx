@@ -12,7 +12,8 @@ import {
 import Animated from 'react-native-reanimated';
 import { useScrollToTabBar } from '../hooks/useScrollToTabBar';
 import { Ionicons } from '@expo/vector-icons';
-import { mealPlanService, WeeklyMealPlan, MealDetails, DailyMealPlan } from '../services/ai/meal.service';
+import { mealService } from '../services/ai/meal/meal.service';
+import { WeeklyMealPlan, MealDetails, DailyMealPlan } from '../services/ai/meal/types';
 import { MealType } from '../types/calorie';
 import Card from '../components/Card';
 import DateSelector from '../components/DateSelector';
@@ -76,21 +77,13 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
   // Update selected day when date changes
   useEffect(() => {
     const dayOfWeek = getDayOfWeek(selectedDate);
-    if (dayOfWeek !== selectedDay) {
-      setSelectedDay(dayOfWeek);
-    }
+    setSelectedDay(dayOfWeek);
   }, [selectedDate]);
 
-  // Update selected date when day changes
+  // Load saved meals on mount and when date changes
   useEffect(() => {
-    const currentDayOfWeek = getDayOfWeek(selectedDate);
-    if (currentDayOfWeek !== selectedDay) {
-      const daysUntilTarget = getDaysDifference(currentDayOfWeek, selectedDay);
-      const newDate = new Date(selectedDate);
-      newDate.setDate(selectedDate.getDate() + daysUntilTarget);
-      setSelectedDate(newDate);
-    }
-  }, [selectedDay]);
+    loadSavedMeals();
+  }, [selectedDate, weeklyMealPlan]);
 
   const handlePrevDay = () => {
     const newDate = new Date(selectedDate);
@@ -104,14 +97,27 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
     setSelectedDate(newDate);
   };
 
-  // Load saved meals on mount and when date changes
-  useEffect(() => {
-    loadSavedMeals();
-  }, [selectedDate]);
-
   const loadSavedMeals = async () => {
     try {
       setIsLoading(true);
+      
+      // First try to load from weekly meal plan if available
+      if (weeklyMealPlan) {
+        const dayPlan = weeklyMealPlan.weeklyPlan.find(
+          plan => plan.dayOfWeek === selectedDay
+        );
+        
+        console.log('Loading meals for day:', selectedDay);
+        console.log('Found day plan:', dayPlan?.dayOfWeek);
+        
+        if (dayPlan) {
+          setMeals(dayPlan.meals);
+          updateTotals(dayPlan.meals);
+          return;
+        }
+      }
+      
+      // If no weekly plan, try to load saved meals for the date
       const storageKey = getStorageKeyForDate(selectedDate);
       const savedMealsString = await AsyncStorage.getItem(storageKey);
       
@@ -120,33 +126,23 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
         setMeals(savedMeals);
         updateTotals(savedMeals);
       } else {
-        // If no saved meals, check weekly meal plan
-        if (weeklyMealPlan) {
-          const dayPlan = weeklyMealPlan.weeklyPlan.find(
-            plan => plan.dayOfWeek === selectedDay
-          );
-          if (dayPlan) {
-            setMeals(dayPlan.meals);
-            updateTotals(dayPlan.meals);
-          } else {
-            // Reset meals if no plan found for the day
-            setMeals({
-              breakfast: [],
-              lunch: [],
-              dinner: [],
-              snacks: []
-            });
-            updateTotals({
-              breakfast: [],
-              lunch: [],
-              dinner: [],
-              snacks: []
-            });
-          }
-        }
+        // Reset meals if nothing found
+        setMeals({
+          breakfast: [],
+          lunch: [],
+          dinner: [],
+          snacks: []
+        });
+        updateTotals({
+          breakfast: [],
+          lunch: [],
+          dinner: [],
+          snacks: []
+        });
       }
     } catch (error) {
       console.error('Error loading meals:', error);
+      Alert.alert('Error', 'Failed to load meals');
     } finally {
       setIsLoading(false);
     }
@@ -158,6 +154,7 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
       await AsyncStorage.setItem(storageKey, JSON.stringify(mealsToSave));
     } catch (error) {
       console.error('Error saving meals:', error);
+      Alert.alert('Error', 'Failed to save meals');
     }
   };
 
@@ -308,9 +305,10 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleGenerateMealPlan = async () => {
     try {
       setIsGeneratingPlan(true);
+      console.log('Starting meal plan generation...');
       
       // Generate weekly meal plan
-      const newWeeklyPlan = await mealPlanService.generateWeeklyMealPlan({
+      const newWeeklyPlan = await mealService.generateWeeklyMealPlan({
         calorieGoal: 2000,
         mealCount: 4,
         dietaryRestrictions: [],
@@ -318,50 +316,70 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
         cuisinePreferences: []
       });
 
+      console.log('Received meal plan:', JSON.stringify(newWeeklyPlan, null, 2));
+
+      if (!newWeeklyPlan || !newWeeklyPlan.weeklyPlan || newWeeklyPlan.weeklyPlan.length === 0) {
+        throw new Error('Invalid meal plan structure received');
+      }
+
       // Add IDs and meal types to all meals
       const planWithIds = {
-        weeklyPlan: newWeeklyPlan.weeklyPlan.map(dayPlan => ({
-          ...dayPlan,
-          meals: {
-            breakfast: dayPlan.meals.breakfast.map(meal => ({
-              ...meal,
-              id: `${meal.name}-${dayPlan.dayOfWeek}-${Date.now()}-${Math.random()}`,
-              completed: false,
-              mealType: MealType.Breakfast
-            })),
-            lunch: dayPlan.meals.lunch.map(meal => ({
-              ...meal,
-              id: `${meal.name}-${dayPlan.dayOfWeek}-${Date.now()}-${Math.random()}`,
-              completed: false,
-              mealType: MealType.Lunch
-            })),
-            dinner: dayPlan.meals.dinner.map(meal => ({
-              ...meal,
-              id: `${meal.name}-${dayPlan.dayOfWeek}-${Date.now()}-${Math.random()}`,
-              completed: false,
-              mealType: MealType.Dinner
-            })),
-            snacks: dayPlan.meals.snacks.map(meal => ({
-              ...meal,
-              id: `${meal.name}-${dayPlan.dayOfWeek}-${Date.now()}-${Math.random()}`,
-              completed: false,
-              mealType: MealType.Snack
-            }))
-          }
-        }))
+        weeklyPlan: newWeeklyPlan.weeklyPlan.map(dayPlan => {
+          console.log('Processing day:', dayPlan.dayOfWeek);
+          return {
+            ...dayPlan,
+            meals: {
+              breakfast: (dayPlan.meals.breakfast || []).map(meal => ({
+                ...meal,
+                id: `${meal.name}-${dayPlan.dayOfWeek}-${Date.now()}-${Math.random()}`,
+                completed: false,
+                mealType: MealType.Breakfast
+              })),
+              lunch: (dayPlan.meals.lunch || []).map(meal => ({
+                ...meal,
+                id: `${meal.name}-${dayPlan.dayOfWeek}-${Date.now()}-${Math.random()}`,
+                completed: false,
+                mealType: MealType.Lunch
+              })),
+              dinner: (dayPlan.meals.dinner || []).map(meal => ({
+                ...meal,
+                id: `${meal.name}-${dayPlan.dayOfWeek}-${Date.now()}-${Math.random()}`,
+                completed: false,
+                mealType: MealType.Dinner
+              })),
+              snacks: (dayPlan.meals.snacks || []).map(meal => ({
+                ...meal,
+                id: `${meal.name}-${dayPlan.dayOfWeek}-${Date.now()}-${Math.random()}`,
+                completed: false,
+                mealType: MealType.Snack
+              }))
+            }
+          };
+        })
       };
+
+      console.log('Saving plan with IDs:', JSON.stringify(planWithIds, null, 2));
 
       // Save the complete weekly plan
       await saveWeeklyPlan(planWithIds);
       setWeeklyMealPlan(planWithIds);
 
-      // Update the current day's meals
-      const selectedDayPlan = planWithIds.weeklyPlan.find(
-        plan => plan.dayOfWeek === selectedDay
+      // Get the current day of week
+      const currentDayOfWeek = getDayOfWeek(selectedDate);
+      
+      // Find the plan for the current day
+      const currentDayPlan = planWithIds.weeklyPlan.find(
+        plan => plan.dayOfWeek === currentDayOfWeek
       );
-      if (selectedDayPlan) {
-        setMeals(selectedDayPlan.meals);
-        updateTotals(selectedDayPlan.meals);
+
+      console.log('Current day:', currentDayOfWeek);
+      console.log('Found day plan:', currentDayPlan?.dayOfWeek);
+
+      if (currentDayPlan) {
+        setMeals(currentDayPlan.meals);
+        updateTotals(currentDayPlan.meals);
+      } else {
+        console.warn('No plan found for current day:', currentDayOfWeek);
       }
 
       Alert.alert('Success', 'Weekly meal plan generated successfully!');
@@ -393,7 +411,7 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await mockMealService.deleteMeal(meal.id);
+              await mealService.deleteMeal(meal.id);
               setMeals(currentMeals => ({
                 ...currentMeals,
                 [meal.mealType]: currentMeals[meal.mealType].filter(m => m.id !== meal.id)

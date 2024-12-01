@@ -117,7 +117,15 @@ export const mealPlanService = {
         .replace('{goals}', mergedPreferences.goals.join(', '))
         .replace('{restrictions}', mergedPreferences.restrictions.join(', '));
 
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+      const model = genAI.getGenerativeModel({ 
+        model: 'gemini-1.5-flash',
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.8,
+          maxOutputTokens: 2048
+        }
+      });
       const result = await model.generateContent(prompt);
       const response = result.response;
       let text = response.text();

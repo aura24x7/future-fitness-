@@ -17,10 +17,17 @@ import { workoutService, WorkoutPreferences, WeeklyWorkoutPlan, Exercise, DailyW
 import { LinearGradient } from 'expo-linear-gradient';
 import { format, isToday } from 'date-fns';
 import DateSelector from '../components/DateSelector';
+import { WorkoutStats } from '../components/WorkoutStats';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Workout'>;
 
 const STORAGE_KEY = '@workout_plans';
+const STATS_STORAGE_KEY = '@workout_stats';
+
+interface WorkoutStats {
+  caloriesBurned: number;
+  timeSpentMinutes: number;
+}
 
 const getDayOfWeek = (date: Date): string => {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -33,6 +40,10 @@ const WorkoutScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedDay, setSelectedDay] = useState(getDayOfWeek(new Date()));
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<WorkoutStats>({
+    caloriesBurned: 0,
+    timeSpentMinutes: 0
+  });
 
   // Update selected day when date changes
   useEffect(() => {
@@ -58,6 +69,42 @@ const WorkoutScreen: React.FC<Props> = ({ navigation }) => {
 
     loadWorkoutPlan();
   }, []);
+
+  // Load stats from storage
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      const storedStats = await AsyncStorage.getItem(STATS_STORAGE_KEY);
+      if (storedStats) {
+        setStats(JSON.parse(storedStats));
+      }
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
+  const saveStats = async (newStats: WorkoutStats) => {
+    try {
+      await AsyncStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(newStats));
+      setStats(newStats);
+    } catch (error) {
+      console.error('Error saving stats:', error);
+    }
+  };
+
+  const handleWorkoutComplete = (workout: Exercise) => {
+    // Estimate calories burned (this is a simple calculation, you might want to make it more sophisticated)
+    const estimatedCalories = workout.duration * 5; // 5 calories per minute as a simple example
+    const newStats = {
+      caloriesBurned: stats.caloriesBurned + estimatedCalories,
+      timeSpentMinutes: stats.timeSpentMinutes + workout.duration
+    };
+    saveStats(newStats);
+    Alert.alert('Workout Completed', 'Great job! Your stats have been updated.');
+  };
 
   // Generate new workout plan
   const generateWorkoutPlan = useCallback(async () => {
@@ -148,59 +195,63 @@ const WorkoutScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text size="$6" weight="bold" color="$gray12">Workout</Text>
-      </View>
+      <ScrollView>
+        <YStack space="$4" padding="$4">
+          <DateSelector
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+          />
+          
+          <WorkoutStats
+            caloriesBurned={stats.caloriesBurned}
+            timeSpentMinutes={stats.timeSpentMinutes}
+          />
 
-      <DateSelector
-        selectedDate={selectedDate}
-        onDateChange={setSelectedDate}
-        containerStyle={styles.dateSelector}
-      />
-
-      {isGeneratingPlan ? (
-        <WorkoutPlanLoadingScreen 
-          visible={isGeneratingPlan}
-          onSuccess={() => setIsGeneratingPlan(false)}
-        />
-      ) : !weeklyWorkoutPlan || !currentWorkout ? (
-        <YStack space="$4" style={styles.noWorkoutContainer}>
-          <Text style={styles.noWorkoutText} color="$gray11">
-            No workout plan available. Generate a personalized weekly workout plan to get started!
-          </Text>
-          <TouchableOpacity 
-            style={styles.generateButton}
-            onPress={generateWorkoutPlan}
-          >
-            <LinearGradient
-              colors={['#4CAF50', '#45a049']}
-              style={styles.generateButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Text style={styles.generateButtonText} color="white">Generate Workout Plan</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </YStack>
-      ) : (
-        <ScrollView style={styles.workoutContainer}>
-          <View style={styles.workoutHeader}>
-            <Text style={styles.workoutTitle}>{currentWorkout.focusArea} Workout</Text>
-            <Text style={styles.workoutStats}>
-              Duration: {currentWorkout.totalDuration}min • {currentWorkout.totalCalories} calories
-            </Text>
-          </View>
-          <View style={styles.exerciseList}>
-            {currentWorkout.exercises.map((exercise, index) => renderExercise(exercise, index))}
-          </View>
-          {currentWorkout.notes && (
-            <View style={styles.notesContainer}>
-              <Text style={styles.notesTitle}>Notes</Text>
-              <Text style={styles.notesText}>{currentWorkout.notes}</Text>
-            </View>
+          {isGeneratingPlan ? (
+            <WorkoutPlanLoadingScreen 
+              visible={isGeneratingPlan}
+              onSuccess={() => setIsGeneratingPlan(false)}
+            />
+          ) : !weeklyWorkoutPlan || !currentWorkout ? (
+            <YStack space="$4" style={styles.noWorkoutContainer}>
+              <Text style={styles.noWorkoutText} color="$gray11">
+                No workout plan available. Generate a personalized weekly workout plan to get started!
+              </Text>
+              <TouchableOpacity 
+                style={styles.generateButton}
+                onPress={generateWorkoutPlan}
+              >
+                <LinearGradient
+                  colors={['#4CAF50', '#45a049']}
+                  style={styles.generateButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.generateButtonText} color="white">Generate Workout Plan</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </YStack>
+          ) : (
+            <ScrollView style={styles.workoutContainer}>
+              <View style={styles.workoutHeader}>
+                <Text style={styles.workoutTitle}>{currentWorkout.focusArea} Workout</Text>
+                <Text style={styles.workoutStats}>
+                  Duration: {currentWorkout.totalDuration}min • {currentWorkout.totalCalories} calories
+                </Text>
+              </View>
+              <View style={styles.exerciseList}>
+                {currentWorkout.exercises.map((exercise, index) => renderExercise(exercise, index))}
+              </View>
+              {currentWorkout.notes && (
+                <View style={styles.notesContainer}>
+                  <Text style={styles.notesTitle}>Notes</Text>
+                  <Text style={styles.notesText}>{currentWorkout.notes}</Text>
+                </View>
+              )}
+            </ScrollView>
           )}
-        </ScrollView>
-      )}
+        </YStack>
+      </ScrollView>
     </SafeAreaView>
   );
 };
