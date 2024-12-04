@@ -1,10 +1,23 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions, StatusBar } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import React, { useRef, useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Dimensions,
+  StatusBar,
+  Platform,
+  AppState,
+  Linking,
+  Alert,
+} from 'react-native';
+import { CameraView, CameraType, useCameraPermissions, Camera } from 'expo-camera';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { debounce } from 'lodash';
 
 const { width, height } = Dimensions.get('window');
 const SCAN_AREA_SIZE = width * 0.8;
@@ -12,11 +25,137 @@ const SCAN_AREA_SIZE = width * 0.8;
 const FoodScannerScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [isTakingPicture, setIsTakingPicture] = useState(false);
   const [facing, setFacing] = useState<CameraType>('back');
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const cameraRef = useRef<CameraView>(null);
+  const isMounted = useRef(true);
   const navigation = useNavigation();
   const [permission, requestPermission] = useCameraPermissions();
+
+  // Handle camera permission request
+  const handlePermissionRequest = async () => {
+    try {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      if (status === 'denied') {
+        // If permission is denied, prompt to open settings
+        Alert.alert(
+          'Camera Permission Required',
+          'Please enable camera access in your device settings to use this feature.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Open Settings', 
+              onPress: () => Linking.openSettings() 
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error requesting camera permission:', error);
+    }
+  };
+
+  // Pre-load permission request when screen mounts
+  useEffect(() => {
+    const preloadPermission = async () => {
+      if (!permission?.granted) {
+        handlePermissionRequest();
+      }
+    };
+    preloadPermission();
+  }, []);
+
+  // Handle app state changes to recheck permissions
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active' && !permission?.granted) {
+        handlePermissionRequest();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [permission?.granted]);
+
+  // Proper cleanup and state management
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      setCameraReady(false);
+    };
+  }, []);
+
+  // Reset camera when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      let timeoutId: NodeJS.Timeout;
+      
+      // Reset states when screen gains focus
+      setIsLoading(false);
+      if (isMounted.current) {
+        timeoutId = setTimeout(() => {
+          if (isMounted.current && cameraRef.current) {
+            setCameraReady(false);
+            // Force camera to reinitialize
+            setCameraReady(true);
+          }
+        }, 300);
+      }
+
+      return () => {
+        if (timeoutId) clearTimeout(timeoutId);
+      };
+    }, [])
+  );
+
+  const handleCameraReady = () => {
+    if (isMounted.current) {
+      setCameraReady(true);
+      setIsLoading(false);
+    }
+  };
+
+  const takePicture = async () => {
+    if (!cameraRef.current || !cameraReady || isLoading) {
+      console.log('Camera not ready:', { ready: cameraReady, loading: isLoading });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.7,
+        base64: true,
+        skipProcessing: true,
+        exif: false,
+      });
+      
+      if (isMounted.current) {
+        navigation.navigate('ScannedFoodDetails', {
+          imageUri: photo.uri,
+          imageBase64: photo.base64,
+        });
+      }
+    } catch (error) {
+      console.error('Error taking picture:', error);
+      if (isMounted.current) {
+        Alert.alert('Error', 'Failed to capture image. Please try again.');
+      }
+    } finally {
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const handleCapture = () => {
+    if (!isLoading && !isTakingPicture) {
+      takePicture();
+    }
+  };
 
   if (!permission) {
     return (
@@ -37,7 +176,7 @@ const FoodScannerScreen = () => {
           </Text>
           <TouchableOpacity 
             style={styles.permissionButton}
-            onPress={requestPermission}
+            onPress={handlePermissionRequest}
           >
             <Text style={styles.permissionButtonText}>Grant Permission</Text>
           </TouchableOpacity>
@@ -45,31 +184,6 @@ const FoodScannerScreen = () => {
       </SafeAreaView>
     );
   }
-
-  const handleCameraReady = () => {
-    setCameraReady(true);
-  };
-
-  const takePicture = async () => {
-    if (!cameraRef.current || !cameraReady) return;
-    
-    try {
-      setIsLoading(true);
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.7,
-        base64: true,
-      });
-      
-      navigation.navigate('ScannedFoodDetails', {
-        imageUri: photo.uri,
-        imageBase64: photo.base64,
-      });
-    } catch (error) {
-      console.error('Error taking picture:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -81,15 +195,25 @@ const FoodScannerScreen = () => {
         facing={facing}
         enableZoomGesture
         flashMode={flash}
+        active={true}
+        onMountError={(error) => {
+          console.error('Camera mount error:', error);
+          if (isMounted.current) {
+            setCameraReady(false);
+            setIsLoading(false);
+          }
+        }}
       >
-        {/* Close Button */}
-        <SafeAreaView>
+        {/* Header with Title */}
+        <SafeAreaView style={styles.header}>
           <TouchableOpacity 
             style={styles.closeButton}
             onPress={() => navigation.goBack()}
           >
             <Ionicons name="close" size={24} color="white" />
           </TouchableOpacity>
+          <Text style={styles.headerTitle}>Scan Food</Text>
+          <View style={styles.headerRight} />
         </SafeAreaView>
 
         {/* Scan Frame */}
@@ -100,46 +224,31 @@ const FoodScannerScreen = () => {
             <View style={[styles.corner, styles.cornerBL]} />
             <View style={[styles.corner, styles.cornerBR]} />
           </View>
+          <Text style={styles.instructionText}>Position your food in the frame</Text>
         </View>
 
-        {/* Bottom Controls */}
-        <SafeAreaView style={styles.bottomSection}>
-          <BlurView intensity={30} tint="dark" style={styles.instructionBar}>
-            <Text style={styles.scanText}>Position your food in the frame</Text>
-          </BlurView>
-
-          <View style={styles.controlsRow}>
-            <TouchableOpacity 
-              style={styles.iconButton}
-              onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')}
-            >
-              <Ionicons name="camera-reverse-outline" size={24} color="white" />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.captureButton}
-              onPress={takePicture}
-              disabled={!cameraReady || isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <View style={styles.captureButtonInner} />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.iconButton}
-              onPress={() => setFlash(f => f === 'off' ? 'on' : 'off')}
-            >
-              <Ionicons 
-                name={flash === 'on' ? 'flash' : 'flash-off-outline'} 
-                size={24} 
-                color="white" 
-              />
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
+        {/* New Camera Controls */}
+        <View style={styles.controlsContainer}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleCapture}
+            disabled={!cameraReady || isLoading}
+            style={[
+              styles.newCaptureButton,
+              (!cameraReady || isLoading) && styles.captureButtonDisabled
+            ]}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#007AFF" size="large" />
+            ) : (
+              <View style={styles.captureButtonContent}>
+                <View style={styles.captureButtonOuter}>
+                  <View style={styles.captureButtonInner} />
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </CameraView>
     </View>
   );
@@ -153,110 +262,141 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
   },
+  header: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    zIndex: 1,
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  headerRight: {
+    width: 40,
+  },
   closeButton: {
-    margin: 20,
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   scanAreaContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    position: 'absolute',
+    top: '25%',
+    left: 0,
+    right: 0,
     alignItems: 'center',
   },
   scanArea: {
     width: SCAN_AREA_SIZE,
     height: SCAN_AREA_SIZE,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  instructionText: {
+    color: 'white',
+    fontSize: 16,
+    marginTop: 20,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  controlsContainer: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? '20%' : '15%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  newCaptureButton: {
+    width: 88,
+    height: 88,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 4,
+    // Improved touch feedback
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  captureButtonContent: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  captureButtonOuter: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: 'white',
+  },
+  captureButtonInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'white',
+  },
+  captureButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: 'rgba(200, 200, 200, 0.3)',
   },
   corner: {
     position: 'absolute',
     width: 20,
     height: 20,
     borderColor: '#007AFF',
-    borderWidth: 2,
+    borderWidth: 3,
   },
   cornerTL: {
-    top: -1,
-    left: -1,
-    borderBottomWidth: 0,
+    top: 0,
+    left: 0,
     borderRightWidth: 0,
+    borderBottomWidth: 0,
     borderTopLeftRadius: 12,
   },
   cornerTR: {
-    top: -1,
-    right: -1,
-    borderBottomWidth: 0,
+    top: 0,
+    right: 0,
     borderLeftWidth: 0,
+    borderBottomWidth: 0,
     borderTopRightRadius: 12,
   },
   cornerBL: {
-    bottom: -1,
-    left: -1,
-    borderTopWidth: 0,
+    bottom: 0,
+    left: 0,
     borderRightWidth: 0,
+    borderTopWidth: 0,
     borderBottomLeftRadius: 12,
   },
   cornerBR: {
-    bottom: -1,
-    right: -1,
-    borderTopWidth: 0,
+    bottom: 0,
+    right: 0,
     borderLeftWidth: 0,
+    borderTopWidth: 0,
     borderBottomRightRadius: 12,
-  },
-  bottomSection: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  instructionBar: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 30,
-  },
-  scanText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '80%',
-    marginBottom: 30,
-  },
-  iconButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 23,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  captureButton: {
-    width: 65,
-    height: 65,
-    borderRadius: 32.5,
-    backgroundColor: '#007AFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: 'white',
-  },
-  captureButtonInner: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#007AFF',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.5)',
   },
   permissionContainer: {
     flex: 1,

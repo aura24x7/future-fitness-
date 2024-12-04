@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
-import EvaPlaceholder from '../../components/EvaPlaceholder';
 
 type DietaryPreference = 'NONE' | 'VEGETARIAN' | 'VEGAN' | 'KETO' | 'PALEO';
 
@@ -51,10 +50,10 @@ const DietaryPreferenceScreen = ({ navigation }) => {
   const [selectedPreference, setSelectedPreference] = useState<DietaryPreference | null>(null);
   const { updateOnboardingData } = useOnboarding();
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selectedPreference) {
-      updateOnboardingData({ dietaryPreference: selectedPreference });
-      navigation.navigate('WorkoutPreference');
+      await updateOnboardingData({ dietaryPreference: selectedPreference });
+      navigation.navigate('WeightGoal');
     }
   };
 
@@ -67,7 +66,6 @@ const DietaryPreferenceScreen = ({ navigation }) => {
       >
         <View style={styles.content}>
           <View style={styles.header}>
-            <EvaPlaceholder size={120} />
             <Text style={styles.title}>Any dietary preferences?</Text>
             <Text style={styles.subtitle}>
               I'll customize your meal plans accordingly

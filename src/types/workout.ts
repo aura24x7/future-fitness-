@@ -30,6 +30,21 @@ export interface DurationExercise extends BaseExercise {
 // Combined Exercise Type
 export type Exercise = RepetitionExercise | DurationExercise;
 
+// Workout Interface
+export interface Workout {
+  id: string;
+  name: string;
+  type: 'strength' | 'cardio' | 'Gemini';
+  exercises: Exercise[];
+  timestamp: number;
+  date: string;
+  duration: number;
+  calories: number;
+  completed: boolean;
+  completedExercises: number;
+  totalExercises: number;
+}
+
 // Workout Log Interface
 export interface WorkoutLog {
   id: string;

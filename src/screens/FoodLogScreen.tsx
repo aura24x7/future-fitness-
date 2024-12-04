@@ -24,6 +24,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { LinearGradient } from 'expo-linear-gradient';
 import { format, isToday } from 'date-fns';
+import { useMeals } from '../contexts/MealContext';
 
 const STORAGE_KEY = '@meal_plan';
 const MEALS_STORAGE_KEY = '@meals';
@@ -59,19 +60,10 @@ const getDaysDifference = (currentDay: string, targetDay: string): number => {
 type Props = NativeStackScreenProps<RootStackParamList, 'FoodLog'>;
 
 const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
-  // State management
-  const [meals, setMeals] = useState<{ [key: string]: MealDetails[] }>({
-    breakfast: [],
-    lunch: [],
-    dinner: [],
-    snacks: []
-  });
-  const [totalCalories, setTotalCalories] = useState(0);
-  const [totalMacros, setTotalMacros] = useState({ proteins: 0, carbs: 0, fats: 0 });
+  const { meals, updateMeals, totalCalories, totalMacros, selectedDate, setSelectedDate } = useMeals();
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [weeklyMealPlan, setWeeklyMealPlan] = useState<WeeklyMealPlan | null>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(getDayOfWeek(new Date()));
 
   // Update selected day when date changes
@@ -107,12 +99,8 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
           plan => plan.dayOfWeek === selectedDay
         );
         
-        console.log('Loading meals for day:', selectedDay);
-        console.log('Found day plan:', dayPlan?.dayOfWeek);
-        
         if (dayPlan) {
-          setMeals(dayPlan.meals);
-          updateTotals(dayPlan.meals);
+          updateMeals(dayPlan.meals);
           return;
         }
       }
@@ -123,17 +111,10 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
       
       if (savedMealsString) {
         const savedMeals = JSON.parse(savedMealsString);
-        setMeals(savedMeals);
-        updateTotals(savedMeals);
+        updateMeals(savedMeals);
       } else {
         // Reset meals if nothing found
-        setMeals({
-          breakfast: [],
-          lunch: [],
-          dinner: [],
-          snacks: []
-        });
-        updateTotals({
+        updateMeals({
           breakfast: [],
           lunch: [],
           dinner: [],
@@ -146,42 +127,6 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const saveMeals = async (mealsToSave: { [key: string]: MealDetails[] }) => {
-    try {
-      const storageKey = getStorageKeyForDate(selectedDate);
-      await AsyncStorage.setItem(storageKey, JSON.stringify(mealsToSave));
-    } catch (error) {
-      console.error('Error saving meals:', error);
-      Alert.alert('Error', 'Failed to save meals');
-    }
-  };
-
-  const updateTotals = (currentMeals: { [key: string]: MealDetails[] }) => {
-    let totalCalories = 0;
-    let totalProtein = 0;
-    let totalCarbs = 0;
-    let totalFat = 0;
-
-    // Only count completed meals
-    Object.values(currentMeals).forEach(mealArray => {
-      mealArray.forEach(meal => {
-        if (meal.completed) {
-          totalCalories += meal.calories || 0;
-          totalProtein += meal.protein || 0;
-          totalCarbs += meal.carbs || 0;
-          totalFat += meal.fat || 0;
-        }
-      });
-    });
-
-    setTotalCalories(totalCalories);
-    setTotalMacros({
-      proteins: totalProtein,
-      carbs: totalCarbs,
-      fats: totalFat
-    });
   };
 
   const handleCustomMealSave = async (newMeal: MealDetails) => {
@@ -205,12 +150,9 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
       };
 
       updatedMeals[mealTypeKey] = [...updatedMeals[mealTypeKey], mealWithId];
-      console.log('Updated meals structure:', updatedMeals);
-
-      // Update state and storage
-      setMeals(updatedMeals);
-      await saveMeals(updatedMeals);
-      updateTotals(updatedMeals);
+      
+      // Update meals through context
+      updateMeals(updatedMeals);
 
       // Navigate back to the food log screen
       navigation.goBack();
@@ -233,8 +175,7 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
           p => p.dayOfWeek === selectedDay
         );
         if (dayPlan) {
-          setMeals(dayPlan.meals);
-          updateTotals(dayPlan.meals);
+          updateMeals(dayPlan.meals);
         }
       }
     } catch (error) {
@@ -290,8 +231,7 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
         p => p.dayOfWeek === selectedDay
       );
       if (currentDayPlan) {
-        setMeals(currentDayPlan.meals);
-        updateTotals(currentDayPlan.meals);
+        updateMeals(currentDayPlan.meals);
       }
 
       // Save the updated plan
@@ -376,8 +316,7 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
       console.log('Found day plan:', currentDayPlan?.dayOfWeek);
 
       if (currentDayPlan) {
-        setMeals(currentDayPlan.meals);
-        updateTotals(currentDayPlan.meals);
+        updateMeals(currentDayPlan.meals);
       } else {
         console.warn('No plan found for current day:', currentDayOfWeek);
       }
@@ -412,23 +351,10 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
           onPress: async () => {
             try {
               await mealService.deleteMeal(meal.id);
-              setMeals(currentMeals => ({
+              updateMeals(currentMeals => ({
                 ...currentMeals,
                 [meal.mealType]: currentMeals[meal.mealType].filter(m => m.id !== meal.id)
               }));
-              // Recalculate totals
-              const remainingMeals = meals[meal.mealType].filter(m => m.id !== meal.id);
-              const calories = remainingMeals.reduce((sum, m) => sum + m.calories, 0);
-              const macros = remainingMeals.reduce(
-                (acc, m) => ({
-                  proteins: acc.proteins + m.protein,
-                  carbs: acc.carbs + m.carbs,
-                  fats: acc.fats + m.fat,
-                }),
-                { proteins: 0, carbs: 0, fats: 0 }
-              );
-              setTotalCalories(calories);
-              setTotalMacros(macros);
             } catch (error) {
               console.error('Error deleting meal:', error);
               Alert.alert('Error', 'Failed to delete meal. Please try again.');
@@ -552,9 +478,16 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
               <>
                 <View style={styles.divider} />
                 <Text style={styles.ingredientsLabel}>Ingredients</Text>
-                <Text style={styles.ingredients}>
-                  {meal.ingredients.join(', ')}
-                </Text>
+                <View style={styles.ingredientsList}>
+                  {meal.ingredients.map((ingredient, index) => (
+                    <View key={index} style={styles.ingredientItem}>
+                      <Ionicons name="restaurant-outline" size={14} color="#666" />
+                      <Text style={styles.ingredientText}>
+                        {`${ingredient.amount} ${ingredient.unit} ${ingredient.item}`}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               </>
             )}
           </View>
@@ -575,17 +508,10 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
         plan => plan.dayOfWeek === selectedDay
       );
       if (dayPlan) {
-        setMeals(dayPlan.meals);
-        updateTotals(dayPlan.meals);
+        updateMeals(dayPlan.meals);
       } else {
         // Reset meals if no plan found for the day
-        setMeals({
-          breakfast: [],
-          lunch: [],
-          dinner: [],
-          snacks: []
-        });
-        updateTotals({
+        updateMeals({
           breakfast: [],
           lunch: [],
           dinner: [],
@@ -874,10 +800,19 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     marginBottom: 4,
   },
-  ingredients: {
-    fontSize: 13,
-    color: '#86868B',
-    lineHeight: 18,
+  ingredientsList: {
+    marginTop: 8,
+  },
+  ingredientItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 2,
+    paddingHorizontal: 4,
+  },
+  ingredientText: {
+    marginLeft: 8,
+    color: '#4A5568',
+    fontSize: 14,
   },
   buttonContainer: {
     padding: 16,

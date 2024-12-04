@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ScrollView } from 'react-native';
-import { Stack, XStack, YStack, Text, View, Tabs } from 'tamagui';
+import { ScrollView, Alert } from 'react-native';
+import { Stack, XStack, YStack, Text, View, Tabs, Card } from 'tamagui';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useScrollToTabBar } from '../hooks/useScrollToTabBar';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,92 +39,108 @@ const ProgressScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState("weight");
   const { scrollViewRef, handleScroll } = useScrollToTabBar();
 
+  const handleTabChange = (value: string) => {
+    if (value === 'workouts' || value === 'activity') {
+      Alert.alert(
+        'Coming Soon!',
+        `${value.charAt(0).toUpperCase() + value.slice(1)} tracking feature will be available in the next update.`,
+        [{ text: 'OK', onPress: () => {} }]
+      );
+      return;
+    }
+    setActiveTab(value);
+  };
+
   return (
     <YStack flex={1} backgroundColor="$background">
       <ScrollView
         ref={scrollViewRef}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ flexGrow: 1 }}
       >
-        <YStack space="$4">
-          <YStack>
-            <LinearGradient
-              colors={['#6366f1', '#818cf8']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                padding: 20,
-                borderBottomLeftRadius: 20,
-                borderBottomRightRadius: 20,
-              }}
-            >
-              <Text color="white" fontSize="$8" fontWeight="bold">
-                Progress
-              </Text>
-              <Text color="white" fontSize="$4" opacity={0.9}>
-                Track your fitness journey
-              </Text>
-            </LinearGradient>
-          </YStack>
+        <YStack space="$2">
+          <LinearGradient
+            colors={['#6366f1', '#818cf8']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              padding: 16,
+              borderBottomLeftRadius: 16,
+              borderBottomRightRadius: 16,
+            }}
+          >
+            <Text color="white" fontSize="$7" fontWeight="bold" marginBottom="$1">
+              Progress
+            </Text>
+            <Text color="white" fontSize="$4" opacity={0.9}>
+              Track your fitness journey
+            </Text>
+          </LinearGradient>
 
-          <YStack space="$4" padding="$4">
+          <YStack space="$2" padding="$2">
             <StatCardsContainer />
 
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              flexDirection="column"
-              width="100%"
-              height="auto"
-              borderRadius="$4"
-              backgroundColor="$background"
+            <Card 
+              backgroundColor="$background" 
+              borderRadius="$4" 
               borderColor="$borderColor"
+              marginTop="$2"
             >
-              <Tabs.List space="$4">
-                <Tabs.Tab flex={1} value="weight">
-                  <XStack space="$2" alignItems="center">
-                    <Ionicons name="scale-outline" size={20} />
-                    <Text>Weight</Text>
-                  </XStack>
-                </Tabs.Tab>
-                <Tabs.Tab flex={1} value="workouts">
-                  <XStack space="$2" alignItems="center">
-                    <Ionicons name="fitness-outline" size={20} />
-                    <Text>Workouts</Text>
-                  </XStack>
-                </Tabs.Tab>
-                <Tabs.Tab flex={1} value="activity">
-                  <XStack space="$2" alignItems="center">
-                    <Ionicons name="bar-chart-outline" size={20} />
-                    <Text>Activity</Text>
-                  </XStack>
-                </Tabs.Tab>
-              </Tabs.List>
+              <Tabs
+                value={activeTab}
+                onValueChange={handleTabChange}
+                flexDirection="column"
+                width="100%"
+                height="auto"
+              >
+                <Tabs.List space="$2" padding="$2">
+                  <Tabs.Tab flex={1} value="weight">
+                    <XStack space="$2" alignItems="center">
+                      <Ionicons name="scale-outline" size={18} />
+                      <Text>Weight</Text>
+                    </XStack>
+                  </Tabs.Tab>
+                  <Tabs.Tab flex={1} value="workouts">
+                    <XStack space="$2" alignItems="center" opacity={0.5}>
+                      <Ionicons name="fitness-outline" size={18} />
+                      <Text>Workouts</Text>
+                      <Ionicons name="lock-closed" size={14} color="#6B7280" />
+                    </XStack>
+                  </Tabs.Tab>
+                  <Tabs.Tab flex={1} value="activity">
+                    <XStack space="$2" alignItems="center" opacity={0.5}>
+                      <Ionicons name="bar-chart-outline" size={18} />
+                      <Text>Activity</Text>
+                      <Ionicons name="lock-closed" size={14} color="#6B7280" />
+                    </XStack>
+                  </Tabs.Tab>
+                </Tabs.List>
 
-              <YStack paddingVertical="$4" space="$4">
-                <Tabs.Content value="weight">
-                  <YStack space="$4">
-                    <Text fontSize="$6" fontWeight="bold">Weight Progress</Text>
-                    <WeightChart data={weightData} />
-                  </YStack>
-                </Tabs.Content>
+                <YStack padding="$3" space="$3">
+                  <Tabs.Content value="weight">
+                    <YStack space="$3">
+                      <Text fontSize="$5" fontWeight="bold">Weight Progress</Text>
+                      <WeightChart data={weightData} />
+                    </YStack>
+                  </Tabs.Content>
 
-                <Tabs.Content value="workouts">
-                  <YStack space="$4">
-                    <Text fontSize="$6" fontWeight="bold">Workout Distribution</Text>
-                    <WorkoutPieChart data={workoutData} />
-                  </YStack>
-                </Tabs.Content>
+                  <Tabs.Content value="workouts">
+                    <YStack space="$3">
+                      <Text fontSize="$5" fontWeight="bold">Workout Distribution</Text>
+                      <WorkoutPieChart data={workoutData} />
+                    </YStack>
+                  </Tabs.Content>
 
-                <Tabs.Content value="activity">
-                  <YStack space="$4">
-                    <Text fontSize="$6" fontWeight="bold">Weekly Activity</Text>
-                    <ActivityBarChart data={weeklyActivityData} />
-                  </YStack>
-                </Tabs.Content>
-              </YStack>
-            </Tabs>
+                  <Tabs.Content value="activity">
+                    <YStack space="$3">
+                      <Text fontSize="$5" fontWeight="bold">Weekly Activity</Text>
+                      <ActivityBarChart data={weeklyActivityData} />
+                    </YStack>
+                  </Tabs.Content>
+                </YStack>
+              </Tabs>
+            </Card>
           </YStack>
         </YStack>
       </ScrollView>

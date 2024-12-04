@@ -9,11 +9,11 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useApp } from '../context/AppContext';
+import { useWorkoutTracking } from '../hooks/useWorkoutTracking';
 
 const CreateWorkoutScreen = ({ navigation, route }) => {
   const { type } = route.params;
-  const { addWorkout } = useApp();
+  const { addWorkout } = useWorkoutTracking();
   const [workoutName, setWorkoutName] = useState('');
   const [exercises, setExercises] = useState([
     {

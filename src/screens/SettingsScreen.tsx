@@ -11,17 +11,30 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { useAuth } from '../context/AuthContext';
+import { useOnboarding } from '../context/OnboardingContext';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export const SettingsScreen = () => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const { signOut } = useAuth();
+  const { resetOnboarding } = useOnboarding();
+  const navigation = useNavigation();
 
   const handleSignOut = async () => {
     try {
       await signOut();
     } catch (error) {
       Alert.alert('Error', 'Failed to sign out');
+    }
+  };
+
+  const handleResetOnboarding = async () => {
+    try {
+      await resetOnboarding();
+      navigation.navigate('Welcome');
+    } catch (error) {
+      console.error('Error resetting onboarding:', error);
     }
   };
 
@@ -108,6 +121,22 @@ export const SettingsScreen = () => {
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.colors.secondaryText }]}>
+            Profile
+          </Text>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={handleResetOnboarding}
+          >
+            <View style={styles.menuItemContent}>
+              <Ionicons name="refresh-outline" size={24} color={theme.colors.primary} />
+              <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Reset Onboarding</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.secondaryText }]}>
             Support
           </Text>
           <SettingItem
@@ -162,6 +191,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   settingItemText: {
+    fontSize: 16,
+    marginLeft: 12,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  menuItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuItemText: {
     fontSize: 16,
     marginLeft: 12,
   },

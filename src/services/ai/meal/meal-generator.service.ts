@@ -1,6 +1,8 @@
 import { GeminiService } from '../core/gemini.service';
 import { MealPlanPreferences, WeeklyMealPlan } from './types';
 import { MealValidator } from './meal-validator.service';
+import { userProfileService } from '../../userProfileService';
+import { OnboardingData } from '../../../context/OnboardingContext';
 
 export class MealGeneratorService {
     private geminiService: GeminiService;
@@ -11,60 +13,127 @@ export class MealGeneratorService {
         this.validator = new MealValidator();
     }
 
-    private generateMealPlanPrompt(preferences: MealPlanPreferences, dayOfWeek: string): string {
-        return `You are a specialized meal plan generator. Generate a meal plan for ${dayOfWeek} following these rules EXACTLY.
+    private generateMealPlanPrompt(preferences: MealPlanPreferences, profile: OnboardingData, dayOfWeek: string): string {
+        const activityMultipliers = {
+            SEDENTARY: 1.2,
+            LIGHTLY_ACTIVE: 1.375,
+            MODERATELY_ACTIVE: 1.55,
+            VERY_ACTIVE: 1.725,
+            SUPER_ACTIVE: 1.9
+        };
 
-PREFERENCES:
-- Daily calories: ${preferences.calorieGoal || 2000} calories
+        const goalMultipliers = {
+            LOSE_WEIGHT: 0.8,
+            MAINTAIN_WEIGHT: 1.0,
+            GAIN_WEIGHT: 1.1
+        };
+
+        // Calculate adjusted calories based on BMR, activity level, and goal
+        const bmr = profile.metrics?.bmr || preferences.calorieGoal || 2000;
+        const activityMultiplier = profile.lifestyle ? activityMultipliers[profile.lifestyle] : 1.2;
+        const goalMultiplier = profile.weightGoal ? goalMultipliers[profile.weightGoal] : 1.0;
+        const adjustedCalories = Math.round(bmr * activityMultiplier * goalMultiplier);
+
+        return `You are a specialized meal plan generator with expertise in regional cuisines and personalized nutrition. Generate a meal plan for ${dayOfWeek} following these rules EXACTLY.
+
+USER PROFILE:
+- Location: ${profile.country || 'Not specified'}, ${profile.state || ''}
+- Diet Type: ${profile.dietaryPreference || 'No specific preference'}
+- Lifestyle: ${profile.lifestyle || 'Regular'}
+- Weight Goal: ${profile.weightGoal || 'Maintain'}
+
+NUTRITIONAL REQUIREMENTS:
+- Daily BMR: ${bmr} calories
+- Adjusted Daily Calories: ${adjustedCalories} calories (based on activity level and goal)
 - Meals per day: ${preferences.mealCount || 3}
-- Restrictions: ${preferences.dietaryRestrictions?.join(', ') || 'None'}
+- Dietary Restrictions: ${preferences.dietaryRestrictions?.join(', ') || 'None'}
 - Allergies: ${preferences.allergies?.join(', ') || 'None'}
-- Cuisines: ${preferences.cuisinePreferences?.join(', ') || 'Any'}
+- Preferred Cuisines: ${preferences.cuisinePreferences?.join(', ') || 'Regional cuisine based on location'}
 
-SPECIAL INSTRUCTIONS:
-1. Create DIFFERENT meals than other days of the week
-2. For ${dayOfWeek}, consider:
-   - Weekend days (Sat/Sun): More elaborate breakfast, brunch-style options
-   - Weekdays: Quick, easy-to-prepare meals
-   - Make meals appropriate for the day (e.g., lighter lunches on workdays)
+RESPONSE FORMAT:
+For each meal, provide ingredients in this EXACT format:
+{
+  "ingredients": [
+    {
+      "item": "ingredient name",
+      "amount": number,
+      "unit": "g/ml/cups/tbsp/tsp/pieces"
+    }
+  ]
+}
+
+Example ingredient:
+{
+  "ingredients": [
+    { "item": "chicken breast", "amount": 200, "unit": "g" },
+    { "item": "olive oil", "amount": 2, "unit": "tbsp" },
+    { "item": "brown rice", "amount": 1, "unit": "cup" }
+  ]
+}
+
+IMPORTANT:
+- All ingredients MUST have specific quantities
+- Use common household measurements (cups, tablespoons, teaspoons) or metric units (g, ml)
+- Be precise with measurements
+- Include all ingredients needed for the recipe
+
+PERSONALIZATION INSTRUCTIONS:
+1. Create meals that are culturally relevant to the user's location
+2. Use local names for dishes where appropriate
+3. Consider regional ingredients and cooking methods
+4. Adapt portion sizes to meet the exact calorie requirements
+5. Account for activity level in meal timing and composition
+6. For ${dayOfWeek}, consider:
+   - Weekend days: More elaborate, traditional meals
+   - Weekdays: Quick, practical versions of local favorites
+   - Meal timing based on typical regional eating patterns
 
 RESPONSE MUST BE A VALID JSON OBJECT WITH THIS EXACT STRUCTURE:
 {
   "dayOfWeek": "${dayOfWeek}",
-  "totalCalories": 2000,
-  "totalProtein": 150,
-  "totalCarbs": 200,
-  "totalFat": 65,
+  "totalCalories": ${adjustedCalories},
+  "totalProtein": 0,
+  "totalCarbs": 0,
+  "totalFat": 0,
   "meals": {
     "breakfast": [
       {
-        "name": "Unique Breakfast Name",
-        "calories": 350,
-        "protein": 12,
-        "carbs": 45,
-        "fat": 8,
-        "ingredients": ["ingredient1", "ingredient2"],
+        "name": "Local Breakfast Name (English Name)",
+        "description": "Brief cultural context or significance",
+        "calories": 0,
+        "protein": 0,
+        "carbs": 0,
+        "fat": 0,
+        "ingredients": [
+          {
+            "item": "ingredient name",
+            "amount": 0,
+            "unit": "g/ml/pieces"
+          }
+        ],
         "instructions": "1. Step one...",
         "servings": 1,
-        "prepTime": 10
+        "prepTime": 0,
+        "tips": "Optional cultural or preparation tips"
       }
     ],
-    "lunch": [Array of UNIQUE meal objects],
-    "dinner": [Array of UNIQUE meal objects],
-    "snacks": [Array of UNIQUE meal objects]
+    "lunch": [Array of meal objects],
+    "dinner": [Array of meal objects],
+    "snacks": [Array of meal objects]
   }
 }
 
 STRICT RULES:
 1. Response must be PURE JSON
-2. NO markdown, comments or explanations
+2. NO markdown or comments
 3. ALL numeric values must be numbers (not strings)
 4. NO trailing commas
 5. Arrays must be properly terminated
 6. All fields shown are REQUIRED
-7. Calories and macros must be realistic
-8. Each meal must be UNIQUE to this day
-9. Names must be descriptive and specific
+7. Calories and macros must sum exactly to daily total
+8. Each meal must be unique and culturally appropriate
+9. Use local language names with English translations
+10. Quantities must be precise and realistic
 
 Generate the meal plan now:`;
     }
@@ -74,15 +143,21 @@ Generate the meal plan now:`;
         const weeklyPlan: WeeklyMealPlan = { weeklyPlan: [] };
 
         try {
-            console.log('Starting weekly meal plan generation...');
+            console.log('Starting personalized weekly meal plan generation...');
             
+            // Get user profile for personalization
+            const profile = await userProfileService.getProfile();
+            if (!profile) {
+                throw new Error('User profile not found');
+            }
+
             // Generate a unique plan for each day
             for (const day of daysOfWeek) {
-                console.log(`Generating unique meal plan for ${day}...`);
-                const prompt = this.generateMealPlanPrompt(preferences, day);
+                console.log(`Generating culturally-tailored meal plan for ${day}...`);
+                const prompt = this.generateMealPlanPrompt(preferences, profile, day);
                 
                 const result = await this.geminiService.generateStructuredResponse(prompt);
-                console.log(`Received response for ${day}`);
+                console.log(`Received personalized response for ${day}`);
                 
                 if (!result || !result.meals) {
                     throw new Error(`Invalid meal plan structure for ${day}`);
@@ -95,16 +170,16 @@ Generate the meal plan now:`;
                 });
 
                 weeklyPlan.weeklyPlan.push(validatedDayPlan);
-                console.log(`Successfully added unique plan for ${day}`);
+                console.log(`Successfully added personalized plan for ${day}`);
                 
                 // Add a delay between requests to avoid rate limiting
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
-            console.log('Weekly meal plan generation completed with unique meals for each day');
+            console.log('Personalized weekly meal plan generation completed');
             return weeklyPlan;
         } catch (error) {
-            console.error('Error generating weekly meal plan:', error);
+            console.error('Error generating personalized weekly meal plan:', error);
             throw error;
         }
     }

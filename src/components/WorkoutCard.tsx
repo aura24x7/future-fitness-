@@ -7,8 +7,10 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Workout, Exercise } from '../context/AppContext';
+import { Exercise } from '../types/workout';
+import { Workout } from '../types/workout';
 import Checkbox from './Checkbox';
+import { DirectShareButton } from './sharing/DirectShareButton';
 
 interface WorkoutCardProps {
   workout: Workout;
@@ -16,6 +18,8 @@ interface WorkoutCardProps {
   onEdit: () => void;
   onExerciseToggle?: (exerciseId: string, completed: boolean) => void;
   showCheckboxes?: boolean;
+  currentUserId: string;
+  currentUserName: string;
 }
 
 const WorkoutCard: React.FC<WorkoutCardProps> = ({ 
@@ -23,7 +27,9 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
   onPress,
   onEdit, 
   onExerciseToggle,
-  showCheckboxes = false 
+  showCheckboxes = false,
+  currentUserId,
+  currentUserName
 }) => {
   const completedExercises = workout.exercises.filter(e => e.completed).length;
   const totalExercises = workout.exercises.length;
@@ -91,6 +97,15 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
           {new Date(workout.date).toLocaleDateString()}
         </Text>
         <Ionicons name="chevron-forward" size={20} color="#666" />
+      </View>
+
+      <View style={styles.actionButtons}>
+        <DirectShareButton
+          workout={workout}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          style={styles.actionButton}
+        />
       </View>
 
       <View style={styles.progressBar}>
@@ -196,6 +211,15 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 14,
     color: '#666',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  actionButton: {
+    padding: 10,
   },
   progressBar: {
     height: 4,

@@ -1,17 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateUUID } from '../utils/uuid';
+import { WeeklyWorkoutPlan } from '../types/workout';
+import { ShareWorkoutPayload, WorkoutShare, ShareRecipient } from '../types/sharing';
 
 const SHARED_WORKOUTS_KEY = '@shared_workouts';
+const SHARING_ACTIVITIES_KEY = '@sharing_activities';
 
-export interface SharedWorkout {
+interface SharedWorkout {
   id: string;
-  senderId: string;
-  senderName: string;
-  recipientId: string;
-  workoutPlan: any[]; // We'll type this properly once we have the workout plan type
-  status: 'pending' | 'accepted' | 'rejected';
-  sharedAt: Date;
+  workoutPlan: WeeklyWorkoutPlan;
+  sharedBy: {
+    id: string;
+    name: string;
+  };
+  recipients: ShareRecipient[];
   message?: string;
+  sharedAt: Date;
+  status: 'pending' | 'completed' | 'failed';
 }
 
 class WorkoutSharingService {
@@ -27,37 +32,77 @@ class WorkoutSharingService {
   }
 
   /**
-   * Share a workout plan with another user
+   * Share a workout plan with multiple recipients (individuals and groups)
    */
   async shareWorkout(
-    workoutPlan: any[],
-    recipientId: string,
-    senderName: string,
-    message?: string
-  ): Promise<SharedWorkout> {
+    payload: ShareWorkoutPayload
+  ): Promise<WorkoutShare> {
     try {
-      console.log('Sharing workout:', { recipientId, senderName, workoutPlan });
+      console.log('Sharing workout:', payload);
       const sharedWorkouts = await this.getSharedWorkouts();
       
+      // Create recipients list combining individuals and groups
+      const recipients: ShareRecipient[] = [
+        ...payload.recipients.individuals.map(id => ({
+          id,
+          type: 'individual' as const,
+          status: 'pending',
+        })),
+        ...payload.recipients.groups.map(id => ({
+          id,
+          type: 'group' as const,
+          status: 'pending',
+        })),
+      ];
+
       const newShare: SharedWorkout = {
         id: generateUUID(),
-        senderId: 'current-user', // TODO: Replace with actual user ID
-        senderName,
-        recipientId,
-        workoutPlan,
-        status: 'pending',
+        workoutPlan: payload.workoutPlan,
+        sharedBy: {
+          id: payload.sharedBy.id,
+          name: payload.sharedBy.name,
+        },
+        recipients,
+        message: payload.message,
         sharedAt: new Date(),
-        message,
+        status: 'pending',
       };
 
-      console.log('Created new share:', newShare);
+      // Store the share
       await AsyncStorage.setItem(
         SHARED_WORKOUTS_KEY,
         JSON.stringify([...sharedWorkouts, newShare])
       );
-      console.log('Successfully stored shared workout');
 
-      return newShare;
+      // Create sharing activities for each recipient
+      const activities = recipients.map(recipient => ({
+        id: generateUUID(),
+        workoutId: newShare.id,
+        recipientId: recipient.id,
+        recipientType: recipient.type,
+        status: 'pending' as const,
+      }));
+
+      const existingActivities = await this.getSharingActivities();
+      await AsyncStorage.setItem(
+        SHARING_ACTIVITIES_KEY,
+        JSON.stringify([...existingActivities, ...activities])
+      );
+
+      console.log('Successfully shared workout with activities:', {
+        share: newShare,
+        activities,
+      });
+
+      return {
+        id: newShare.id,
+        workoutPlan: newShare.workoutPlan,
+        sharedBy: payload.sharedBy,
+        recipients,
+        message: payload.message,
+        createdAt: newShare.sharedAt,
+        status: 'pending',
+      };
     } catch (error) {
       console.error('Error sharing workout:', error);
       throw new Error('Failed to share workout');
@@ -70,9 +115,7 @@ class WorkoutSharingService {
   async getSharedWorkouts(): Promise<SharedWorkout[]> {
     try {
       const data = await AsyncStorage.getItem(SHARED_WORKOUTS_KEY);
-      const workouts = data ? JSON.parse(data) : [];
-      console.log('Retrieved shared workouts:', workouts);
-      return workouts;
+      return data ? JSON.parse(data) : [];
     } catch (error) {
       console.error('Error getting shared workouts:', error);
       return [];
@@ -80,26 +123,88 @@ class WorkoutSharingService {
   }
 
   /**
-   * Get pending shared workouts received by the current user
+   * Get all sharing activities
    */
-  async getPendingReceivedWorkouts(userId: string): Promise<SharedWorkout[]> {
-    const sharedWorkouts = await this.getSharedWorkouts();
-    return sharedWorkouts.filter(
-      workout => workout.recipientId === userId && workout.status === 'pending'
-    );
+  private async getSharingActivities() {
+    try {
+      const data = await AsyncStorage.getItem(SHARING_ACTIVITIES_KEY);
+      return data ? JSON.parse(data) : [];
+    } catch (error) {
+      console.error('Error getting sharing activities:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get pending shared workouts for a recipient (individual or group)
+   */
+  async getPendingWorkouts(recipientId: string): Promise<WorkoutShare[]> {
+    try {
+      const activities = await this.getSharingActivities();
+      const pendingActivities = activities.filter(
+        activity => 
+          activity.recipientId === recipientId && 
+          activity.status === 'pending'
+      );
+
+      const sharedWorkouts = await this.getSharedWorkouts();
+      return pendingActivities.map(activity => {
+        const workout = sharedWorkouts.find(w => w.id === activity.workoutId);
+        if (!workout) return null;
+
+        return {
+          id: workout.id,
+          workoutPlan: workout.workoutPlan,
+          sharedBy: workout.sharedBy,
+          recipients: workout.recipients,
+          message: workout.message,
+          createdAt: workout.sharedAt,
+          status: workout.status,
+        };
+      }).filter(Boolean) as WorkoutShare[];
+    } catch (error) {
+      console.error('Error getting pending workouts:', error);
+      return [];
+    }
   }
 
   /**
    * Accept a shared workout
    */
-  async acceptSharedWorkout(shareId: string): Promise<void> {
+  async acceptWorkout(workoutId: string, recipientId: string): Promise<void> {
     try {
-      const sharedWorkouts = await this.getSharedWorkouts();
-      const updatedWorkouts = sharedWorkouts.map(workout => 
-        workout.id === shareId 
-          ? { ...workout, status: 'accepted' }
-          : workout
+      // Update sharing activity status
+      const activities = await this.getSharingActivities();
+      const updatedActivities = activities.map(activity =>
+        activity.workoutId === workoutId && activity.recipientId === recipientId
+          ? { ...activity, status: 'accepted', acceptedAt: new Date() }
+          : activity
       );
+
+      await AsyncStorage.setItem(
+        SHARING_ACTIVITIES_KEY,
+        JSON.stringify(updatedActivities)
+      );
+
+      // Update shared workout recipient status
+      const sharedWorkouts = await this.getSharedWorkouts();
+      const updatedWorkouts = sharedWorkouts.map(workout => {
+        if (workout.id !== workoutId) return workout;
+
+        const updatedRecipients = workout.recipients.map(recipient =>
+          recipient.id === recipientId
+            ? { ...recipient, status: 'accepted', acceptedAt: new Date() }
+            : recipient
+        );
+
+        return {
+          ...workout,
+          recipients: updatedRecipients,
+          status: updatedRecipients.every(r => r.status === 'accepted')
+            ? 'completed'
+            : workout.status,
+        };
+      });
 
       await AsyncStorage.setItem(
         SHARED_WORKOUTS_KEY,
@@ -108,106 +213,6 @@ class WorkoutSharingService {
     } catch (error) {
       console.error('Error accepting workout:', error);
       throw new Error('Failed to accept workout');
-    }
-  }
-
-  /**
-   * Reject a shared workout
-   */
-  async rejectSharedWorkout(shareId: string): Promise<void> {
-    try {
-      const sharedWorkouts = await this.getSharedWorkouts();
-      const updatedWorkouts = sharedWorkouts.map(workout => 
-        workout.id === shareId 
-          ? { ...workout, status: 'rejected' }
-          : workout
-      );
-
-      await AsyncStorage.setItem(
-        SHARED_WORKOUTS_KEY,
-        JSON.stringify(updatedWorkouts)
-      );
-    } catch (error) {
-      console.error('Error rejecting workout:', error);
-      throw new Error('Failed to reject workout');
-    }
-  }
-
-  // For testing - add mock shared workouts
-  async addMockSharedWorkouts() {
-    try {
-      const mockWorkouts: SharedWorkout[] = [
-        {
-          id: 'share1',
-          senderId: 'user2',
-          senderName: 'John Doe',
-          recipientId: 'current-user',
-          workoutPlan: [
-            {
-              name: 'Full Body Workout',
-              exercises: [
-                { name: 'Push-ups', sets: 3, reps: 12 },
-                { name: 'Squats', sets: 3, reps: 15 },
-                { name: 'Plank', sets: 3, duration: '30 seconds' }
-              ],
-              duration: '45 minutes',
-              difficulty: 'Intermediate'
-            }
-          ],
-          status: 'pending',
-          sharedAt: new Date(),
-          message: 'Hey! Try this workout I created.'
-        },
-        {
-          id: 'share2',
-          senderId: 'user3',
-          senderName: 'Jane Smith',
-          recipientId: 'current-user',
-          workoutPlan: [
-            {
-              name: 'HIIT Cardio',
-              exercises: [
-                { name: 'Jumping Jacks', sets: 4, duration: '30 seconds' },
-                { name: 'Mountain Climbers', sets: 4, duration: '30 seconds' },
-                { name: 'Burpees', sets: 4, reps: 10 }
-              ],
-              duration: '30 minutes',
-              difficulty: 'Advanced'
-            }
-          ],
-          status: 'pending',
-          sharedAt: new Date(),
-          message: 'This is a great cardio workout!'
-        },
-        {
-          id: 'share3',
-          senderId: 'current-user',
-          senderName: 'Current User',
-          recipientId: 'user4',
-          workoutPlan: [
-            {
-              name: 'Beginner Strength',
-              exercises: [
-                { name: 'Dumbbell Rows', sets: 3, reps: 10 },
-                { name: 'Lunges', sets: 3, reps: 12 },
-                { name: 'Wall Push-ups', sets: 3, reps: 8 }
-              ],
-              duration: '35 minutes',
-              difficulty: 'Beginner'
-            }
-          ],
-          status: 'accepted',
-          sharedAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-          message: 'Here\'s a beginner-friendly workout!'
-        }
-      ];
-
-      await AsyncStorage.setItem(SHARED_WORKOUTS_KEY, JSON.stringify(mockWorkouts));
-      console.log('Mock shared workouts added successfully');
-      return true;
-    } catch (error) {
-      console.error('Error adding mock shared workouts:', error);
-      return false;
     }
   }
 }

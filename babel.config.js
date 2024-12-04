@@ -3,6 +3,7 @@ module.exports = function(api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
+      // Tamagui configuration
       [
         'transform-inline-environment-variables',
         {
@@ -15,11 +16,10 @@ module.exports = function(api) {
           components: ['tamagui'],
           config: './tamagui.config.ts',
           logTimings: true,
+          disableExtraction: process.env.NODE_ENV === 'development',
         },
       ],
       'react-native-reanimated/plugin',
-      ['module:react-native-dotenv'],
-      '@babel/plugin-transform-export-namespace-from'
     ],
   };
 };

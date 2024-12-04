@@ -9,184 +9,248 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  Platform,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { groupService } from '../services/groupService';
+import { LinearGradient } from 'expo-linear-gradient';
 import { workoutSharingService } from '../services/workoutSharingService';
-import { GroupMember } from '../types/group';
-import { AIWorkoutPlan } from '../types/workout';
+import { groupService } from '../services/groupService';
+import { GroupMember, Group } from '../types/group';
 
 interface ShareWorkoutModalProps {
   visible: boolean;
   onClose: () => void;
-  workoutPlan: AIWorkoutPlan | null;
+  workout: any; // Using any temporarily for quick implementation
   currentUserId: string;
   currentUserName: string;
 }
 
+const { height } = Dimensions.get('window');
+
 export const ShareWorkoutModal: React.FC<ShareWorkoutModalProps> = ({
   visible,
   onClose,
-  workoutPlan,
+  workout,
   currentUserId,
   currentUserName,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'individuals' | 'groups'>('individuals');
   const [members, setMembers] = useState<GroupMember[]>([]);
-  const [selectedMember, setSelectedMember] = useState<GroupMember | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [selectedItems, setSelectedItems] = useState<{
+    individuals: string[];
+    groups: string[];
+  }>({
+    individuals: [],
+    groups: [],
+  });
 
   useEffect(() => {
     if (visible) {
-      loadGroupMembers();
+      loadData();
+    } else {
+      // Reset selections when modal closes
+      setSelectedItems({ individuals: [], groups: [] });
+      setSearchQuery('');
     }
   }, [visible]);
 
-  const loadGroupMembers = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      console.log('Loading group members for user:', currentUserId);
-      
-      // Get all groups the current user is in
-      const groups = await groupService.getUserGroups(currentUserId);
-      console.log('User groups:', groups);
-      
-      const allMembers: GroupMember[] = [];
-      
-      // Get members from each group
-      for (const group of groups) {
-        console.log('Getting members for group:', group.id);
-        const groupMembers = await groupService.getGroupMembers(group.id);
-        console.log('Members in group', group.id, ':', groupMembers);
-        
-        // Filter out current user and duplicates
-        const filteredMembers = groupMembers.filter(
-          member => member.userId !== currentUserId &&
-          !allMembers.some(m => m.userId === member.userId)
-        );
-        console.log('Filtered members:', filteredMembers);
-        allMembers.push(...filteredMembers);
-      }
-      
-      console.log('Final members list:', allMembers);
-      setMembers(allMembers);
+      const [allMembers, allGroups] = await Promise.all([
+        groupService.getAllGroupMembers(),
+        groupService.getAllGroups()
+      ]);
+      setMembers(allMembers.filter(member => member.id !== currentUserId));
+      setGroups(allGroups);
     } catch (error) {
-      console.error('Error loading group members:', error);
-      Alert.alert('Error', 'Failed to load group members');
+      console.error('Error loading data:', error);
+      Alert.alert('Error', 'Failed to load contacts and groups');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSelect = (id: string) => {
+    const type = activeTab === 'individuals' ? 'individuals' : 'groups';
+    setSelectedItems(prev => ({
+      ...prev,
+      [type]: prev[type].includes(id)
+        ? prev[type].filter(item => item !== id)
+        : [...prev[type], id]
+    }));
+  };
+
   const handleShare = async () => {
-    if (!selectedMember || !workoutPlan) {
-      Alert.alert('Error', 'Please select a recipient and ensure workout plan is available');
+    const totalSelected = selectedItems.individuals.length + selectedItems.groups.length;
+    if (totalSelected === 0) {
+      Alert.alert('Error', 'Please select at least one recipient');
       return;
     }
 
     try {
-      setLoading(true);
-      await workoutSharingService.shareWorkout(
-        workoutPlan,
-        selectedMember.userId,
-        currentUserName,
-        message
-      );
-      Alert.alert('Success', 'Workout plan shared successfully');
+      setSharing(true);
+      await workoutSharingService.shareWorkout({
+        workoutPlan: workout,
+        sharedBy: {
+          id: currentUserId,
+          name: currentUserName,
+        },
+        recipients: {
+          individuals: selectedItems.individuals,
+          groups: selectedItems.groups,
+        },
+        message: 'Check out this workout plan!'
+      });
+
+      Alert.alert('Success', 'Workout plan shared successfully!');
       onClose();
     } catch (error) {
       console.error('Error sharing workout:', error);
-      Alert.alert('Error', 'Failed to share workout plan');
+      Alert.alert('Error', 'Failed to share workout');
     } finally {
-      setLoading(false);
+      setSharing(false);
     }
   };
 
-  const filteredMembers = members.filter(member =>
-    member.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const renderItem = ({ item }: { item: GroupMember | Group }) => {
+    const isGroup = 'memberCount' in item;
+    const id = item.id;
+    const isSelected = selectedItems[isGroup ? 'groups' : 'individuals'].includes(id);
+
+    return (
+      <TouchableOpacity
+        style={[styles.item, isSelected && styles.selectedItem]}
+        onPress={() => handleSelect(id)}
+      >
+        <View style={styles.itemInfo}>
+          <View style={styles.avatarContainer}>
+            <Text style={styles.avatarText}>
+              {item.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View>
+            <Text style={styles.itemName}>{item.name}</Text>
+            {isGroup && (
+              <Text style={styles.itemSubtext}>
+                {(item as Group).memberCount} members
+              </Text>
+            )}
+          </View>
+        </View>
+        <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+          {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const filteredData = activeTab === 'individuals'
+    ? members.filter(member => 
+        member.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : groups.filter(group =>
+        group.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
 
   return (
     <Modal
       visible={visible}
-      animationType="slide"
       transparent={true}
+      animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.modalContainer}>
+      <View style={styles.overlay}>
         <View style={styles.modalContent}>
           <View style={styles.header}>
             <Text style={styles.title}>Share Workout Plan</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#000" />
+              <Ionicons name="close" size={24} color="#1E293B" />
             </TouchableOpacity>
           </View>
 
-          {!workoutPlan ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>No workout plan available to share</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Text style={styles.closeButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'individuals' && styles.activeTab]}
+              onPress={() => setActiveTab('individuals')}
+            >
+              <Text style={[
+                styles.tabText,
+                activeTab === 'individuals' && styles.activeTabText
+              ]}>
+                Individuals
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'groups' && styles.activeTab]}
+              onPress={() => setActiveTab('groups')}
+            >
+              <Text style={[
+                styles.tabText,
+                activeTab === 'groups' && styles.activeTabText
+              ]}>
+                Groups
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#64748B" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={`Search ${activeTab}...`}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
+
+          {loading ? (
+            <ActivityIndicator style={styles.loader} size="large" color="#3B82F6" />
           ) : (
-            <>
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search members..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-
-              {loading ? (
-                <ActivityIndicator style={styles.loader} size="large" color="#4CAF50" />
-              ) : (
-                <FlatList
-                  data={filteredMembers}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={[
-                        styles.memberItem,
-                        selectedMember?.userId === item.userId && styles.selectedMember,
-                      ]}
-                      onPress={() => setSelectedMember(item)}
-                    >
-                      <View style={styles.memberInfo}>
-                        <Text style={styles.memberName}>{item.displayName}</Text>
-                        <Text style={styles.memberRole}>{item.role}</Text>
-                      </View>
-                      {selectedMember?.userId === item.userId && (
-                        <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-                      )}
-                    </TouchableOpacity>
-                  )}
-                  keyExtractor={item => item.userId}
-                  style={styles.memberList}
-                />
+            <FlatList
+              data={filteredData}
+              renderItem={renderItem}
+              keyExtractor={(item) => item.id}
+              style={styles.list}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={() => (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>
+                    {searchQuery ? 'No results found' : `No ${activeTab} available`}
+                  </Text>
+                </View>
               )}
-
-              <TextInput
-                style={styles.messageInput}
-                placeholder="Add a message (optional)"
-                value={message}
-                onChangeText={setMessage}
-                multiline
-              />
-
-              <TouchableOpacity
-                style={[styles.shareButton, !selectedMember && styles.disabledButton]}
-                onPress={handleShare}
-                disabled={!selectedMember || loading}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <Text style={styles.shareButtonText}>Share Workout Plan</Text>
-                )}
-              </TouchableOpacity>
-            </>
+            />
           )}
+
+          <TouchableOpacity
+            style={[
+              styles.shareButton,
+              (selectedItems.individuals.length + selectedItems.groups.length === 0 || sharing) && 
+              styles.shareButtonDisabled
+            ]}
+            onPress={handleShare}
+            disabled={selectedItems.individuals.length + selectedItems.groups.length === 0 || sharing}
+          >
+            <LinearGradient
+              colors={['#3B82F6', '#2563EB']}
+              style={styles.shareButtonGradient}
+            >
+              {sharing ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.shareButtonText}>
+                  Share Plan ({selectedItems.individuals.length + selectedItems.groups.length})
+                </Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -194,107 +258,174 @@ export const ShareWorkoutModal: React.FC<ShareWorkoutModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
+  overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    maxHeight: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    width: '90%',
+    maxHeight: height * 0.7,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: '#E2E8F0',
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#1E293B',
   },
   closeButton: {
-    padding: 5,
+    padding: 4,
   },
-  closeButtonText: {
-    color: '#4CAF50',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  searchInput: {
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 15,
-  },
-  memberList: {
-    marginTop: 15,
-  },
-  memberItem: {
+  tabContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    padding: 12,
+    gap: 8,
   },
-  selectedMember: {
-    backgroundColor: '#E8F5E9',
-  },
-  memberInfo: {
+  tab: {
     flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
   },
-  memberName: {
-    fontSize: 16,
+  activeTab: {
+    backgroundColor: '#EFF6FF',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#64748B',
     fontWeight: '500',
   },
-  memberRole: {
+  activeTabText: {
+    color: '#3B82F6',
+    fontWeight: '600',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    marginHorizontal: 12,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    color: '#1E293B',
     fontSize: 14,
-    color: '#666',
+  },
+  list: {
+    maxHeight: height * 0.4,
+  },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  selectedItem: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#3B82F6',
+  },
+  itemInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  avatarContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  itemName: {
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  itemSubtext: {
+    fontSize: 12,
+    color: '#64748B',
     marginTop: 2,
   },
-  messageInput: {
-    backgroundColor: '#F5F5F5',
-    padding: 15,
-    borderRadius: 8,
-    marginTop: 15,
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  shareButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 15,
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  disabledButton: {
-    opacity: 0.5,
+  checkboxSelected: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  shareButton: {
+    margin: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  shareButtonDisabled: {
+    opacity: 0.7,
+  },
+  shareButtonGradient: {
+    paddingVertical: 12,
+    alignItems: 'center',
   },
   shareButtonText: {
-    color: '#FFF',
-    fontSize: 16,
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '600',
   },
   loader: {
-    marginTop: 20,
-  },
-  errorContainer: {
     padding: 20,
-    alignItems: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 15,
   },
 });

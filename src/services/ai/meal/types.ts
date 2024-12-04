@@ -1,22 +1,40 @@
 // Meal plan related types and interfaces
 export interface MealPlanPreferences {
-    calorieGoal: number;
+    calorieGoal?: number;
+    mealCount?: number;
     dietaryRestrictions?: string[];
     allergies?: string[];
     cuisinePreferences?: string[];
-    mealCount: number;
+}
+
+export interface Ingredient {
+    item: string;
+    amount: number;
+    unit: string;
 }
 
 export interface MealDetails {
+    id?: string;
     name: string;
+    description?: string;
     calories: number;
     protein: number;
     carbs: number;
     fat: number;
-    ingredients: string[];
+    ingredients: Ingredient[];
     instructions: string;
     servings: number;
     prepTime: number;
+    tips?: string;
+    completed?: boolean;
+    mealType?: string;
+}
+
+export interface DailyMeals {
+    breakfast: MealDetails[];
+    lunch: MealDetails[];
+    dinner: MealDetails[];
+    snacks?: MealDetails[];
 }
 
 export interface DailyMealPlan {
@@ -25,12 +43,7 @@ export interface DailyMealPlan {
     totalProtein: number;
     totalCarbs: number;
     totalFat: number;
-    meals: {
-        breakfast: MealDetails[];
-        lunch: MealDetails[];
-        dinner: MealDetails[];
-        snacks: MealDetails[];
-    };
+    meals: DailyMeals;
 }
 
 export interface WeeklyMealPlan {

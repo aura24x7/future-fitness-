@@ -3,6 +3,7 @@ import { useColorScheme } from 'react-native';
 import { Theme } from '@react-navigation/native';
 import { CustomLightTheme, CustomDarkTheme } from './theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme as useTamaguiTheme } from 'tamagui';
 
 type ThemeContextType = {
   theme: Theme;
@@ -17,10 +18,18 @@ const THEME_PREFERENCE_KEY = '@theme_preference';
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemColorScheme = useColorScheme();
   const [isDarkMode, setIsDarkMode] = useState<boolean>(systemColorScheme === 'dark');
+  const tamaguiTheme = useTamaguiTheme();
 
   useEffect(() => {
     loadThemePreference();
   }, []);
+
+  useEffect(() => {
+    // Sync Tamagui theme with our theme
+    if (tamaguiTheme.name !== (isDarkMode ? 'dark' : 'light')) {
+      tamaguiTheme.name = isDarkMode ? 'dark' : 'light';
+    }
+  }, [isDarkMode, tamaguiTheme]);
 
   const loadThemePreference = async () => {
     try {
@@ -54,7 +63,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;

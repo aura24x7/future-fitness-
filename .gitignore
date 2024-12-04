@@ -7,7 +7,6 @@
 /coverage
 
 # production
-/build
 /dist
 
 # misc
@@ -52,3 +51,50 @@ yarn-error.*
 .vscode/
 *.swp
 *.swo
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Native
+/ios/
+/android/
+
+# Node
+node_modules/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Local development
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Build
+/build
+*.tsbuildinfo

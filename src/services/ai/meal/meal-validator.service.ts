@@ -1,4 +1,4 @@
-import { MealDetails, DailyMealPlan, WeeklyMealPlan } from './types';
+import { MealDetails, DailyMealPlan, WeeklyMealPlan, Ingredient } from './types';
 
 export class MealValidator {
     public validateMealDetails(meal: any): MealDetails {
@@ -15,17 +15,25 @@ export class MealValidator {
         }
 
         // Validate and coerce types
-        const validatedMeal = {
+        const validatedMeal: MealDetails = {
             name: String(meal.name).trim(),
             calories: this.validateNumber(meal.calories, 'calories', 0, 2000),
             protein: this.validateNumber(meal.protein, 'protein', 0, 200),
             carbs: this.validateNumber(meal.carbs, 'carbs', 0, 300),
             fat: this.validateNumber(meal.fat, 'fat', 0, 100),
-            ingredients: this.validateArray(meal.ingredients, 'ingredients'),
+            ingredients: this.validateIngredients(meal.ingredients, 'ingredients'),
             instructions: String(meal.instructions).trim(),
             servings: this.validateNumber(meal.servings, 'servings', 1, 10),
-            prepTime: this.validateNumber(meal.prepTime, 'prepTime', 0, 180)
+            prepTime: this.validateNumber(meal.prepTime, 'prepTime', 0, 180),
+            completed: Boolean(meal.completed),
+            mealType: meal.mealType ? String(meal.mealType).trim() : undefined,
+            description: meal.description ? String(meal.description).trim() : undefined,
+            tips: meal.tips ? String(meal.tips).trim() : undefined
         };
+
+        if (meal.id) {
+            validatedMeal.id = String(meal.id);
+        }
 
         // Validate nutritional coherence
         const calculatedCalories = (validatedMeal.protein * 4) + (validatedMeal.carbs * 4) + (validatedMeal.fat * 9);
@@ -46,6 +54,65 @@ export class MealValidator {
             throw new Error(`Invalid ${field}: must be between ${min} and ${max}`);
         }
         return Math.round(num);
+    }
+
+    private validateIngredient(ingredient: any): Ingredient {
+        // If it's a string, parse it into structured format
+        if (typeof ingredient === 'string') {
+            return {
+                item: ingredient.trim(),
+                amount: 1,
+                unit: 'serving'
+            };
+        }
+
+        // Handle object format
+        if (!ingredient || typeof ingredient !== 'object') {
+            throw new Error('Invalid ingredient structure');
+        }
+
+        // Ensure all required fields are present
+        const requiredFields = ['item', 'amount', 'unit'];
+        for (const field of requiredFields) {
+            if (!(field in ingredient)) {
+                // If missing fields, create a default structured ingredient
+                return {
+                    item: String(ingredient).trim() || 'Unknown ingredient',
+                    amount: 1,
+                    unit: 'serving'
+                };
+            }
+        }
+
+        // Validate and normalize the ingredient
+        return {
+            item: String(ingredient.item).trim(),
+            amount: this.validateNumber(ingredient.amount, 'ingredient amount', 0, 10000),
+            unit: String(ingredient.unit).toLowerCase().trim()
+        };
+    }
+
+    private validateIngredients(value: any[], field: string): Ingredient[] {
+        if (!Array.isArray(value)) {
+            // If not an array, try to convert single item to array
+            return [this.validateIngredient(value)];
+        }
+
+        // Map each ingredient through validation
+        return value
+            .map(ingredient => {
+                try {
+                    return this.validateIngredient(ingredient);
+                } catch (error) {
+                    console.warn(`Invalid ingredient format, using default:`, error);
+                    return {
+                        item: String(ingredient).trim() || 'Unknown ingredient',
+                        amount: 1,
+                        unit: 'serving'
+                    };
+                }
+            })
+            .filter(ingredient => ingredient.item.length > 0);
     }
 
     private validateArray(value: any, field: string): string[] {

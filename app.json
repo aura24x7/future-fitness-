@@ -14,31 +14,54 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aifit.aifitness",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to scan food items for nutritional tracking.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to save food images."
+      }
+    },
     "android": {
       "package": "com.aifit.aifitness",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4c669f"
-      }
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
-    "extra": {
-      "GEMINI_API_KEY": "AIzaSyBAkq6elriSkPSj6Ab8xWY_sbtyZDNoUOg",
-      "eas": {
-        "projectId": "822972139614"
-      }
-    },
-    "newArchEnabled": true,
     "plugins": [
       [
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 33,
-            "targetSdkVersion": 33,
-            "buildToolsVersion": "33.0.0"
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 34,
+            "buildToolsVersion": "35.0.0"
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
           }
         }
-      ]
-    ]
+      ],
+      "react-native-vision-camera",
+      "expo-camera"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "822972139614"
+      }
+    },
+    "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/822972139614"
+    }
   }
 }

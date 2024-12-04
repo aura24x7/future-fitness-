@@ -1,66 +1,55 @@
 // Modern fitness app color palette
 export const colors = {
   // Primary Colors
-  primary: {
-    main: '#2196F3',           // Trustworthy blue
-    light: '#64B5F6',          // Light blue
-    dark: '#1976D2',           // Deep blue
-    contrast: '#FF9800',       // Energetic orange
-  },
-
-  // Secondary Colors
-  secondary: {
-    main: '#FF9800',          // Energetic orange
-    light: '#FFB74D',         // Light orange
-    dark: '#F57C00',          // Deep orange
-    contrast: '#4CAF50',      // Healthy green
-  },
-
-  // Accent Colors
-  accent: {
-    success: '#4CAF50',       // Healthy green
-    warning: '#FFC107',       // Cheerful yellow
-    error: '#F44336',         // Alert red
-    info: '#2196F3',         // Info blue
-  },
-
-  // Gradients
-  gradients: {
-    primary: ['#2196F3', '#1976D2'],      // Blue gradient
-    secondary: ['#FF9800', '#F57C00'],     // Orange gradient
-    success: ['#4CAF50', '#388E3C'],       // Green gradient
-    dark: ['#424242', '#212121'],          // Dark gradient
-  },
+  primary: '#8B5CF6',           // Main purple
+  primaryLight: '#A78BFA',      // Light purple
+  primaryDark: '#7C3AED',       // Deep purple
+  accent: '#FF6B6B',           // Accent color
 
   // Background Colors
   background: {
-    primary: '#FFFFFF',       // Pure white
-    secondary: '#F5F5F5',     // Light gray
-    dark: '#212121',         // Dark gray
+    light: '#F9FAFB',           // Light gray
+    dark: '#111827',            // Dark gray
+    card: {
+      light: '#FFFFFF',
+      dark: '#1F2937'
+    }
   },
 
   // Text Colors
   text: {
-    primary: '#212121',       // Near black
-    secondary: '#757575',     // Medium gray
-    light: '#BDBDBD',        // Light gray
-    white: '#FFFFFF',        // White
+    primary: {
+      light: '#1F2937',
+      dark: '#F9FAFB'
+    },
+    secondary: {
+      light: '#6B7280',
+      dark: '#9CA3AF'
+    }
+  },
+
+  // Progress Colors
+  progress: {
+    indicator: '#FF6B6B',
+    background: {
+      light: '#E5E7EB',
+      dark: '#374151'
+    }
+  },
+
+  // Macro Colors
+  macros: {
+    carbs: '#FF69B4',           // Pink
+    protein: '#87CEEB',         // Sky blue
+    fats: '#FFA500',            // Orange
+    other: '#9370DB',           // Purple
   },
 
   // Border Colors
   border: {
-    light: '#E0E0E0',        // Light gray
-    medium: '#BDBDBD',       // Medium gray
-    dark: '#9E9E9E',         // Dark gray
-  },
-
-  // Status Colors
-  status: {
-    active: '#4CAF50',       // Green
-    inactive: '#757575',     // Gray
-    warning: '#FFC107',      // Yellow
-    error: '#F44336',        // Red
-  },
+    light: '#E5E7EB',
+    dark: '#374151'
+  }
 } as const;
 
 // Opacity values
@@ -106,18 +95,19 @@ export const shadows = {
 
 // Border Radius
 export const borderRadius = {
-  small: 8,
-  medium: 12,
+  small: 4,
+  medium: 8,
   large: 16,
-  round: 999,
+  xlarge: 24,
+  round: 9999,
 } as const;
 
 // Spacing
 export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
+  tiny: 4,
+  small: 8,
+  medium: 16,
+  large: 24,
+  xlarge: 32,
+  xxlarge: 48,
 } as const;

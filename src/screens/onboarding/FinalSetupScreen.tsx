@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,76 +7,125 @@ import {
   Animated,
   Easing,
   Platform,
-  ScrollView,
+  SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
+import { TargetIcon, AIIcon, ProgressIcon } from '../../assets/icons/icons';
+import { Alert } from 'react-native';
+import { userProfileService } from '../../services/userProfileService';
+
+type PreferenceCardProps = {
+  icon: React.ReactNode;
+  title: string;
+  value: string;
+  delay: number;
+};
+
+const PreferenceCard: React.FC<PreferenceCardProps> = ({ icon, title, value, delay }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        delay,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        delay,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [delay]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.preferenceCard,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <View style={styles.iconContainer}>{icon}</View>
+      <View style={styles.preferenceContent}>
+        <Text style={styles.preferenceTitle}>{title}</Text>
+        <Text style={styles.preferenceValue}>{value}</Text>
+      </View>
+    </Animated.View>
+  );
+};
 
 const FinalSetupScreen = ({ navigation, route }) => {
   const { onboardingData } = useOnboarding();
   const { name } = route.params || {};
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Sequence of animations
-    Animated.sequence([
-      // First fade in the main content
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 800,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 800,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-      // Then start the progress animation
-      Animated.timing(progressAnim, {
-        toValue: 1,
-        duration: 1500,
-        easing: Easing.inOut(Easing.quad),
-        useNativeDriver: false,
-      }),
-    ]).start();
+    const setupProfile = async () => {
+      try {
+        setIsCreatingProfile(true);
+        // Create user profile
+        await userProfileService.createUserProfile(onboardingData);
+        
+        // Start animations
+        Animated.parallel([
+          Animated.timing(progressAnim, {
+            toValue: 1,
+            duration: 2000,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: false,
+          }),
+          Animated.loop(
+            Animated.timing(rotateAnim, {
+              toValue: 1,
+              duration: 2000,
+              easing: Easing.linear,
+              useNativeDriver: true,
+            })
+          ),
+        ]).start();
 
-    // Continuous rotation animation
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 3000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
+        // Wait for animations and profile creation
+        await new Promise(resolve => setTimeout(resolve, 2500));
 
-    // Navigate to dashboard after delay
-    const timer = setTimeout(() => {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main' }],
-      });
-    }, 3000);
+        // Navigate to main screen
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
+        });
+      } catch (error) {
+        console.error('Error setting up profile:', error);
+        // Show error message to user
+        Alert.alert(
+          'Setup Error',
+          'There was an error setting up your profile. Please try again.',
+          [
+            {
+              text: 'Retry',
+              onPress: setupProfile
+            }
+          ]
+        );
+      } finally {
+        setIsCreatingProfile(false);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    setupProfile();
   }, []);
 
   const rotate = rotateAnim.interpolate({
@@ -90,276 +139,175 @@ const FinalSetupScreen = ({ navigation, route }) => {
   });
 
   return (
-    <View style={styles.container}>
-      {/* Background Gradient */}
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <LinearGradient
-        colors={['#ffffff', '#f3f3f3']}
+        colors={['#FFFFFF', '#F5F3FF']}
         style={StyleSheet.absoluteFill}
       />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Main Content */}
-        <Animated.View 
-          style={[
-            styles.content,
-            {
-              opacity: fadeAnim,
-              transform: [
-                { scale: scaleAnim },
-                { translateY: slideAnim }
-              ]
-            }
-          ]}
-        >
-          {/* Header Section */}
-          <View style={styles.header}>
-            <Animated.View 
-              style={[
-                styles.achievementBadge,
-                { transform: [{ rotate }] }
-              ]}
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.greeting}>Hello {name},</Text>
+          <Text style={styles.title}>Your Profile Summary</Text>
+          <Text style={styles.subtitle}>
+            We're preparing your personalized fitness journey
+          </Text>
+        </View>
+
+        <View style={styles.preferencesContainer}>
+          <PreferenceCard
+            icon={<TargetIcon size={24} />}
+            title="Fitness Goal"
+            value={onboardingData.fitnessGoal || 'Build Muscle'}
+            delay={200}
+          />
+          <PreferenceCard
+            icon={<AIIcon size={24} />}
+            title="Activity Level"
+            value={onboardingData.activityLevel || 'Intermediate'}
+            delay={400}
+          />
+          <PreferenceCard
+            icon={<ProgressIcon size={24} />}
+            title="Diet Preference"
+            value={onboardingData.dietaryPreference || 'None'}
+            delay={600}
+          />
+        </View>
+
+        <View style={styles.preparingContainer}>
+          <BlurView intensity={80} style={styles.preparingCard}>
+            <Animated.View
+              style={[styles.loadingIcon, { transform: [{ rotate }] }]}
             >
-              <LinearGradient
-                colors={['#B794F6', '#9F7AEA']}
-                style={styles.badgeGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <MaterialCommunityIcons name="trophy-award" size={44} color="#ffffff" />
-              </LinearGradient>
+              <AIIcon size={24} color="#8B5CF6" />
             </Animated.View>
-
-            <Text style={styles.welcomeText}>Welcome to AI Fitness</Text>
-            <Text style={styles.title}>{name}</Text>
-            <Text style={styles.subtitle}>Your journey to a healthier lifestyle begins now</Text>
-          </View>
-
-          {/* Cards Section */}
-          <View style={styles.cardsContainer}>
-            {/* Fitness Goal Card */}
-            <BlurView intensity={70} tint="light" style={styles.card}>
-              <View style={styles.cardIcon}>
-                <MaterialCommunityIcons name="target" size={24} color="#9F7AEA" />
-              </View>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardLabel}>FITNESS GOAL</Text>
-                <Text style={styles.cardValue}>
-                  {onboardingData.fitnessGoal?.replace(/_/g, ' ').toLowerCase()}
-                </Text>
-              </View>
-            </BlurView>
-
-            {/* Activity Level Card */}
-            <BlurView intensity={70} tint="light" style={styles.card}>
-              <View style={styles.cardIcon}>
-                <MaterialCommunityIcons name="lightning-bolt" size={24} color="#9F7AEA" />
-              </View>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardLabel}>ACTIVITY LEVEL</Text>
-                <Text style={styles.cardValue}>
-                  {onboardingData.activityLevel?.toLowerCase()}
-                </Text>
-              </View>
-            </BlurView>
-
-            {/* Diet Preference Card */}
-            <BlurView intensity={70} tint="light" style={styles.card}>
-              <View style={styles.cardIcon}>
-                <MaterialCommunityIcons name="food-apple" size={24} color="#9F7AEA" />
-              </View>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardLabel}>DIET PREFERENCE</Text>
-                <Text style={styles.cardValue}>
-                  {onboardingData.dietaryPreference?.toLowerCase() || 'No restrictions'}
-                </Text>
-              </View>
-            </BlurView>
-
-            {/* Workout Location Card */}
-            <BlurView intensity={70} tint="light" style={styles.card}>
-              <View style={styles.cardIcon}>
-                <MaterialCommunityIcons name="dumbbell" size={24} color="#9F7AEA" />
-              </View>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardLabel}>WORKOUT LOCATION</Text>
-                <Text style={styles.cardValue}>
-                  {onboardingData.workoutPreference?.toLowerCase() || 'Flexible'}
-                </Text>
-              </View>
-            </BlurView>
-          </View>
-
-          {/* Loading Section */}
-          <View style={styles.loadingSection}>
-            <BlurView intensity={70} tint="light" style={styles.loadingContainer}>
-              <Animated.View style={[styles.loadingProgress, { width: progressWidth }]} />
-              <View style={styles.loadingContent}>
-                <Animated.View style={[styles.loadingIcon, { transform: [{ rotate }] }]}>
-                  <MaterialCommunityIcons name="cog" size={24} color="#9F7AEA" />
-                </Animated.View>
-                <Text style={styles.loadingText}>Preparing your personalized plan...</Text>
-              </View>
-            </BlurView>
-          </View>
-        </Animated.View>
-      </ScrollView>
-    </View>
+            <Text style={styles.preparingText}>
+              {isCreatingProfile 
+                ? 'Creating your personalized profile...'
+                : 'Preparing your fitness journey...'}
+            </Text>
+            <View style={styles.progressBarContainer}>
+              <Animated.View
+                style={[styles.progressBar, { width: progressWidth }]}
+              />
+            </View>
+          </BlurView>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 };
-
-const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 24,
+    backgroundColor: '#FFFFFF',
   },
   content: {
     flex: 1,
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? 40 : 20,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 32,
   },
-  achievementBadge: {
-    width: width * 0.22,
-    height: width * 0.22,
-    marginBottom: 20,
-    borderRadius: width * 0.11,
-    backgroundColor: '#ffffff',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#9F7AEA',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  badgeGradient: {
-    width: '100%',
-    height: '100%',
-    borderRadius: width * 0.11,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  welcomeText: {
-    fontSize: 15,
-    color: '#9F7AEA',
+  greeting: {
+    fontSize: 17,
+    color: '#8B5CF6',
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
     marginBottom: 8,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: '#1F2937',
     marginBottom: 8,
-    textAlign: 'center',
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    textAlign: 'center',
-    maxWidth: '85%',
-    lineHeight: 22,
+    fontSize: 15,
+    color: '#6B7280',
+    lineHeight: 20,
   },
-  cardsContainer: {
-    marginTop: 24,
-    gap: 12,
+  preferencesContainer: {
+    marginBottom: 32,
   },
-  card: {
+  preferenceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    overflow: 'hidden',
+    padding: 16,
+    marginBottom: 12,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: '#8B5CF6',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
-  cardIcon: {
+  iconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(159, 122, 234, 0.1)',
+    backgroundColor: '#F5F3FF',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
   },
-  cardContent: {
-    marginLeft: 12,
+  preferenceContent: {
     flex: 1,
   },
-  cardLabel: {
-    fontSize: 11,
+  preferenceTitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  preferenceValue: {
+    fontSize: 17,
+    color: '#1F2937',
     fontWeight: '600',
-    color: '#9F7AEA',
-    letterSpacing: 0.8,
-    marginBottom: 2,
   },
-  cardValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    textTransform: 'capitalize',
-  },
-  loadingSection: {
-    marginTop: 24,
-    marginBottom: Platform.OS === 'ios' ? 34 : 24,
-  },
-  loadingContainer: {
-    height: 52,
-    borderRadius: 26,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-  },
-  loadingProgress: {
+  preparingContainer: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(159, 122, 234, 0.1)',
+    bottom: Platform.OS === 'ios' ? 40 : 24,
+    left: 20,
+    right: 20,
   },
-  loadingContent: {
-    flexDirection: 'row',
+  preparingCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 16,
+    padding: 20,
     alignItems: 'center',
-    padding: 14,
+    overflow: 'hidden',
   },
   loadingIcon: {
-    width: 24,
-    height: 24,
-    marginRight: 12,
+    marginBottom: 12,
   },
-  loadingText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666666',
+  preparingText: {
+    fontSize: 15,
+    color: '#1F2937',
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  progressBarContainer: {
+    width: '100%',
+    height: 4,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#8B5CF6',
+    borderRadius: 2,
   },
 });
 

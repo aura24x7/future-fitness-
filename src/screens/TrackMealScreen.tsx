@@ -67,8 +67,21 @@ const TrackMealScreen = ({ navigation, route }) => {
         await mockMealService.trackMeal(mealPayload);
       }
 
-      Alert.alert('Success', `Meal ${editingMeal ? 'updated' : 'tracked'} successfully!`);
-      navigation.goBack();
+      // Show success alert and navigate after user acknowledges
+      Alert.alert(
+        'Success!',
+        `${mealData.name} has been ${editingMeal ? 'updated' : 'added'} to your food log.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate to FoodLog screen
+              navigation.navigate('FoodLog');
+            }
+          }
+        ],
+        { cancelable: false }
+      );
     } catch (error) {
       console.error('Error saving meal:', error);
       Alert.alert('Error', 'Failed to save meal. Please try again.');

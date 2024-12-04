@@ -2,6 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
+import { RootStackParamList } from '../types/navigation';
 
 // Import screens
 import DashboardScreen from '../screens/DashboardScreen';
@@ -23,13 +24,16 @@ import SelectWorkoutScreen from '../screens/SelectWorkoutScreen';
 import ShareWorkoutScreen from '../screens/ShareWorkoutScreen';
 import GroupAnalyticsScreen from '../screens/GroupAnalyticsScreen';
 import GroupChallengesScreen from '../screens/GroupChallengesScreen';
+import ProfileGroupsScreen from '../screens/ProfileGroupsScreen';
+import AddIndividualScreen from '../screens/AddIndividualScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import LockedFeatureScreen from '../components/LockedFeatureScreen';
 
 // Import custom tab bar
 import { FloatingTabBar } from '../components/FloatingTabBar';
 
 const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const TabNavigator = () => {
   return (
@@ -62,9 +66,24 @@ const TabNavigator = () => {
       />
       <Tab.Screen
         name="Workout"
-        component={WorkoutScreen}
+        component={LockedFeatureScreen}
         options={{
           title: 'Workout',
+          tabBarIcon: ({ focused, color }) => (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons
+                name={focused ? 'fitness' : 'fitness-outline'}
+                size={24}
+                color={color}
+              />
+              <Ionicons
+                name="lock-closed"
+                size={12}
+                color={color}
+                style={{ position: 'absolute', right: -8, top: -4 }}
+              />
+            </View>
+          ),
         }}
       />
       <Tab.Screen
@@ -85,7 +104,7 @@ const TabNavigator = () => {
       />
       <Tab.Screen
         name="Groups"
-        component={GroupsScreen}
+        component={ProfileGroupsScreen}
         options={{
           title: 'Groups',
           headerShown: false,
@@ -96,13 +115,7 @@ const TabNavigator = () => {
         component={ProfileScreen}
         options={{
           title: 'Profile',
-        }}
-      />
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{
-          title: 'Settings',
+          headerShown: false,
         }}
       />
     </Tab.Navigator>
@@ -113,126 +126,160 @@ const MainNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: false,
+        headerStyle: {
+          backgroundColor: '#ffffff',
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 0,
+        },
+        headerTitleStyle: {
+          fontWeight: '600',
+          fontSize: 17,
+          color: '#1a1a1a',
+        },
+        headerTitleAlign: 'center',
+        headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="MainTabs" component={TabNavigator} />
-      <Stack.Screen 
-        name="WorkoutDetails" 
+      <Stack.Screen
+        name="MainTabs"
+        component={TabNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="WorkoutDetails"
         component={WorkoutDetails}
         options={{
-          headerShown: true,
           headerTitle: 'Workout Details',
-          headerShadowVisible: false,
-          headerStyle: {
-            backgroundColor: '#F5F6FA',
-          },
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="AddCustomWorkout" 
+      <Stack.Screen
+        name="AddCustomWorkout"
         component={AddCustomWorkoutScreen}
         options={{
-          headerShown: false,
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
+          headerTitle: 'Add Custom Workout',
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="FoodScanner" 
+      <Stack.Screen
+        name="FoodScanner"
         component={FoodScannerScreen}
         options={{
-          headerShown: false,
-          presentation: 'fullScreenModal',
-          animation: 'fade',
+          headerTitle: 'Scan Food',
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="ScannedFoodDetails" 
+      <Stack.Screen
+        name="ScannedFoodDetails"
         component={ScannedFoodDetailsScreen}
         options={{
-          headerShown: true,
-          headerTitle: 'Food Analysis',
-          headerShadowVisible: false,
-          headerStyle: {
-            backgroundColor: '#F5F6FA',
-          },
+          headerTitle: 'Food Details',
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="CreateGroup" 
+      <Stack.Screen
+        name="CreateGroup"
         component={CreateGroupScreen}
         options={{
-          headerShown: false,
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
+          headerTitle: 'Create Group',
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="GroupDetails" 
+      <Stack.Screen
+        name="GroupDetails"
         component={GroupDetailsScreen}
         options={{
-          headerShown: false,
-          animation: 'slide_from_right',
+          headerTitle: 'Group Details',
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="InviteMembers" 
+      <Stack.Screen
+        name="InviteMembers"
         component={InviteMembersScreen}
         options={{
-          headerShown: false,
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
+          headerTitle: 'Invite Members',
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="ManageInvites" 
+      <Stack.Screen
+        name="ManageInvites"
         component={ManageInvitesScreen}
         options={{
-          headerShown: false,
-          animation: 'slide_from_right',
+          headerTitle: 'Manage Invites',
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="GroupWorkouts" 
+      <Stack.Screen
+        name="GroupWorkouts"
         component={GroupWorkoutsScreen}
         options={{
-          headerShown: false,
-          animation: 'slide_from_right',
+          headerTitle: 'Group Workouts',
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="SelectWorkout" 
+      <Stack.Screen
+        name="SelectWorkout"
         component={SelectWorkoutScreen}
         options={{
-          headerShown: false,
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
+          headerTitle: 'Select Workout',
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="ShareWorkout" 
+      <Stack.Screen
+        name="ShareWorkout"
         component={ShareWorkoutScreen}
         options={{
-          headerShown: false,
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
+          headerTitle: 'Share Workout',
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="GroupAnalytics" 
+      <Stack.Screen
+        name="GroupAnalytics"
         component={GroupAnalyticsScreen}
         options={{
-          headerShown: false,
-          animation: 'slide_from_right',
+          headerTitle: 'Group Analytics',
+          headerBackTitleVisible: false,
         }}
       />
-      <Stack.Screen 
-        name="GroupChallenges" 
+      <Stack.Screen
+        name="GroupChallenges"
         component={GroupChallengesScreen}
         options={{
-          headerShown: false,
-          animation: 'slide_from_right',
+          headerTitle: 'Group Challenges',
+          headerBackTitleVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="ProfileGroups"
+        component={ProfileGroupsScreen}
+        options={{
+          headerTitle: 'Groups',
+          headerBackTitleVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="AddIndividual"
+        component={AddIndividualScreen}
+        options={{
+          headerTitle: 'Add Individual',
+          headerBackTitleVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          headerTitle: 'Settings',
+          headerBackTitleVisible: false,
+          headerStyle: {
+            backgroundColor: 'transparent',
+          },
+          headerTransparent: true,
+          headerTintColor: '#6366f1',
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
         }}
       />
     </Stack.Navigator>

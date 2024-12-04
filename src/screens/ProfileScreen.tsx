@@ -1,27 +1,310 @@
-import React from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, Dimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native';
 import { useOnboarding } from '../context/OnboardingContext';
+import { useProfile } from '../context/ProfileContext';
 import { BlurView } from 'expo-blur';
 import Animated from 'react-native-reanimated';
 import { useScrollToTabBar } from '../hooks/useScrollToTabBar';
 import { useTheme } from '../theme/ThemeProvider';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
+import { calculateBMI, calculateBMR, calculateTDEE, calculateRecommendedCalories } from '../utils/profileCalculations';
+import { userProfileService } from '../services/userProfileService';
 
 const { width } = Dimensions.get('window');
 
+type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+const getBMICategory = (bmi: number): { category: string; color: string } => {
+  if (bmi < 18.5) return { category: 'Underweight', color: '#3B82F6' };
+  if (bmi < 25) return { category: 'Normal', color: '#10B981' };
+  if (bmi < 30) return { category: 'Overweight', color: '#F59E0B' };
+  return { category: 'Obese', color: '#EF4444' };
+};
+
+const getCalorieAdjustmentDescription = (
+  fitnessGoal: string | undefined
+): { description: string; color: string } => {
+  switch (fitnessGoal) {
+    case 'LOSE_WEIGHT':
+      return { 
+        description: '20% calorie deficit for steady weight loss',
+        color: '#3B82F6' // blue
+      };
+    case 'BUILD_MUSCLE':
+      return { 
+        description: '10% calorie surplus for muscle gain',
+        color: '#10B981' // green
+      };
+    case 'IMPROVE_FITNESS':
+    case 'MAINTAIN_HEALTH':
+    default:
+      return { 
+        description: 'Maintenance calories for your activity level',
+        color: '#8B5CF6' // purple
+      };
+  }
+};
+
 const ProfileScreen = () => {
   const { onboardingData } = useOnboarding();
+  const { profile, loading } = useProfile();
   const { handleScroll } = useScrollToTabBar();
   const { theme, isDarkMode } = useTheme();
+  const navigation = useNavigation<ProfileScreenNavigationProp>();
   const AnimatedScrollView = Animated.ScrollView;
-  
-  const userStats = {
-    workouts: 45,
-    calories: 12500,
-    hours: 28,
+
+  // Initialize or update profile when onboarding data changes
+  useEffect(() => {
+    const syncProfileWithOnboarding = async () => {
+      try {
+        if (onboardingData) {
+          // Try to get existing profile
+          const existingProfile = await userProfileService.getProfile();
+          
+          if (!existingProfile) {
+            // If no profile exists, create one
+            await userProfileService.createUserProfile(onboardingData);
+          } else {
+            // If profile exists, update it
+            await userProfileService.updateProfile({
+              activityLevel: onboardingData.lifestyle,
+              workoutPreference: onboardingData.workoutPreference,
+              dietaryPreference: onboardingData.dietaryPreference,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error syncing profile:', error);
+      }
+    };
+
+    syncProfileWithOnboarding();
+  }, [onboardingData]);
+
+  const formatLifestyle = (lifestyle: string) => {
+    if (!lifestyle) return '--';
+    return lifestyle
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   };
+
+  const formatWorkoutType = (workoutType: string) => {
+    if (!workoutType) return '--';
+    return workoutType
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const formatDietType = (dietType: string) => {
+    if (!dietType) return '--';
+    return dietType
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const calculateDailyCalories = (onboardingData: any) => {
+    if (
+      onboardingData.height?.value &&
+      onboardingData.weight?.value &&
+      onboardingData.birthday &&
+      onboardingData.gender &&
+      onboardingData.lifestyle &&
+      onboardingData.weightGoal &&
+      onboardingData.targetWeight?.value
+    ) {
+      const heightUnit = onboardingData.height.unit || 'cm';
+      const weightUnit = onboardingData.weight.unit || 'kg';
+      const units = heightUnit === 'cm' ? 'metric' : 'imperial';
+
+      // Calculate age from birthday
+      const today = new Date();
+      const birthDate = new Date(onboardingData.birthday);
+      const age = today.getFullYear() - birthDate.getFullYear();
+
+      // Calculate BMR
+      const bmr = calculateBMR(
+        onboardingData.weight.value,
+        onboardingData.height.value,
+        age,
+        onboardingData.gender,
+        units
+      );
+
+      // Calculate TDEE
+      const tdee = calculateTDEE(bmr, onboardingData.lifestyle);
+
+      // Calculate weight difference
+      const weightDiff = onboardingData.targetWeight.value - onboardingData.weight.value;
+      const isWeightLoss = weightDiff < 0;
+      const isWeightGain = weightDiff > 0;
+
+      // Adjust calories based on weight goal
+      let recommendedCalories = tdee;
+      if (isWeightLoss) {
+        recommendedCalories = tdee - 500; // 500 calorie deficit for healthy weight loss
+      } else if (isWeightGain) {
+        recommendedCalories = tdee + 300; // 300 calorie surplus for muscle gain
+      }
+
+      return recommendedCalories;
+    }
+    return null;
+  };
+
+  const userData = useMemo(() => {
+    return {
+      name: onboardingData?.name || '--',
+      lifestyle: formatLifestyle(onboardingData?.lifestyle),
+      workoutType: formatWorkoutType(onboardingData?.workoutPreference),
+      dietType: formatDietType(onboardingData?.dietaryPreference),
+      dailyCalories: calculateDailyCalories(onboardingData),
+    };
+  }, [onboardingData]);
+
+  // Calculate BMI
+  const bmiData = useMemo(() => {
+    if (onboardingData.height?.value && onboardingData.weight?.value) {
+      const heightUnit = onboardingData.height.unit || 'cm';
+      const weightUnit = onboardingData.weight.unit || 'kg';
+      const units = heightUnit === 'cm' ? 'metric' : 'imperial';
+      
+      const bmi = calculateBMI(
+        onboardingData.weight.value,
+        onboardingData.height.value,
+        units
+      );
+      return { value: bmi, ...getBMICategory(bmi) };
+    }
+    return null;
+  }, [onboardingData.height, onboardingData.weight]);
+
+  // Calculate Daily Calories with target weight consideration
+  const calorieData = useMemo(() => {
+    if (
+      onboardingData.height?.value &&
+      onboardingData.weight?.value &&
+      onboardingData.birthday &&
+      onboardingData.gender &&
+      onboardingData.lifestyle &&
+      onboardingData.weightGoal &&
+      onboardingData.targetWeight?.value
+    ) {
+      const heightUnit = onboardingData.height.unit || 'cm';
+      const weightUnit = onboardingData.weight.unit || 'kg';
+      const units = heightUnit === 'cm' ? 'metric' : 'imperial';
+
+      // Calculate age from birthday
+      const today = new Date();
+      const birthDate = new Date(onboardingData.birthday);
+      const age = today.getFullYear() - birthDate.getFullYear();
+
+      // Calculate BMR
+      const bmr = calculateBMR(
+        onboardingData.weight.value,
+        onboardingData.height.value,
+        age,
+        onboardingData.gender,
+        units
+      );
+
+      // Calculate TDEE
+      const tdee = calculateTDEE(bmr, onboardingData.lifestyle);
+
+      // Calculate weight difference
+      const weightDiff = onboardingData.targetWeight.value - onboardingData.weight.value;
+      const isWeightLoss = weightDiff < 0;
+      const isWeightGain = weightDiff > 0;
+
+      // Adjust calories based on weight goal
+      let recommendedCalories = tdee;
+      if (isWeightLoss) {
+        recommendedCalories = tdee - 500; // 500 calorie deficit for healthy weight loss
+      } else if (isWeightGain) {
+        recommendedCalories = tdee + 300; // 300 calorie surplus for muscle gain
+      }
+
+      const adjustment = getCalorieAdjustmentDescription(onboardingData.weightGoal);
+
+      return {
+        bmr,
+        tdee,
+        recommendedCalories,
+        ...adjustment
+      };
+    }
+    return null;
+  }, [onboardingData]);
+
+  // Calculate user's age
+  const userAge = useMemo(() => {
+    if (onboardingData.birthday) {
+      const today = new Date();
+      const birthDate = new Date(onboardingData.birthday);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age;
+    }
+    return null;
+  }, [onboardingData.birthday]);
+
+  const userStats = {
+    workouts: profile?.stats?.totalWorkouts || 0,
+    calories: profile?.stats?.totalCaloriesBurned || 0,
+    hours: profile?.stats?.totalHours || 0,
+  };
+
+  const handleSettingsPress = () => {
+    navigation.navigate('Settings');
+  };
+
+  const calculatedCalories = useMemo(() => {
+    if (!onboardingData?.weight?.value || !onboardingData?.height?.value || !onboardingData?.gender || !onboardingData?.birthday) {
+      console.log('Missing required data for calorie calculation:', { onboardingData });
+      return null;
+    }
+
+    // Calculate age from birthday
+    const today = new Date();
+    const birthDate = new Date(onboardingData.birthday);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    console.log('Calculated age:', age);
+
+    const bmr = calculateBMR(
+      onboardingData.weight.value,
+      onboardingData.height.value,
+      age,
+      onboardingData.gender,
+      onboardingData.weight.unit === 'kg' ? 'metric' : 'imperial'
+    );
+
+    console.log('BMR calculated:', bmr);
+    console.log('Lifestyle:', onboardingData.lifestyle);
+
+    const tdee = calculateTDEE(bmr, onboardingData.lifestyle);
+    console.log('TDEE calculated:', tdee);
+    console.log('Weight Goal:', onboardingData.weightGoal);
+
+    const calories = calculateRecommendedCalories(tdee, onboardingData.weightGoal);
+    console.log('Final calories calculated:', calories);
+    
+    return calories;
+  }, [onboardingData]);
 
   const GlassBackground = ({ children, style }) => {
     return Platform.OS === 'ios' ? (
@@ -76,26 +359,49 @@ const ProfileScreen = () => {
                 </TouchableOpacity>
               </View>
             </View>
-            <TouchableOpacity style={styles.editProfileButton}>
-              <LinearGradient
-                colors={isDarkMode ? 
-                  ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] :
-                  ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.15)']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.editProfileGradient}
+            <View style={styles.headerButtons}>
+              <TouchableOpacity style={styles.editProfileButton}>
+                <LinearGradient
+                  colors={isDarkMode ? 
+                    ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] :
+                    ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.15)']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.editProfileGradient}
+                >
+                  <Text style={[styles.editProfileText, { color: theme.colors.text }]}>
+                    Edit Profile
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.settingsButton}
+                onPress={handleSettingsPress}
               >
-                <Text style={[styles.editProfileText, { color: theme.colors.text }]}>
-                  Edit Profile
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                <LinearGradient
+                  colors={isDarkMode ? 
+                    ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] :
+                    ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.15)']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.settingsGradient}
+                >
+                  <Ionicons 
+                    name="settings-outline" 
+                    size={20} 
+                    color={theme.colors.text} 
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </View>
-          
           <View style={styles.userInfoSection}>
-            <Text style={[styles.userName, { color: theme.colors.text }]}>John Doe</Text>
-            <Text style={[styles.userEmail, { color: theme.colors.secondaryText }]}>@johndoe</Text>
+            <Text style={[styles.userName, { color: theme.colors.text }]}>{onboardingData.name || 'User'}</Text>
+            <Text style={[styles.userEmail, { color: theme.colors.secondaryText }]}>
+              {profile?.email || '@user'}
+            </Text>
             <View style={styles.joinedSection}>
               <Ionicons 
                 name="calendar-outline" 
@@ -103,7 +409,7 @@ const ProfileScreen = () => {
                 color={theme.colors.secondaryText} 
               />
               <Text style={[styles.joinedText, { color: theme.colors.secondaryText }]}>
-                Joined December 2023
+                {profile?.joinedDate ? `Joined ${new Date(profile.joinedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` : 'New Member'}
               </Text>
             </View>
           </View>
@@ -130,26 +436,87 @@ const ProfileScreen = () => {
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Height</Text>
               <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                {onboardingData.height?.value || 175} cm
+                {onboardingData.height?.value || '--'} {onboardingData.height?.unit || 'cm'}
               </Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Weight</Text>
               <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                {onboardingData.weight?.value || 70} kg
+                {onboardingData.weight?.value || '--'} {onboardingData.weight?.unit || 'kg'}
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Goal</Text>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Target Weight</Text>
               <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                {onboardingData.fitnessGoal?.replace(/_/g, ' ').toLowerCase() || 'Weight Loss'}
+                {onboardingData.targetWeight?.value || '--'} {onboardingData.targetWeight?.unit || 'kg'}
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Activity Level</Text>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>BMI</Text>
+              <View>
+                <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                  {bmiData?.value?.toFixed(1) || '--'}
+                </Text>
+                {bmiData && (
+                  <Text style={[styles.bmiCategory, { color: bmiData.color }]}>
+                    {bmiData.category}
+                  </Text>
+                )}
+              </View>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Weight Goal</Text>
               <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                {onboardingData.activityLevel?.toLowerCase() || 'Moderate'}
+                {onboardingData.weightGoal?.split('_').map(word => 
+                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                ).join(' ') || '--'}
               </Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Age</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                {userAge || '--'} years
+              </Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Gender</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                {onboardingData.gender?.charAt(0).toUpperCase() + 
+                 onboardingData.gender?.slice(1).toLowerCase() || '--'}
+              </Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Lifestyle</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                {userData.lifestyle}
+              </Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Diet Type</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                {userData.dietType}
+              </Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Workout Type</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                {userData.workoutType}
+              </Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Daily Calories</Text>
+              <View>
+                <Text style={styles.infoValue}>
+                  {calculatedCalories ? `${calculatedCalories.toLocaleString()} kcal` : '--'}
+                </Text>
+                {calculatedCalories && (
+                  <Text style={[styles.calorieDescription, { color: theme.colors.primary }]}>
+                    {onboardingData?.weightGoal === 'LOSE_WEIGHT' ? '20% calorie deficit' :
+                     onboardingData?.weightGoal === 'GAIN_WEIGHT' ? '10% calorie surplus' :
+                     'Maintenance calories'}
+                  </Text>
+                )}
+              </View>
             </View>
           </View>
         </LinearGradient>
@@ -163,10 +530,10 @@ const ProfileScreen = () => {
             style={[styles.statCard, styles.glassEffect]}
           >
             <View style={[styles.statIconContainer, { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
-              <Ionicons name="fitness-outline" size={24} color={theme.colors.primary} />
+              <Ionicons name="body-outline" size={24} color={theme.colors.primary} />
             </View>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{userStats.workouts}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.secondaryText }]}>Workouts</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{userData.lifestyle}</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.secondaryText }]}>Lifestyle</Text>
           </LinearGradient>
           
           <LinearGradient
@@ -177,10 +544,10 @@ const ProfileScreen = () => {
             style={[styles.statCard, styles.glassEffect]}
           >
             <View style={[styles.statIconContainer, { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
-              <Ionicons name="flame-outline" size={24} color={theme.colors.primary} />
+              <Ionicons name="barbell-outline" size={24} color={theme.colors.primary} />
             </View>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{userStats.calories}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.secondaryText }]}>Calories</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{userData.workoutType}</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.secondaryText }]}>Workout Type</Text>
           </LinearGradient>
           
           <LinearGradient
@@ -243,98 +610,66 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
   },
   backgroundGradient: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
-    height: '40%',
+    height: 300,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 50 : 45,
-    borderBottomLeftRadius: 35,
-    borderBottomRightRadius: 35,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     overflow: 'hidden',
   },
   headerInner: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  glassBackground: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  glassBackgroundAndroid: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  glassContent: {
-    backgroundColor: 'transparent',
+    marginTop: 20,
   },
   profileTopSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   profileImageSection: {
-    position: 'relative',
+    alignItems: 'center',
   },
   avatarContainer: {
-    padding: 2,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    position: 'relative',
+    marginBottom: 8,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.8)',
+    borderColor: '#fff',
   },
   editAvatarButton: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#6366f1',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   editProfileButton: {
-    overflow: 'hidden',
     borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.3)',
+    overflow: 'hidden',
   },
   editProfileGradient: {
     paddingHorizontal: 16,
@@ -342,12 +677,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   editProfileText: {
-    color: '#fff',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    textShadowColor: 'rgba(0, 0, 0, 0.1)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+  },
+  settingsButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  settingsGradient: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   userInfoSection: {
     marginTop: 8,
@@ -425,6 +767,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1f2937',
     fontWeight: '600',
+  },
+  bmiCategory: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  calorieDescription: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
+    flexWrap: 'wrap',
+    maxWidth: width * 0.35,
   },
   statsContainer: {
     flexDirection: 'row',

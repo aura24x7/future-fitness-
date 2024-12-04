@@ -12,14 +12,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useApp } from '../context/AppContext';
 import WorkoutCard from '../components/WorkoutCard';
 import ExerciseItem from '../components/ExerciseItem';
+import { useWorkoutTracking } from '../hooks/useWorkoutTracking';
 
 const { width } = Dimensions.get('window');
 
 const WorkoutScreen = ({ navigation }) => {
-  const { workouts, updateWorkout } = useApp();
+  const { workouts, updateWorkout } = useWorkoutTracking();
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [filterType, setFilterType] = useState('all');

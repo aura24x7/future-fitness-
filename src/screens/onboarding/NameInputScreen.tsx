@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
-import EvaPlaceholder from '../../components/EvaPlaceholder';
 
 const NameInputScreen = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -32,7 +31,6 @@ const NameInputScreen = ({ navigation }) => {
       <View style={styles.container}>
         <View style={styles.content}>
           <View style={styles.header}>
-            <EvaPlaceholder size={80} />
             <Text style={styles.title}>What's your name?</Text>
             <Text style={styles.subtitle}>Let's personalize your experience</Text>
           </View>

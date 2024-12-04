@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { Text, YStack } from 'tamagui';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -14,10 +15,13 @@ import { RootStackParamList } from '../types/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import WorkoutPlanLoadingScreen from '../components/WorkoutPlanLoadingScreen';
 import { workoutService, WorkoutPreferences, WeeklyWorkoutPlan, Exercise, DailyWorkout } from '../services/ai/workout.service';
+import { manualWorkoutService } from '../services/manualWorkoutService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { format, isToday } from 'date-fns';
 import DateSelector from '../components/DateSelector';
 import { WorkoutStats } from '../components/WorkoutStats';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { ManualWorkoutModal } from '../components/ManualWorkoutModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Workout'>;
 
@@ -27,6 +31,12 @@ const STATS_STORAGE_KEY = '@workout_stats';
 interface WorkoutStats {
   caloriesBurned: number;
   timeSpentMinutes: number;
+}
+
+interface ManualWorkout {
+  id: string;
+  name: string;
+  exercises: Exercise[];
 }
 
 const getDayOfWeek = (date: Date): string => {
@@ -44,6 +54,28 @@ const WorkoutScreen: React.FC<Props> = ({ navigation }) => {
     caloriesBurned: 0,
     timeSpentMinutes: 0
   });
+  const [isManualWorkoutModalVisible, setIsManualWorkoutModalVisible] = useState(false);
+  const [manualWorkouts, setManualWorkouts] = useState<ManualWorkout[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load manual workouts
+  const loadManualWorkouts = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const workouts = await manualWorkoutService.getManualWorkouts();
+      setManualWorkouts(workouts || []);
+    } catch (error) {
+      console.error('Error loading manual workouts:', error);
+      Alert.alert('Error', 'Failed to load workouts');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Load manual workouts on mount
+  useEffect(() => {
+    loadManualWorkouts();
+  }, [loadManualWorkouts]);
 
   // Update selected day when date changes
   useEffect(() => {
@@ -170,88 +202,159 @@ const WorkoutScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const renderExercise = (exercise: Exercise, index: number) => (
-    <TouchableOpacity
-      key={`${exercise.name}-${index}`}
-      style={[styles.exerciseCard, exercise.completed && styles.completedExercise]}
-      onPress={() => handleExerciseComplete(exercise.name)}
-    >
-      <View style={styles.exerciseHeader}>
-        <Text style={styles.exerciseName}>{exercise.name}</Text>
-        <Text style={styles.exerciseDifficulty}>{exercise.difficulty}</Text>
-      </View>
-      <Text style={styles.exerciseDetails}>
-        {exercise.sets} sets × {typeof exercise.reps === 'number' ? `${exercise.reps} reps` : 'AMRAP'}
-      </Text>
-      <Text style={styles.exerciseInstructions}>{exercise.instructions}</Text>
-      <View style={styles.exerciseFooter}>
-        <Text style={styles.exerciseCalories}>{exercise.calories} calories</Text>
-        <Text style={styles.exerciseEquipment}>{exercise.equipment.join(', ')}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const currentWorkout = getCurrentWorkout();
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
-        <YStack space="$4" padding="$4">
-          <DateSelector
-            selectedDate={selectedDate}
-            onDateChange={setSelectedDate}
-          />
-          
-          <WorkoutStats
-            caloriesBurned={stats.caloriesBurned}
-            timeSpentMinutes={stats.timeSpentMinutes}
-          />
-
-          {isGeneratingPlan ? (
-            <WorkoutPlanLoadingScreen 
-              visible={isGeneratingPlan}
-              onSuccess={() => setIsGeneratingPlan(false)}
+        <View style={styles.headerContainer}>
+          <LinearGradient
+            colors={['#F0F9FF', '#E0F2FE']}
+            style={styles.headerGradient}
+          >
+            <DateSelector
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
             />
-          ) : !weeklyWorkoutPlan || !currentWorkout ? (
-            <YStack space="$4" style={styles.noWorkoutContainer}>
-              <Text style={styles.noWorkoutText} color="$gray11">
-                No workout plan available. Generate a personalized weekly workout plan to get started!
-              </Text>
+            
+            <View style={styles.statsContainer}>
+              <View style={styles.statCard}>
+                <LinearGradient
+                  colors={['#F0FDF4', '#DCFCE7']}
+                  style={styles.statGradient}
+                >
+                  <Text style={styles.statLabel}>Calories Burned</Text>
+                  <Text style={styles.statValue}>{stats.caloriesBurned}</Text>
+                </LinearGradient>
+              </View>
+              
+              <View style={styles.statCard}>
+                <LinearGradient
+                  colors={['#EFF6FF', '#DBEAFE']}
+                  style={styles.statGradient}
+                >
+                  <Text style={styles.statLabel}>Minutes Active</Text>
+                  <Text style={styles.statValue}>{stats.timeSpentMinutes}</Text>
+                </LinearGradient>
+              </View>
+            </View>
+
+            <View style={styles.buttonContainer}>
               <TouchableOpacity 
-                style={styles.generateButton}
-                onPress={generateWorkoutPlan}
+                style={[styles.actionButton, styles.manualButton]}
+                onPress={() => setIsManualWorkoutModalVisible(true)}
               >
                 <LinearGradient
-                  colors={['#4CAF50', '#45a049']}
-                  style={styles.generateButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                  colors={['#3B82F6', '#2563EB']}
+                  style={styles.actionButtonGradient}
                 >
-                  <Text style={styles.generateButtonText} color="white">Generate Workout Plan</Text>
+                  <View style={styles.actionButtonContent}>
+                    <Ionicons name="add-circle" size={20} color="white" style={styles.actionIcon} />
+                    <Text style={styles.actionButtonText}>Add Manual Workout</Text>
+                  </View>
                 </LinearGradient>
               </TouchableOpacity>
-            </YStack>
-          ) : (
-            <ScrollView style={styles.workoutContainer}>
-              <View style={styles.workoutHeader}>
-                <Text style={styles.workoutTitle}>{currentWorkout.focusArea} Workout</Text>
-                <Text style={styles.workoutStats}>
-                  Duration: {currentWorkout.totalDuration}min • {currentWorkout.totalCalories} calories
-                </Text>
-              </View>
-              <View style={styles.exerciseList}>
-                {currentWorkout.exercises.map((exercise, index) => renderExercise(exercise, index))}
-              </View>
-              {currentWorkout.notes && (
-                <View style={styles.notesContainer}>
-                  <Text style={styles.notesTitle}>Notes</Text>
-                  <Text style={styles.notesText}>{currentWorkout.notes}</Text>
+
+              <TouchableOpacity 
+                style={[styles.actionButton, { opacity: 0.8 }]}
+                onPress={() => Alert.alert(
+                  'Coming Soon!',
+                  'AI-powered workout plan generation will be available in the next update. Stay tuned!',
+                  [{ text: 'OK', style: 'default' }]
+                )}
+              >
+                <LinearGradient
+                  colors={['#6B7280', '#4B5563']}
+                  style={styles.actionButtonGradient}
+                >
+                  <View style={styles.actionButtonContent}>
+                    <Ionicons name="lock-closed" size={20} color="white" style={styles.actionIcon} />
+                    <Text style={styles.actionButtonText}>Generate AI Workout</Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
+
+        <View style={styles.mainContent}>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <Text style={styles.loadingText}>Loading workouts...</Text>
+            </View>
+          ) : manualWorkouts.length > 0 ? (
+            <View style={styles.workoutList}>
+              {manualWorkouts.map((workout) => (
+                <View key={workout.id} style={styles.workoutCard}>
+                  <View style={styles.workoutHeader}>
+                    <Text style={styles.workoutTitle}>{workout.name}</Text>
+                    <View style={styles.workoutActions}>
+                      <TouchableOpacity 
+                        style={styles.shareButton}
+                        onPress={() => {
+                          navigation.navigate('Groups', { 
+                            screen: 'ShareWorkout',
+                            params: { workoutId: workout.id }
+                          });
+                        }}
+                      >
+                        <Ionicons name="share-outline" size={20} color="#3B82F6" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.exerciseList}>
+                    {workout.exercises?.map((exercise, index) => (
+                      <TouchableOpacity
+                        key={`${workout.id}-${exercise.id || index}`}
+                        style={[
+                          styles.exerciseItem,
+                          exercise.completed && styles.completedExercise
+                        ]}
+                        onPress={() => {
+                          manualWorkoutService.markExerciseComplete(
+                            workout.id,
+                            exercise.id,
+                            !exercise.completed
+                          ).then(loadManualWorkouts);
+                        }}
+                      >
+                        <Text style={styles.exerciseName}>{exercise.name}</Text>
+                        <Text style={styles.exerciseDetails}>
+                          {exercise.sets} sets × {exercise.reps} reps
+                        </Text>
+                        <Ionicons
+                          name={exercise.completed ? "checkmark-circle" : "ellipse-outline"}
+                          size={24}
+                          color={exercise.completed ? "#10B981" : "#94A3B8"}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
-              )}
-            </ScrollView>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="fitness-outline" size={48} color="#94A3B8" />
+              <Text style={styles.emptyStateText}>
+                No workouts planned for this day
+              </Text>
+              <Text style={styles.emptyStateSubtext}>
+                Add a manual workout or wait for AI-generated workouts!
+              </Text>
+            </View>
           )}
-        </YStack>
+        </View>
       </ScrollView>
+
+      <ManualWorkoutModal
+        visible={isManualWorkoutModalVisible}
+        onClose={() => setIsManualWorkoutModalVisible(false)}
+        onSave={() => {
+          loadManualWorkouts();
+          setIsManualWorkoutModalVisible(false);
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -259,138 +362,186 @@ const WorkoutScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
   },
-  header: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  dateSelector: {
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  noWorkoutContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  noWorkoutText: {
+  loadingText: {
+    marginTop: 10,
     fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 20,
+    color: '#64748B',
   },
-  generateButton: {
-    width: '100%',
-    maxWidth: 300,
-    overflow: 'hidden',
-    borderRadius: 8,
-  },
-  generateButtonGradient: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  generateButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  workoutContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  workoutHeader: {
+  headerContainer: {
     marginBottom: 16,
   },
-  workoutTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
+  headerGradient: {
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+    marginHorizontal: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  statCard: {
+    flex: 1,
+    marginHorizontal: 6,
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  statGradient: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#64748B',
     marginBottom: 4,
   },
-  workoutStats: {
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1E293B',
+  },
+  mainContent: {
+    paddingHorizontal: 16,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingHorizontal: 4,
+  },
+  actionButton: {
+    flex: 1,
+    marginHorizontal: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  actionButtonGradient: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  actionButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionIcon: {
+    marginRight: 8,
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
     fontSize: 14,
-    color: '#6B7280',
+    fontWeight: 'bold',
+  },
+  workoutList: {
+    paddingTop: 8,
+  },
+  workoutCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 16,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  workoutHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  workoutTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+  },
+  workoutActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shareButton: {
+    padding: 8,
   },
   exerciseList: {
-    gap: 12,
+    marginTop: 8,
   },
-  exerciseCard: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+  exerciseItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   completedExercise: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#86EFAC',
-    borderWidth: 1,
-  },
-  exerciseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    opacity: 0.7,
   },
   exerciseName: {
+    flex: 1,
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  exerciseDifficulty: {
-    fontSize: 12,
-    color: '#6B7280',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
+    color: '#1E293B',
   },
   exerciseDetails: {
+    marginRight: 12,
     fontSize: 14,
-    color: '#374151',
-    marginBottom: 8,
+    color: '#64748B',
   },
-  exerciseInstructions: {
-    fontSize: 14,
-    color: '#4B5563',
-    marginBottom: 12,
-  },
-  exerciseFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  emptyState: {
+    padding: 24,
     alignItems: 'center',
   },
-  exerciseCalories: {
-    fontSize: 12,
-    color: '#059669',
-  },
-  exerciseEquipment: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  notesContainer: {
-    marginTop: 20,
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-  },
-  notesTitle: {
+  emptyStateText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 8,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 24,
   },
-  notesText: {
+  emptyStateSubtext: {
     fontSize: 14,
-    color: '#4B5563',
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

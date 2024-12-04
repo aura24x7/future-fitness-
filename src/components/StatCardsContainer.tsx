@@ -4,8 +4,8 @@ import { StatCard } from './StatCard';
 
 export const StatCardsContainer = () => {
   return (
-    <YStack space="$4" padding="$4">
-      <XStack space="$4" flexWrap="wrap">
+    <YStack space="$2" paddingHorizontal="$2">
+      <XStack space="$2">
         <StatCard
           icon="fitness"
           title="Workouts"
@@ -13,6 +13,7 @@ export const StatCardsContainer = () => {
           subtitle="This week"
           colors={['#818cf8', '#6366f1']}
           delay={0}
+          style={{ flex: 1 }}
         />
         <StatCard
           icon="trending-up"
@@ -21,10 +22,11 @@ export const StatCardsContainer = () => {
           subtitle="This month"
           colors={['#34d399', '#10b981']}
           delay={100}
+          style={{ flex: 1 }}
         />
       </XStack>
       
-      <XStack space="$4" flexWrap="wrap">
+      <XStack space="$2">
         <StatCard
           icon="flame"
           title="Calories"
@@ -32,6 +34,7 @@ export const StatCardsContainer = () => {
           subtitle="Daily avg"
           colors={['#fb923c', '#f97316']}
           delay={200}
+          style={{ flex: 1 }}
         />
         <StatCard
           icon="trophy"
@@ -40,6 +43,7 @@ export const StatCardsContainer = () => {
           subtitle="Personal best"
           colors={['#fbbf24', '#f59e0b']}
           delay={300}
+          style={{ flex: 1 }}
         />
       </XStack>
     </YStack>

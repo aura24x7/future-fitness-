@@ -6,31 +6,22 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './src/navigation/AppNavigator';
 import { OnboardingProvider } from './src/context/OnboardingContext';
-import { AppProvider } from './src/context/AppContext';
 import { TabBarProvider } from './src/context/TabBarContext';
 import { AuthProvider } from './src/context/AuthContext';
-import { auth } from './src/config/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { ThemeProvider as TamaguiThemeProvider } from '@tamagui/core';
-import { TamaguiProvider } from 'tamagui';
+import { ProfileGroupsProvider } from './src/contexts/ProfileGroupsContext';
+import { GymBuddyAlertProvider } from './src/contexts/GymBuddyAlertContext';
+import { TamaguiProvider, Theme } from 'tamagui';
 import { ThemeProvider } from './src/theme/ThemeProvider';
 import config from './tamagui.config';
+import { AlertNotificationManager } from './src/components/GymBuddyAlert/AlertNotificationManager';
+import { ProfileProvider } from './src/context/ProfileContext';
+import { MealProvider } from './src/contexts/MealContext';
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    try {
-      // Set up auth state listener
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        setIsReady(true);
-      });
-
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('Error in auth state change:', error);
-      setIsReady(true);
-    }
+    setIsReady(true);
   }, []);
 
   if (!isReady) {
@@ -38,27 +29,32 @@ export default function App() {
   }
 
   return (
-    <TamaguiProvider config={config}>
-      <TamaguiThemeProvider defaultTheme="light">
-        <SafeAreaProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <TamaguiProvider config={config} defaultTheme="light">
+          <ThemeProvider>
             <AuthProvider>
-              <AppProvider>
+              <ProfileProvider>
                 <OnboardingProvider>
                   <TabBarProvider>
-                    <ThemeProvider>
+                    <MealProvider>
                       <NavigationContainer>
-                        <StatusBar barStyle="dark-content" />
-                        <AppNavigator />
+                        <ProfileGroupsProvider>
+                          <GymBuddyAlertProvider>
+                            <StatusBar barStyle="dark-content" />
+                            <AppNavigator />
+                            <AlertNotificationManager />
+                          </GymBuddyAlertProvider>
+                        </ProfileGroupsProvider>
                       </NavigationContainer>
-                    </ThemeProvider>
+                    </MealProvider>
                   </TabBarProvider>
                 </OnboardingProvider>
-              </AppProvider>
+              </ProfileProvider>
             </AuthProvider>
-          </GestureHandlerRootView>
-        </SafeAreaProvider>
-      </TamaguiThemeProvider>
-    </TamaguiProvider>
+          </ThemeProvider>
+        </TamaguiProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }

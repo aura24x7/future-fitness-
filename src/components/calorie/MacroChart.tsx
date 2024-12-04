@@ -42,9 +42,9 @@ const MacroChart: React.FC<Props> = ({ macros, goals }) => {
 
   return (
     <View style={styles.container}>
-      {renderMacroBar('Protein', macros.proteins, goals.proteins, '#FF6B6B')}
+      {renderMacroBar('Protein', macros.protein, goals.protein, '#FF6B6B')}
       {renderMacroBar('Carbs', macros.carbs, goals.carbs, '#4ECDC4')}
-      {renderMacroBar('Fats', macros.fats, goals.fats, '#FFD93D')}
+      {renderMacroBar('Fat', macros.fat, goals.fat, '#FFD93D')}
     </View>
   );
 };

@@ -151,10 +151,17 @@ export const mockWaterService = {
 
   getTodayWater: async () => {
     const today = new Date().toISOString().split('T')[0];
-    const water = await AsyncStorage.getItem(STORAGE_KEYS.WATER) || '{}';
-    const parsedWater = JSON.parse(water);
-    return parsedWater[today] || 0;
+    const existingWater = await AsyncStorage.getItem(STORAGE_KEYS.WATER) || '{}';
+    const water = JSON.parse(existingWater);
+    return water[today] || 0;
   },
+
+  getTodayWaterIntake: async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const existingWater = await AsyncStorage.getItem(STORAGE_KEYS.WATER) || '{}';
+    const water = JSON.parse(existingWater);
+    return water[today] || 0;
+  }
 };
 
 // Mock workout service

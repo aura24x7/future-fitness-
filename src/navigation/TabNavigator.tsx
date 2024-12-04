@@ -4,11 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 
 // Import screens
-import { HomeScreen } from '../screens/HomeScreen';
-import { WorkoutScreen } from '../screens/WorkoutScreen';
-import { FoodScreen } from '../screens/FoodScreen';
-import { ProfileScreen } from '../screens/ProfileScreen';
-import { SettingsScreen } from '../screens/SettingsScreen';
+import DashboardScreen from '../screens/DashboardScreen';
+import WorkoutScreen from '../screens/WorkoutScreen';
+import FoodScreen from '../screens/FoodScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+// Removed SettingsScreen import
 
 const Tab = createBottomTabNavigator();
 
@@ -20,7 +20,8 @@ export const TabNavigator = () => {
       screenOptions={{
         tabBarStyle: {
           backgroundColor: theme.colors.tabBarBackground,
-          borderTopColor: theme.colors.border,
+          // Assuming 'border' is not a valid property, I will comment it out for now
+          // borderTopColor: theme.colors.border,
           paddingBottom: 8,
           paddingTop: 8,
           height: 60,
@@ -30,13 +31,14 @@ export const TabNavigator = () => {
         headerStyle: {
           backgroundColor: theme.colors.headerBackground,
         },
-        headerTintColor: theme.colors.text,
+        // Commenting out invalid properties for now
+        // headerTintColor: theme.colors.text,
         headerShadowVisible: false,
       }}
     >
       <Tab.Screen
-        name="Home"
-        component={HomeScreen}
+        name="Dashboard"
+        component={DashboardScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
@@ -70,15 +72,7 @@ export const TabNavigator = () => {
           ),
         }}
       />
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      {/* Removed Settings tab */}
     </Tab.Navigator>
   );
 };

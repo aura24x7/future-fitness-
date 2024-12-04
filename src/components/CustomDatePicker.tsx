@@ -11,6 +11,7 @@ import {
   Platform,
   Animated,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 
 interface CustomDatePickerProps {
   value: Date;
@@ -20,11 +21,13 @@ interface CustomDatePickerProps {
   maximumDate?: Date;
 }
 
-const ITEM_HEIGHT = 46; 
+const { width } = Dimensions.get('window');
+const ITEM_HEIGHT = 42;
 const VISIBLE_ITEMS = 5;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
 const MOMENTUM_VELOCITY_THRESHOLD = 0.3;
 const SCROLL_EVENT_THROTTLE = 16;
+const COLUMN_WIDTH = width * 0.27; // Equal width for all columns
 
 const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   value,
@@ -50,167 +53,176 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const getDaysInMonth = (month: number, year: number) => {
-    return new Date(year, month + 1, 0).getDate();
-  };
-
   const years = Array.from(
     { length: maximumDate.getFullYear() - minimumDate.getFullYear() + 1 },
     (_, i) => minimumDate.getFullYear() + i
   );
 
+  const getDaysInMonth = (month: number, year: number) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const days = Array.from(
+    { length: getDaysInMonth(selectedMonth, selectedYear) },
+    (_, i) => i + 1
+  );
+
   useEffect(() => {
-    const scrollToInitialPositions = () => {
+    // Initial scroll to selected positions
+    setTimeout(() => {
       monthScrollRef.current?.scrollTo({
         y: selectedMonth * ITEM_HEIGHT,
-        animated: true,
+        animated: false,
       });
       dayScrollRef.current?.scrollTo({
         y: (selectedDay - 1) * ITEM_HEIGHT,
-        animated: true,
+        animated: false,
       });
       yearScrollRef.current?.scrollTo({
         y: (selectedYear - minimumDate.getFullYear()) * ITEM_HEIGHT,
-        animated: true,
+        animated: false,
       });
-    };
-
-    setTimeout(scrollToInitialPositions, 100);
+    }, 0);
   }, []);
-
-  const handleMomentumScrollEnd = (
-    event: NativeSyntheticEvent<NativeScrollEvent>,
-    scrollRef: React.RefObject<ScrollView>,
-    setter: (value: number) => void,
-    isYear = false,
-    setScrolling: (value: boolean) => void
-  ) => {
-    const y = event.nativeEvent.contentOffset.y;
-    const index = Math.round(y / ITEM_HEIGHT);
-    const value = isYear ? minimumDate.getFullYear() + index : index;
-
-    scrollRef.current?.scrollTo({
-      y: index * ITEM_HEIGHT,
-      animated: true,
-    });
-
-    setter(isYear ? value : index);
-    setScrolling(false);
-  };
 
   const handleScroll = (
     event: NativeSyntheticEvent<NativeScrollEvent>,
-    setter: (value: number) => void,
-    current: number,
-    isYear = false
+    type: 'month' | 'day' | 'year'
   ) => {
     const y = event.nativeEvent.contentOffset.y;
     const index = Math.round(y / ITEM_HEIGHT);
-    const value = isYear ? minimumDate.getFullYear() + index : index;
 
-    if (value !== current && index >= 0) {
-      setter(isYear ? value : index);
+    switch (type) {
+      case 'month':
+        if (!isMonthScrolling) {
+          const newMonth = Math.min(Math.max(0, index), 11);
+          setSelectedMonth(newMonth);
+          onChange(new Date(selectedYear, newMonth, selectedDay));
+        }
+        break;
+      case 'day':
+        if (!isDayScrolling) {
+          const maxDays = getDaysInMonth(selectedMonth, selectedYear);
+          const newDay = Math.min(Math.max(1, index + 1), maxDays);
+          setSelectedDay(newDay);
+          onChange(new Date(selectedYear, selectedMonth, newDay));
+        }
+        break;
+      case 'year':
+        if (!isYearScrolling) {
+          const newYear = minimumDate.getFullYear() + index;
+          setSelectedYear(newYear);
+          onChange(new Date(newYear, selectedMonth, selectedDay));
+        }
+        break;
     }
   };
 
-  const handleConfirm = () => {
-    const newDate = new Date(selectedYear, selectedMonth, selectedDay);
-    onChange(newDate);
-    onClose();
-  };
-
-  const renderPickerColumn = (
+  const renderPickerItems = (
     items: (string | number)[],
-    scrollRef: React.RefObject<ScrollView>,
-    selectedValue: number,
-    onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void,
-    onMomentumEnd: (event: NativeSyntheticEvent<NativeScrollEvent>) => void,
-    onScrollBegin: () => void,
-    label: string
-  ) => (
-    <View style={styles.pickerColumn}>
-      <Text style={styles.pickerLabel}>{label}</Text>
-      <View style={styles.scrollContainer}>
-        <ScrollView
-          ref={scrollRef}
-          showsVerticalScrollIndicator={false}
-          snapToInterval={ITEM_HEIGHT}
-          decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.9}
-          scrollEventThrottle={SCROLL_EVENT_THROTTLE}
-          onScroll={onScroll}
-          onScrollBeginDrag={onScrollBegin}
-          onMomentumScrollEnd={onMomentumEnd}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { height: items.length * ITEM_HEIGHT + (PICKER_HEIGHT - ITEM_HEIGHT) }
-          ]}
-        >
-          {items.map((item, index) => (
-            <View 
-              key={item.toString()} 
-              style={[
-                styles.pickerItemContainer,
-                { height: ITEM_HEIGHT }
-              ]}
-            >
-              <Text style={[
-                styles.pickerItemText,
-                ((label === 'YEAR' && item === selectedValue) ||
-                 (label !== 'YEAR' && index === selectedValue)) &&
-                styles.selectedPickerItemText
-              ]}>
-                {item}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-    </View>
-  );
+    selected: number,
+    type: 'month' | 'day' | 'year'
+  ) => {
+    return items.map((item, index) => {
+      const isSelected = 
+        type === 'month' ? index === selected :
+        type === 'day' ? index + 1 === selected :
+        +item === selected;
+
+      return (
+        <View key={item} style={styles.itemContainer}>
+          <Text
+            style={[
+              styles.itemText,
+              isSelected && styles.selectedItemText,
+              type === 'month' && styles.monthText,
+            ]}
+            numberOfLines={1}
+          >
+            {item}
+          </Text>
+        </View>
+      );
+    });
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onClose}>
-          <Text style={styles.headerButton}>Cancel</Text>
+        <TouchableOpacity onPress={onClose} style={styles.headerButton}>
+          <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleConfirm}>
-          <Text style={[styles.headerButton, styles.confirmButton]}>Done</Text>
+        <TouchableOpacity 
+          onPress={() => {
+            onChange(new Date(selectedYear, selectedMonth, selectedDay));
+            onClose();
+          }}
+          style={styles.headerButton}
+        >
+          <Text style={styles.doneText}>Done</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.pickerContainer}>
-        {renderPickerColumn(
-          months,
-          monthScrollRef,
-          selectedMonth,
-          (e) => handleScroll(e, setSelectedMonth, selectedMonth),
-          (e) => handleMomentumScrollEnd(e, monthScrollRef, setSelectedMonth, false, setIsMonthScrolling),
-          () => setIsMonthScrolling(true),
-          'MONTH'
-        )}
-        {renderPickerColumn(
-          Array.from({ length: getDaysInMonth(selectedMonth, selectedYear) }, (_, i) => i + 1),
-          dayScrollRef,
-          selectedDay - 1,
-          (e) => handleScroll(e, setSelectedDay, selectedDay - 1, false),
-          (e) => handleMomentumScrollEnd(e, dayScrollRef, (value) => setSelectedDay(value + 1), false, setIsDayScrolling),
-          () => setIsDayScrolling(true),
-          'DAY'
-        )}
-        {renderPickerColumn(
-          years,
-          yearScrollRef,
-          selectedYear,
-          (e) => handleScroll(e, setSelectedYear, selectedYear, true),
-          (e) => handleMomentumScrollEnd(e, yearScrollRef, setSelectedYear, true, setIsYearScrolling),
-          () => setIsYearScrolling(true),
-          'YEAR'
-        )}
-      </View>
+        <View style={styles.columnHeaders}>
+          <Text style={styles.columnHeader}>MONTH</Text>
+          <Text style={styles.columnHeader}>DAY</Text>
+          <Text style={styles.columnHeader}>YEAR</Text>
+        </View>
 
-      <View style={styles.selectionOverlay}>
-        <View style={styles.selectionBox} />
+        <View style={styles.selectionOverlay}>
+          <View style={styles.selectionBar} />
+        </View>
+
+        <View style={styles.scrollContainer}>
+          <ScrollView
+            ref={monthScrollRef}
+            style={[styles.scrollColumn, { width: COLUMN_WIDTH }]}
+            showsVerticalScrollIndicator={false}
+            snapToInterval={ITEM_HEIGHT}
+            decelerationRate="fast"
+            scrollEventThrottle={SCROLL_EVENT_THROTTLE}
+            onScroll={(e) => handleScroll(e, 'month')}
+            onMomentumScrollBegin={() => setIsMonthScrolling(true)}
+            onMomentumScrollEnd={() => setIsMonthScrolling(false)}
+          >
+            <View style={styles.paddingView} />
+            {renderPickerItems(months, selectedMonth, 'month')}
+            <View style={styles.paddingView} />
+          </ScrollView>
+
+          <ScrollView
+            ref={dayScrollRef}
+            style={[styles.scrollColumn, { width: COLUMN_WIDTH }]}
+            showsVerticalScrollIndicator={false}
+            snapToInterval={ITEM_HEIGHT}
+            decelerationRate="fast"
+            scrollEventThrottle={SCROLL_EVENT_THROTTLE}
+            onScroll={(e) => handleScroll(e, 'day')}
+            onMomentumScrollBegin={() => setIsDayScrolling(true)}
+            onMomentumScrollEnd={() => setIsDayScrolling(false)}
+          >
+            <View style={styles.paddingView} />
+            {renderPickerItems(days, selectedDay, 'day')}
+            <View style={styles.paddingView} />
+          </ScrollView>
+
+          <ScrollView
+            ref={yearScrollRef}
+            style={[styles.scrollColumn, { width: COLUMN_WIDTH }]}
+            showsVerticalScrollIndicator={false}
+            snapToInterval={ITEM_HEIGHT}
+            decelerationRate="fast"
+            scrollEventThrottle={SCROLL_EVENT_THROTTLE}
+            onScroll={(e) => handleScroll(e, 'year')}
+            onMomentumScrollBegin={() => setIsYearScrolling(true)}
+            onMomentumScrollEnd={() => setIsYearScrolling(false)}
+          >
+            <View style={styles.paddingView} />
+            {renderPickerItems(years, selectedYear, 'year')}
+            <View style={styles.paddingView} />
+          </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -221,81 +233,96 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     overflow: 'hidden',
-    width: '100%',
+    width: width * 0.9,
+    maxHeight: 400,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 16,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   headerButton: {
-    fontSize: 17,
-    color: '#666666',
+    paddingVertical: 4,
     paddingHorizontal: 8,
   },
-  confirmButton: {
-    color: '#9F7AEA',
+  cancelText: {
+    color: '#666666',
+    fontSize: 17,
+    fontWeight: '400',
+  },
+  doneText: {
+    color: '#6366F1',
+    fontSize: 17,
     fontWeight: '600',
   },
   pickerContainer: {
+    height: PICKER_HEIGHT + 80,
+    position: 'relative',
+  },
+  columnHeaders: {
     flexDirection: 'row',
-    height: PICKER_HEIGHT,
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  pickerColumn: {
-    flex: 1,
-    height: PICKER_HEIGHT,
-  },
-  pickerLabel: {
-    fontSize: 12,
-    color: '#666666',
+  columnHeader: {
+    width: COLUMN_WIDTH,
     textAlign: 'center',
-    marginVertical: 8,
-    letterSpacing: 0.5,
+    fontSize: 12,
     fontWeight: '600',
+    color: '#666666',
+    letterSpacing: 0.5,
   },
   scrollContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  scrollColumn: {
     height: PICKER_HEIGHT,
-    overflow: 'hidden',
   },
-  scrollContent: {
-    paddingVertical: (PICKER_HEIGHT - ITEM_HEIGHT) / 2,
-  },
-  pickerItemContainer: {
+  itemContainer: {
+    height: ITEM_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  pickerItemText: {
+  itemText: {
     fontSize: 20,
-    color: '#1A1A1A',
-    textAlign: 'center',
-    opacity: 0.5,
+    color: '#1F2937',
+    fontWeight: '400',
   },
-  selectedPickerItemText: {
-    color: '#9F7AEA',
+  selectedItemText: {
+    color: '#6366F1',
     fontWeight: '600',
-    fontSize: 22,
-    opacity: 1,
+  },
+  monthText: {
+    fontSize: 18,
+  },
+  paddingView: {
+    height: PICKER_HEIGHT * 0.4,
   },
   selectionOverlay: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
-    bottom: (PICKER_HEIGHT - ITEM_HEIGHT) / 2,
-    top: (PICKER_HEIGHT - ITEM_HEIGHT) / 2,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
     pointerEvents: 'none',
-    backgroundColor: 'rgba(159, 122, 234, 0.05)',
   },
-  selectionBox: {
-    flex: 1,
+  selectionBar: {
+    width: '100%',
+    height: ITEM_HEIGHT,
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(99, 102, 241, 0.2)',
   },
 });
 

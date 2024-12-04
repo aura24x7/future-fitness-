@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
-import EvaPlaceholder from '../../components/EvaPlaceholder';
 
 type WorkoutPreference = 'HOME' | 'GYM' | 'OUTDOOR' | 'HYBRID';
 
@@ -45,10 +44,12 @@ const WorkoutPreferenceScreen: React.FC<{ navigation: any }> = ({ navigation }) 
   const [selectedPreference, setSelectedPreference] = useState<WorkoutPreference | null>(null);
   const { updateOnboardingData } = useOnboarding();
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selectedPreference) {
-      updateOnboardingData({ workoutPreference: selectedPreference });
-      navigation.navigate('FinalSetup');
+      await updateOnboardingData({
+        workoutPreference: selectedPreference,
+      });
+      navigation.navigate('ActivityLevel');
     }
   };
 
@@ -61,7 +62,6 @@ const WorkoutPreferenceScreen: React.FC<{ navigation: any }> = ({ navigation }) 
       >
         <View style={styles.content}>
           <View style={styles.header}>
-            <EvaPlaceholder size={120} />
             <Text style={styles.title}>Where do you prefer to workout?</Text>
             <Text style={styles.subtitle}>
               I'll tailor your workout plan to your preferred environment

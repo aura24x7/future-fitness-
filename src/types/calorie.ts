@@ -1,7 +1,7 @@
 export interface MacroNutrients {
-  proteins: number;
+  protein: number;
   carbs: number;
-  fats: number;
+  fat: number;
 }
 
 export enum MealType {

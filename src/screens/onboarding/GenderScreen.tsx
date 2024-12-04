@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
-import EvaPlaceholder from '../../components/EvaPlaceholder';
 
 type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 
@@ -46,7 +45,6 @@ const GenderScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <EvaPlaceholder size={80} />
           <Text style={styles.title}>What's your gender?</Text>
           <Text style={styles.subtitle}>
             This helps me provide more personalized recommendations

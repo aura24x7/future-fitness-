@@ -4,210 +4,328 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   ScrollView,
+  Platform,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
-import EvaPlaceholder from '../../components/EvaPlaceholder';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type ActivityLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+type Lifestyle = 'SEDENTARY' | 'LIGHTLY_ACTIVE' | 'MODERATELY_ACTIVE' | 'VERY_ACTIVE' | 'SUPER_ACTIVE';
 
-const activityLevels: {
-  id: ActivityLevel;
+const lifestyleOptions: {
+  id: Lifestyle;
   title: string;
-  emoji: string;
   description: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  examples: string;
 }[] = [
   {
-    id: 'BEGINNER',
-    title: 'Beginner',
-    emoji: '🌱',
-    description: 'New to fitness or returning after a long break',
+    id: 'SEDENTARY',
+    title: 'Mostly Sedentary',
+    description: 'Desk job, little to no exercise',
+    icon: 'laptop-outline',
+    examples: 'Office work, driving, watching TV',
   },
   {
-    id: 'INTERMEDIATE',
-    title: 'Intermediate',
-    emoji: '⭐',
-    description: 'Regular exercise 2-3 times per week',
+    id: 'LIGHTLY_ACTIVE',
+    title: 'Lightly Active',
+    description: 'Light exercise 1-3 days/week',
+    icon: 'walk-outline',
+    examples: 'Walking, light housework, casual cycling',
   },
   {
-    id: 'ADVANCED',
-    title: 'Advanced',
-    emoji: '🔥',
-    description: 'Consistent training 4-5 times per week',
+    id: 'MODERATELY_ACTIVE',
+    title: 'Moderately Active',
+    description: 'Moderate exercise 3-5 days/week',
+    icon: 'bicycle-outline',
+    examples: 'Jogging, swimming, dancing, tennis',
   },
   {
-    id: 'EXPERT',
-    title: 'Expert',
-    emoji: '💫',
-    description: 'Dedicated athlete with years of experience',
+    id: 'VERY_ACTIVE',
+    title: 'Very Active',
+    description: 'Hard exercise 6-7 days/week',
+    icon: 'fitness-outline',
+    examples: 'Running, HIIT, team sports, gym training',
+  },
+  {
+    id: 'SUPER_ACTIVE',
+    title: 'Super Active',
+    description: 'Very hard exercise & physical job',
+    icon: 'barbell-outline',
+    examples: 'Athletic training, physical labor, multiple workouts/day',
   },
 ];
 
-const ActivityLevelScreen = ({ navigation }) => {
-  const [selectedLevel, setSelectedLevel] = useState<ActivityLevel | null>(null);
+const LifestyleScreen = ({ navigation }) => {
+  const [selectedLifestyle, setSelectedLifestyle] = useState<Lifestyle | null>(null);
   const { updateOnboardingData } = useOnboarding();
+  const insets = useSafeAreaInsets();
+  const [scaleAnim] = useState(() => new Animated.Value(1));
 
-  const handleContinue = () => {
-    if (selectedLevel) {
-      updateOnboardingData({ activityLevel: selectedLevel });
-      navigation.navigate('DietaryPreference');
+  const handleOptionPress = (lifestyle: Lifestyle) => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    setSelectedLifestyle(lifestyle);
+  };
+
+  const handleContinue = async () => {
+    if (selectedLifestyle) {
+      await updateOnboardingData({ lifestyle: selectedLifestyle });
+      navigation.navigate('FinalSetup');
     }
   };
 
   return (
-    <LinearGradient
-      colors={['#4c669f', '#3b5998', '#192f6a']}
-      style={styles.container}
-    >
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <EvaPlaceholder size={120} />
-          <Text style={styles.title}>What's your activity level?</Text>
-          <Text style={styles.subtitle}>
-            This helps me set the right intensity for your workouts
-          </Text>
-        </View>
-
-        <ScrollView
-          style={styles.levelsContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          {activityLevels.map((level) => (
-            <TouchableOpacity
-              key={level.id}
-              style={[
-                styles.levelCard,
-                selectedLevel === level.id && styles.selectedLevel,
-              ]}
-              onPress={() => setSelectedLevel(level.id)}
-            >
-              <Text style={styles.levelEmoji}>{level.emoji}</Text>
-              <View style={styles.levelTextContainer}>
-                <Text style={styles.levelTitle}>{level.title}</Text>
-                <Text style={styles.levelDescription}>{level.description}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.button, !selectedLevel && styles.buttonDisabled]}
-            onPress={handleContinue}
-            disabled={!selectedLevel}
-          >
-            <Text style={[styles.buttonText, !selectedLevel && styles.buttonTextDisabled]}>
-              Continue
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <LinearGradient
+        colors={['#EDE9FE', '#DDD6FE']}
+        style={StyleSheet.absoluteFill}
+      />
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+      >
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Text style={styles.title}>What's your lifestyle like?</Text>
+            <Text style={styles.subtitle}>
+              This helps me calculate your daily energy needs accurately
             </Text>
-          </TouchableOpacity>
-        </View>
+          </View>
 
-        <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: '80%' }]} />
+          <View style={styles.optionsContainer}>
+            {lifestyleOptions.map((option) => (
+              <Animated.View
+                key={option.id}
+                style={[
+                  { transform: [{ scale: selectedLifestyle === option.id ? scaleAnim : 1 }] }
+                ]}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.optionCard,
+                    selectedLifestyle === option.id && styles.selectedOption,
+                  ]}
+                  onPress={() => handleOptionPress(option.id)}
+                  activeOpacity={0.9}
+                >
+                  <View style={styles.optionHeader}>
+                    <View style={[
+                      styles.iconContainer,
+                      selectedLifestyle === option.id && styles.selectedIconContainer
+                    ]}>
+                      <Ionicons
+                        name={option.icon}
+                        size={24}
+                        color={selectedLifestyle === option.id ? '#FFFFFF' : '#6B7280'}
+                      />
+                    </View>
+                    <Text style={[
+                      styles.optionTitle,
+                      selectedLifestyle === option.id && styles.selectedOptionTitle
+                    ]}>
+                      {option.title}
+                    </Text>
+                  </View>
+                  <Text style={[
+                    styles.optionDescription,
+                    selectedLifestyle === option.id && styles.selectedOptionDescription
+                  ]}>
+                    {option.description}
+                  </Text>
+                  <Text style={[
+                    styles.optionExamples,
+                    selectedLifestyle === option.id && styles.selectedOptionExamples
+                  ]}>
+                    {option.examples}
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            ))}
+          </View>
         </View>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <TouchableOpacity
+          style={[
+            styles.continueButton,
+            selectedLifestyle ? styles.continueButtonActive : styles.continueButtonInactive,
+          ]}
+          onPress={handleContinue}
+          disabled={!selectedLifestyle}
+          activeOpacity={0.8}
+        >
+          <Text style={[
+            styles.continueButtonText,
+            selectedLifestyle ? styles.continueButtonTextActive : styles.continueButtonTextInactive,
+          ]}>
+            Continue
+          </Text>
+        </TouchableOpacity>
       </View>
-    </LinearGradient>
+    </View>
   );
 };
-
-const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'space-between',
+    padding: 24,
   },
   header: {
-    alignItems: 'center',
-    marginTop: 60,
+    marginBottom: 32,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginTop: 20,
-    textAlign: 'center',
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 12,
+    letterSpacing: 0.37,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#ffffff',
-    marginTop: 10,
-    textAlign: 'center',
+    fontSize: 17,
+    color: '#6B7280',
+    lineHeight: 22,
+    letterSpacing: -0.41,
   },
-  levelsContainer: {
-    marginTop: 30,
+  optionsContainer: {
+    gap: 16,
   },
-  levelCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 15,
+  optionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 20,
-    marginBottom: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  selectedOption: {
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#8B5CF6',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#8B5CF6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  optionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
+    gap: 16,
   },
-  selectedLevel: {
-    backgroundColor: '#e6eeff',
-    borderWidth: 2,
-    borderColor: '#4c669f',
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  levelEmoji: {
-    fontSize: 30,
-    marginRight: 15,
+  selectedIconContainer: {
+    backgroundColor: '#8B5CF6',
   },
-  levelTextContainer: {
-    flex: 1,
+  optionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1F2937',
+    letterSpacing: 0.38,
   },
-  levelTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#4c669f',
-    marginBottom: 5,
+  selectedOptionTitle: {
+    color: '#8B5CF6',
   },
-  levelDescription: {
-    fontSize: 14,
-    color: '#666',
+  optionDescription: {
+    fontSize: 17,
+    color: '#4B5563',
+    marginBottom: 8,
+    letterSpacing: -0.41,
+    lineHeight: 22,
+  },
+  selectedOptionDescription: {
+    color: '#6D28D9',
+  },
+  optionExamples: {
+    fontSize: 15,
+    color: '#6B7280',
+    fontStyle: 'italic',
+    letterSpacing: -0.24,
+    lineHeight: 20,
+  },
+  selectedOptionExamples: {
+    color: '#8B5CF6',
   },
   footer: {
-    marginBottom: 40,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    backdropFilter: 'blur(20px)',
   },
-  button: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 25,
-    width: width * 0.8,
-    alignSelf: 'center',
+  continueButton: {
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
   },
-  buttonDisabled: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  continueButtonActive: {
+    backgroundColor: '#8B5CF6',
   },
-  buttonText: {
-    color: '#4c669f',
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+  continueButtonInactive: {
+    backgroundColor: '#F3F4F6',
   },
-  buttonTextDisabled: {
-    color: '#999',
+  continueButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: -0.41,
   },
-  progressBar: {
-    width: '100%',
-    height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 3,
-    marginTop: 20,
+  continueButtonTextActive: {
+    color: '#FFFFFF',
   },
-  progress: {
-    height: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 3,
+  continueButtonTextInactive: {
+    color: '#9CA3AF',
   },
 });
 
-export default ActivityLevelScreen;
+export default LifestyleScreen;

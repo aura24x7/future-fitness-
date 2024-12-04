@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useOnboarding } from '../../context/OnboardingContext';
-import EvaPlaceholder from '../../components/EvaPlaceholder';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -184,10 +183,9 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
           ]}
         >
           <View style={styles.header}>
-            <EvaPlaceholder size={100} />
             <Text style={styles.title}>What's your height and weight?</Text>
             <Text style={styles.subtitle}>
-              This helps us personalize your fitness journey
+              This helps me calculate your fitness metrics accurately
             </Text>
           </View>
 

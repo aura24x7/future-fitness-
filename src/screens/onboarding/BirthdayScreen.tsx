@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
-import EvaPlaceholder from '../../components/EvaPlaceholder';
 import CustomDatePicker from '../../components/CustomDatePicker';
 
 const BirthdayScreen = ({ navigation, route }) => {
@@ -71,7 +70,6 @@ const BirthdayScreen = ({ navigation, route }) => {
     <View style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <EvaPlaceholder size={80} />
           <Text style={styles.title}>When's your birthday?</Text>
           <Text style={styles.subtitle}>
             Hi {name}, this helps me personalize your fitness journey
