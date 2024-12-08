@@ -1,6 +1,5 @@
 import { useCallback, useRef } from 'react';
 import { useTabBar } from '../context/TabBarContext';
-import { withTiming } from 'react-native-reanimated';
 import { NativeScrollEvent, NativeSyntheticEvent, ScrollView } from 'react-native';
 
 const TIMING_CONFIG = {
@@ -8,7 +7,7 @@ const TIMING_CONFIG = {
 };
 
 export const useScrollToTabBar = () => {
-  const { tabBarVisible } = useTabBar();
+  const { setTabBarVisible } = useTabBar();
   const scrollViewRef = useRef<ScrollView>(null);
   let lastOffset = 0;
   let lastScrollTime = 0;
@@ -21,7 +20,7 @@ export const useScrollToTabBar = () => {
 
       // Always show at top
       if (currentOffset <= 0) {
-        tabBarVisible.value = withTiming(1, TIMING_CONFIG);
+        setTabBarVisible(true);
         lastOffset = currentOffset;
         lastScrollTime = currentTime;
         return;
@@ -34,22 +33,25 @@ export const useScrollToTabBar = () => {
 
       // Hide when scrolling down
       if (scrollDiff > 0 && (effectiveVelocity > 0.5 || velocity > 0.5)) {
-        tabBarVisible.value = withTiming(0, TIMING_CONFIG);
+        setTabBarVisible(false);
       } 
       // Show when scrolling up
       else if (scrollDiff < 0 && (effectiveVelocity < -0.5 || velocity < -0.5)) {
-        tabBarVisible.value = withTiming(1, TIMING_CONFIG);
+        setTabBarVisible(true);
       }
       // Show when stopped scrolling
       else if (Math.abs(effectiveVelocity) < 0.01 && Math.abs(velocity) < 0.01) {
-        tabBarVisible.value = withTiming(1, TIMING_CONFIG);
+        setTabBarVisible(true);
       }
 
       lastOffset = currentOffset;
       lastScrollTime = currentTime;
     },
-    [tabBarVisible]
+    [setTabBarVisible]
   );
 
-  return { handleScroll, scrollViewRef };
+  return {
+    handleScroll,
+    scrollViewRef,
+  };
 };

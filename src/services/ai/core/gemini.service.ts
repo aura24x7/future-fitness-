@@ -134,25 +134,16 @@ export class GeminiService {
         try {
             const result = await this.generateContent(prompt);
             const text = result.response.text();
-            console.log('Full response length:', text.length);
+            console.log('Raw response length:', text.length);
             
             // Clean the response
-            let cleanedText = text
-                .replace(/```json\s*/g, '')  // Remove json blocks with any whitespace
-                .replace(/```\s*/g, '')      // Remove backticks with any whitespace
-                .trim()
-                .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
-                .replace(/[^\x20-\x7E]/g, '');
+            let cleanedText = this.cleanJsonText(text);
             
-            // Extract JSON object if wrapped in text
-            const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) {
-                throw new Error('No valid JSON object found in response');
+            // Validate JSON structure
+            if (!this.validateJsonStructure(cleanedText)) {
+                throw new Error('Invalid JSON structure in response');
             }
             
-            cleanedText = jsonMatch[0];
-            
-            // Validate JSON structure before parsing
             try {
                 const parsed = JSON.parse(cleanedText);
                 console.log('Successfully parsed JSON structure');
@@ -160,12 +151,18 @@ export class GeminiService {
             } catch (parseError) {
                 console.error('JSON Parse Error:', parseError);
                 console.error('Failed JSON text:', cleanedText.substring(0, 200) + '...');
+                
+                if (retryCount < this.maxRetries) {
+                    console.log(`Retrying due to parse error... (${retryCount + 1}/${this.maxRetries})`);
+                    await new Promise(resolve => setTimeout(resolve, this.retryDelay * Math.pow(2, retryCount)));
+                    return this.generateStructuredResponse<T>(prompt, retryCount + 1);
+                }
+                
                 throw parseError;
             }
         } catch (error) {
             if (retryCount < this.maxRetries) {
                 console.log(`Retrying... (${retryCount + 1}/${this.maxRetries})`);
-                // Add exponential backoff
                 await new Promise(resolve => setTimeout(resolve, this.retryDelay * Math.pow(2, retryCount)));
                 return this.generateStructuredResponse<T>(prompt, retryCount + 1);
             }
@@ -289,6 +286,48 @@ IMPORTANT:
         return focusAreaMap[day] || ['Full Body'];
     }
 
+    private cleanJsonText(text: string): string {
+        // Remove markdown code blocks
+        let cleaned = text.replace(/```json\s*/g, '')
+                         .replace(/```\s*/g, '')
+                         .trim();
+
+        // Remove any potential comments
+        cleaned = cleaned.replace(/\/\/.*/g, '')          // Remove single line comments
+                        .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
+
+        // Replace smart quotes with regular quotes
+        cleaned = cleaned.replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"');
+
+        // Remove any non-printable characters
+        cleaned = cleaned.replace(/[^\x20-\x7E]/g, '');
+
+        // Extract JSON object if wrapped in text
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            cleaned = jsonMatch[0];
+        }
+
+        // Replace any remaining placeholders
+        cleaned = cleaned.replace(/\[\.{3}\]/g, '[]')     // Replace [...] with []
+                        .replace(/\.\.\./g, '')           // Remove ...
+                        .replace(/number/g, '0')          // Replace number with 0
+                        .replace(/"ingredients": \[\],?/g, '"ingredients": [{"item":"","amount":0,"unit":""}],') // Fix empty ingredients
+                        .replace(/\s+/g, ' ')             // Normalize whitespace
+                        .replace(/,\s*([}\]])/g, '$1');   // Remove trailing commas
+
+        return cleaned;
+    }
+
+    private validateJsonStructure(jsonStr: string): boolean {
+        try {
+            const obj = JSON.parse(jsonStr);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
     private validateJson(jsonString: string): any {
         try {
             const parsed = JSON.parse(jsonString);
@@ -333,53 +372,6 @@ IMPORTANT:
                 }
 
                 this.validateJsonValues(value, newPath);
-            }
-        }
-    }
-
-    private cleanJsonText(text: string): string {
-        // Remove markdown code blocks
-        text = text.replace(/```json\n|\n```|```/g, '');
-        
-        try {
-            // Try to parse as is first
-            JSON.parse(text);
-            return text;
-        } catch (e) {
-            try {
-                // Extract JSON content
-                const jsonMatch = text.match(/\{[\s\S]*\}/);
-                if (!jsonMatch) {
-                    throw new Error('No valid JSON object found in response');
-                }
-                
-                let cleanedText = jsonMatch[0];
-
-                // Fix common JSON issues
-                cleanedText = cleanedText
-                    // Remove comments
-                    .replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '')
-                    // Fix quotes
-                    .replace(/[\u201C\u201D\u2018\u2019]/g, '"')
-                    // Remove trailing commas
-                    .replace(/,(\s*[}\]])/g, '$1')
-                    // Quote unquoted keys
-                    .replace(/([{,]\s*)([\w-]+)(\s*:)/g, '$1"$2"$3')
-                    // Fix boolean values
-                    .replace(/"true"/gi, 'true')
-                    .replace(/"false"/gi, 'false')
-                    // Fix numeric values
-                    .replace(/"(-?\d+\.?\d*)"(?!\s*[,}\]])/g, '$1')
-                    // Remove extra whitespace
-                    .replace(/\s+/g, ' ')
-                    .trim();
-
-                // Validate the cleaned JSON
-                JSON.parse(cleanedText);
-                return cleanedText;
-            } catch (error) {
-                console.error('Failed to clean JSON text:', error);
-                throw new Error('Failed to parse or clean JSON response');
             }
         }
     }

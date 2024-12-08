@@ -2,23 +2,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MealType, MealLog } from '../types/calorie';
 import { GEMINI_API_KEY, GEMINI_MODELS } from '../config/api.config';
+import { normalizeDate, getStorageKeyForDate, MEALS_STORAGE_KEY } from '../utils/dateUtils';
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
-const MEALS_STORAGE_KEY = '@meals';
-
-// Function to generate storage key for a specific date
-const getStorageKeyForDate = (date: Date) => 
-  `${MEALS_STORAGE_KEY}_${date.toISOString().split('T')[0]}`;
-
-// Helper function to determine meal type based on time
-const getMealTypeFromTime = (date: Date): MealType => {
-  const hour = date.getHours();
-  if (hour >= 5 && hour < 11) return MealType.Breakfast;
-  if (hour >= 11 && hour < 16) return MealType.Lunch;
-  if (hour >= 16 && hour < 22) return MealType.Dinner;
-  return MealType.Snack;
-};
 
 const FOOD_ANALYSIS_PROMPT = `You are a food analysis expert. Analyze the food in this image and provide nutritional information.
 Please respond ONLY with a valid JSON object in this exact format, with no additional text or markdown:
@@ -98,21 +84,17 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
     const text = response.text();
     
     try {
-      // Clean the response text to ensure it's valid JSON
       const cleanedText = text
-        .replace(/```json\n?|\n?```/g, '') // Remove any markdown code blocks
-        .replace(/[\u201C\u201D\u2018\u2019]/g, '"') // Replace smart quotes with straight quotes
-        .replace(/\n/g, '') // Remove newlines
+        .replace(/```json\n?|\n?```/g, '') 
+        .replace(/[\u201C\u201D\u2018\u2019]/g, '"') 
+        .replace(/\n/g, '') 
         .trim();
 
-      console.log('Cleaned response text:', cleanedText);
-      
       let parsedResult;
       try {
         parsedResult = JSON.parse(cleanedText);
       } catch (jsonError) {
         console.error('First JSON parse attempt failed:', jsonError);
-        // Try to extract JSON from the text if it's wrapped in other content
         const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           parsedResult = JSON.parse(jsonMatch[0]);
@@ -121,7 +103,6 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
         }
       }
 
-      // Validate and normalize the result
       const validatedResult: FoodAnalysisResult = {
         foodName: String(parsedResult.foodName || 'Unknown Food'),
         confidence: Number(parsedResult.confidence) || 0.8,
@@ -136,7 +117,7 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
         ingredients: Array.isArray(parsedResult.ingredients) ? 
           parsedResult.ingredients.map(i => String(i)) : [],
         servingSize: String(parsedResult.servingSize || '1 serving'),
-        mealType: String(parsedResult.mealType || getMealTypeFromTime(new Date())),
+        mealType: String(parsedResult.mealType || ''),
         healthyScore: Number(parsedResult.healthyScore) || 5,
         dietaryInfo: {
           isVegetarian: Boolean(parsedResult.dietaryInfo?.isVegetarian),
@@ -163,12 +144,15 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
 export const saveFoodAnalysis = async (result: FoodAnalysisResult, date: Date = new Date()): Promise<void> => {
   try {
     console.log('Saving food analysis to log:', result);
+    console.log('For date:', date);
     
-    // Get the storage key for today
-    const storageKey = getStorageKeyForDate(date);
+    const normalizedDate = normalizeDate(date);
+    const storageKey = getStorageKeyForDate(normalizedDate);
+    console.log('Using storage key:', storageKey);
     
-    // Get existing meals for today
     const existingMealsString = await AsyncStorage.getItem(storageKey);
+    console.log('Existing meals string:', existingMealsString);
+    
     let existingMeals = existingMealsString ? JSON.parse(existingMealsString) : {
       breakfast: [],
       lunch: [],
@@ -176,8 +160,7 @@ export const saveFoodAnalysis = async (result: FoodAnalysisResult, date: Date = 
       snacks: []
     };
 
-    // Create a new meal entry
-    const mealType = getMealTypeFromTime(date).toLowerCase();
+    const mealType = result.mealType.toLowerCase();
     const newMeal = {
       id: `${Date.now()}-${result.foodName.toLowerCase().replace(/\s+/g, '-')}`,
       name: result.foodName,
@@ -191,20 +174,17 @@ export const saveFoodAnalysis = async (result: FoodAnalysisResult, date: Date = 
       completed: true,
       mealType: mealType,
       servingSize: result.servingSize,
-      date: date.toISOString(),
+      date: normalizedDate.toISOString(),
       healthyScore: result.healthyScore,
       dietaryInfo: result.dietaryInfo
     };
 
-    // Ensure the meal type array exists
     if (!existingMeals[mealType]) {
       existingMeals[mealType] = [];
     }
 
-    // Add the new meal
     existingMeals[mealType].push(newMeal);
 
-    // Save back to storage
     console.log('Saving updated meals:', existingMeals);
     await AsyncStorage.setItem(storageKey, JSON.stringify(existingMeals));
     console.log('Successfully saved food to log');

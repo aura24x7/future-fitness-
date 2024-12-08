@@ -1,12 +1,7 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Dimensions, Animated } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  useAnimatedStyle,
-  interpolate,
-  withTiming,
-} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useTabBar } from '../context/TabBarContext';
 
@@ -15,21 +10,24 @@ const TAB_BAR_WIDTH = SCREEN_WIDTH * 0.7;
 
 export const FloatingTabBar = ({ state, navigation, descriptors }: BottomTabBarProps) => {
   const insets = useSafeAreaInsets();
-  const { tabBarVisible } = useTabBar();
+  const { isTabBarVisible } = useTabBar();
+  const translateY = React.useRef(new Animated.Value(0)).current;
+  const opacity = React.useRef(new Animated.Value(1)).current;
 
-  const animatedStyles = useAnimatedStyle(() => {
-    const translateY = interpolate(
-      tabBarVisible.value,
-      [0, 1],
-      [100, 0],
-      'clamp'
-    );
-
-    return {
-      transform: [{ translateY: withTiming(translateY, { duration: 200 }) }],
-      opacity: withTiming(tabBarVisible.value, { duration: 200 }),
-    };
-  });
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: isTabBarVisible ? 0 : 100,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: isTabBarVisible ? 1 : 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isTabBarVisible]);
 
   const getIcon = (routeName: string, focused: boolean) => {
     switch (routeName) {
@@ -54,8 +52,11 @@ export const FloatingTabBar = ({ state, navigation, descriptors }: BottomTabBarP
     <Animated.View
       style={[
         styles.container,
-        animatedStyles,
-        { bottom: insets.bottom + 30 },
+        {
+          transform: [{ translateY }],
+          opacity,
+          bottom: insets.bottom + 30,
+        },
       ]}
     >
       <View style={styles.tabBar}>
@@ -84,13 +85,13 @@ export const FloatingTabBar = ({ state, navigation, descriptors }: BottomTabBarP
               onPress={onPress}
               style={styles.tab}
             >
-              <Animated.View>
+              <View>
                 <Ionicons
                   name={getIcon(route.name, isFocused)}
                   size={24}
                   color={isFocused ? '#007AFF' : '#8E8E93'}
                 />
-              </Animated.View>
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -102,15 +103,14 @@ export const FloatingTabBar = ({ state, navigation, descriptors }: BottomTabBarP
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
+    alignSelf: 'center',
+    zIndex: 1000,
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 25,
-    padding: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 30,
+    padding: 10,
     width: TAB_BAR_WIDTH,
     justifyContent: 'space-around',
     alignItems: 'center',
@@ -119,13 +119,13 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   tab: {
-    flex: 1,
     alignItems: 'center',
-    paddingVertical: 6,
+    justifyContent: 'center',
+    padding: 8,
   },
 });

@@ -45,50 +45,56 @@ USER PROFILE:
 NUTRITIONAL REQUIREMENTS:
 - Daily BMR: ${bmr} calories
 - Adjusted Daily Calories: ${adjustedCalories} calories (based on activity level and goal)
-- Meals per day: ${preferences.mealCount || 3}
+- Meals per day: ${preferences.mealCount || 3} plus 2 snacks
 - Dietary Restrictions: ${preferences.dietaryRestrictions?.join(', ') || 'None'}
 - Allergies: ${preferences.allergies?.join(', ') || 'None'}
 - Preferred Cuisines: ${preferences.cuisinePreferences?.join(', ') || 'Regional cuisine based on location'}
 
-RESPONSE FORMAT:
-For each meal, provide ingredients in this EXACT format:
-{
-  "ingredients": [
-    {
-      "item": "ingredient name",
-      "amount": number,
-      "unit": "g/ml/cups/tbsp/tsp/pieces"
-    }
-  ]
-}
+MEAL DISTRIBUTION:
+- Breakfast: 25% of daily calories
+- Lunch: 30% of daily calories
+- Dinner: 30% of daily calories
+- Snacks: 15% of daily calories (divided between 2 snacks)
 
-Example ingredient:
-{
-  "ingredients": [
-    { "item": "chicken breast", "amount": 200, "unit": "g" },
-    { "item": "olive oil", "amount": 2, "unit": "tbsp" },
-    { "item": "brown rice", "amount": 1, "unit": "cup" }
-  ]
-}
-
-IMPORTANT:
-- All ingredients MUST have specific quantities
-- Use common household measurements (cups, tablespoons, teaspoons) or metric units (g, ml)
-- Be precise with measurements
-- Include all ingredients needed for the recipe
-
-PERSONALIZATION INSTRUCTIONS:
+IMPORTANT INSTRUCTIONS:
 1. Create meals that are culturally relevant to the user's location
 2. Use local names for dishes where appropriate
-3. Consider regional ingredients and cooking methods
-4. Adapt portion sizes to meet the exact calorie requirements
-5. Account for activity level in meal timing and composition
-6. For ${dayOfWeek}, consider:
-   - Weekend days: More elaborate, traditional meals
-   - Weekdays: Quick, practical versions of local favorites
-   - Meal timing based on typical regional eating patterns
+3. Use local ingredients and cooking methods
+4. Adapt portion sizes to meet calorie requirements
+5. Account for activity level in meal timing
+6. Include 2 healthy snacks between meals
 
-RESPONSE MUST BE A VALID JSON OBJECT WITH THIS EXACT STRUCTURE:
+RESPONSE FORMAT REQUIREMENTS:
+1. Must be valid JSON
+2. No comments in JSON
+3. No placeholders (like "number" or "...")
+4. All numeric values must be actual numbers
+5. All arrays must be properly populated
+6. No trailing commas
+
+EXAMPLE MEAL STRUCTURE:
+{
+  "name": "Masala Dosa",
+  "description": "South Indian rice and lentil crepe with potato filling",
+  "calories": 350,
+  "protein": 12,
+  "carbs": 45,
+  "fat": 15,
+  "ingredients": [
+    {
+      "item": "dosa batter",
+      "amount": 200,
+      "unit": "g"
+    }
+  ],
+  "instructions": "1. Heat griddle...",
+  "servings": 1,
+  "prepTime": 20,
+  "tips": "Ensure batter is fermented well",
+  "mealType": "breakfast"
+}
+
+GENERATE RESPONSE IN THIS EXACT STRUCTURE:
 {
   "dayOfWeek": "${dayOfWeek}",
   "totalCalories": ${adjustedCalories},
@@ -96,46 +102,80 @@ RESPONSE MUST BE A VALID JSON OBJECT WITH THIS EXACT STRUCTURE:
   "totalCarbs": 0,
   "totalFat": 0,
   "meals": {
-    "breakfast": [
-      {
-        "name": "Local Breakfast Name (English Name)",
-        "description": "Brief cultural context or significance",
-        "calories": 0,
-        "protein": 0,
-        "carbs": 0,
-        "fat": 0,
-        "ingredients": [
-          {
-            "item": "ingredient name",
-            "amount": 0,
-            "unit": "g/ml/pieces"
-          }
-        ],
-        "instructions": "1. Step one...",
-        "servings": 1,
-        "prepTime": 0,
-        "tips": "Optional cultural or preparation tips"
-      }
-    ],
-    "lunch": [Array of meal objects],
-    "dinner": [Array of meal objects],
-    "snacks": [Array of meal objects]
+    "breakfast": [{
+      "name": "",
+      "description": "",
+      "calories": 0,
+      "protein": 0,
+      "carbs": 0,
+      "fat": 0,
+      "ingredients": [{
+        "item": "",
+        "amount": 0,
+        "unit": ""
+      }],
+      "instructions": "",
+      "servings": 1,
+      "prepTime": 0,
+      "tips": "",
+      "mealType": "breakfast"
+    }],
+    "lunch": [{
+      "name": "",
+      "description": "",
+      "calories": 0,
+      "protein": 0,
+      "carbs": 0,
+      "fat": 0,
+      "ingredients": [{
+        "item": "",
+        "amount": 0,
+        "unit": ""
+      }],
+      "instructions": "",
+      "servings": 1,
+      "prepTime": 0,
+      "tips": "",
+      "mealType": "lunch"
+    }],
+    "dinner": [{
+      "name": "",
+      "description": "",
+      "calories": 0,
+      "protein": 0,
+      "carbs": 0,
+      "fat": 0,
+      "ingredients": [{
+        "item": "",
+        "amount": 0,
+        "unit": ""
+      }],
+      "instructions": "",
+      "servings": 1,
+      "prepTime": 0,
+      "tips": "",
+      "mealType": "dinner"
+    }],
+    "snacks": [{
+      "name": "",
+      "description": "",
+      "calories": 0,
+      "protein": 0,
+      "carbs": 0,
+      "fat": 0,
+      "ingredients": [{
+        "item": "",
+        "amount": 0,
+        "unit": ""
+      }],
+      "instructions": "",
+      "servings": 1,
+      "prepTime": 0,
+      "tips": "",
+      "mealType": "snack"
+    }]
   }
-}
-
-STRICT RULES:
-1. Response must be PURE JSON
-2. NO markdown or comments
-3. ALL numeric values must be numbers (not strings)
-4. NO trailing commas
-5. Arrays must be properly terminated
-6. All fields shown are REQUIRED
-7. Calories and macros must sum exactly to daily total
-8. Each meal must be unique and culturally appropriate
-9. Use local language names with English translations
-10. Quantities must be precise and realistic
-
-Generate the meal plan now:`;
+}`;
     }
 
     public async generateWeeklyMealPlan(preferences: MealPlanPreferences): Promise<WeeklyMealPlan> {

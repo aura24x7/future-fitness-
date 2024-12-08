@@ -8,7 +8,7 @@ export enum MealType {
   Breakfast = 'breakfast',
   Lunch = 'lunch',
   Dinner = 'dinner',
-  Snack = 'snack'
+  Snacks = 'snacks'
 }
 
 export interface MealLog {

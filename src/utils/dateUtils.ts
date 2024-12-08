@@ -4,12 +4,32 @@ import { format as formatFn, startOfDay, isSameDay as isSameDayFn } from 'date-f
 export const MEALS_STORAGE_KEY = '@meals';
 
 /**
+ * Get the day of the week as a string
+ * @param date The date to get the day of week for
+ * @returns The day of week as a string (e.g., 'Sunday', 'Monday', etc.)
+ */
+export const getDayOfWeek = (date: Date): string => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[date.getDay()];
+};
+
+/**
+ * Normalizes a date by setting it to the start of day
+ * @param date The date to normalize
+ * @returns A new Date object set to the start of the given day
+ */
+export const normalizeDate = (date: Date): Date => {
+    return startOfDay(new Date(date));
+};
+
+/**
  * Generates a storage key for a specific date
  * @param date The date to generate the key for
  * @returns A string key in the format '@meals_YYYY-MM-DD'
  */
 export const getStorageKeyForDate = (date: Date): string => {
-    return `${MEALS_STORAGE_KEY}_${formatDate(date)}`;
+    const normalizedDate = normalizeDate(date);
+    return `${MEALS_STORAGE_KEY}_${formatDate(normalizedDate)}`;
 };
 
 /**
@@ -19,7 +39,7 @@ export const getStorageKeyForDate = (date: Date): string => {
  * @returns boolean indicating if dates are the same day
  */
 export const isSameDay = (date1: Date, date2: Date): boolean => {
-    return isSameDayFn(date1, date2);
+    return isSameDayFn(normalizeDate(date1), normalizeDate(date2));
 };
 
 /**
@@ -28,7 +48,7 @@ export const isSameDay = (date1: Date, date2: Date): boolean => {
  * @returns Date object set to start of the given day
  */
 export const getStartOfDay = (date: Date): Date => {
-    return startOfDay(date);
+    return normalizeDate(date);
 };
 
 /**
@@ -38,7 +58,7 @@ export const getStartOfDay = (date: Date): Date => {
  * @returns Formatted date string
  */
 export const formatDate = (date: Date, formatString: string = 'yyyy-MM-dd'): string => {
-    return formatFn(date, formatString);
+    return formatFn(normalizeDate(date), formatString);
 };
 
 // Export renamed format function for components that need it

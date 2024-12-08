@@ -14,6 +14,8 @@ import { RouteProp, useRoute, useNavigation, CommonActions } from '@react-naviga
 import { analyzeFoodImage, FoodAnalysisResult, saveFoodAnalysis } from '../services/foodRecognitionService';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useMeals } from '../contexts/MealContext';
+import { normalizeDate } from '../utils/dateUtils';
 
 type ScannedFoodDetailsParams = {
   imageUri: string;
@@ -32,6 +34,7 @@ const ScannedFoodDetailsScreen = () => {
   const [foodData, setFoodData] = useState<FoodAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const { meals, updateMeals } = useMeals();
 
   useEffect(() => {
     const analyzeFoodData = async () => {
@@ -59,9 +62,20 @@ const ScannedFoodDetailsScreen = () => {
   }, [imageBase64]);
 
   const navigateToFoodLog = () => {
-    navigation.navigate('Main', {
-      screen: 'FoodLog'
-    });
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'TabNavigator',
+            state: {
+              routes: [{ name: 'FoodLog' }],
+              index: 2, // FoodLog is the third tab (0-based index)
+            },
+          },
+        ],
+      })
+    );
   };
 
   const handleSaveToLog = async () => {
@@ -69,7 +83,38 @@ const ScannedFoodDetailsScreen = () => {
 
     setIsSaving(true);
     try {
-      await saveFoodAnalysis(foodData);
+      // Create the meal object with normalized date
+      const currentDate = normalizeDate(new Date());
+      const mealType = foodData.mealType.toLowerCase();
+      const newMeal = {
+        id: `${Date.now()}-${foodData.foodName.toLowerCase().replace(/\s+/g, '-')}`,
+        name: foodData.foodName,
+        calories: foodData.nutritionInfo.calories,
+        protein: foodData.nutritionInfo.protein,
+        carbs: foodData.nutritionInfo.carbs,
+        fat: foodData.nutritionInfo.fat,
+        completed: true,
+        mealType,
+        ingredients: foodData.ingredients,
+        servingSize: foodData.servingSize,
+        date: currentDate.toISOString(),
+      };
+
+      // First save to AsyncStorage
+      await saveFoodAnalysis(foodData, currentDate);
+
+      // Then update MealContext
+      const updatedMeals = { ...meals };
+      if (!updatedMeals[mealType]) {
+        updatedMeals[mealType] = [];
+      }
+      updatedMeals[mealType].push(newMeal);
+      
+      console.log('Saving meal with date:', currentDate);
+      console.log('Updated meals:', updatedMeals);
+      
+      await updateMeals(updatedMeals);
+
       Alert.alert(
         'Success',
         'Food has been added to your log!',

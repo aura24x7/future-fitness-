@@ -78,11 +78,42 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const storageKey = getStorageKeyForDate(selectedDate);
         const savedMealsStr = await AsyncStorage.getItem(storageKey);
-        const savedMeals = savedMealsStr ? JSON.parse(savedMealsStr) : {};
+        const savedMeals = savedMealsStr ? JSON.parse(savedMealsStr) : {
+          breakfast: [],
+          lunch: [],
+          dinner: [],
+          snacks: []
+        };
         
-        setMeals(savedMeals);
+        // Ensure proper meal type structure and IDs
+        const structuredMeals = {
+          breakfast: (savedMeals.breakfast || []).map((meal: MealDetails) => ({
+            ...meal,
+            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
+          })),
+          lunch: (savedMeals.lunch || []).map((meal: MealDetails) => ({
+            ...meal,
+            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
+          })),
+          dinner: (savedMeals.dinner || []).map((meal: MealDetails) => ({
+            ...meal,
+            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
+          })),
+          snacks: (savedMeals.snacks || []).map((meal: MealDetails) => ({
+            ...meal,
+            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
+          }))
+        };
+        
+        setMeals(structuredMeals);
       } catch (error) {
         console.error('Error loading meals:', error);
+        setMeals({
+          breakfast: [],
+          lunch: [],
+          dinner: [],
+          snacks: []
+        });
       }
     };
 
@@ -91,58 +122,119 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [selectedDate]);
 
-  const debouncedSaveMeals = useCallback(
-    debounce(async (mealsToSave: { [key: string]: MealDetails[] }) => {
-      try {
-        const storageKey = getStorageKeyForDate(selectedDate);
-        await AsyncStorage.setItem(storageKey, JSON.stringify(mealsToSave));
-      } catch (error) {
-        console.error('Error saving meals:', error);
+  const saveMealsToStorage = async (mealsToSave: { [key: string]: MealDetails[] }) => {
+    try {
+      const storageKey = getStorageKeyForDate(selectedDate);
+      await AsyncStorage.setItem(storageKey, JSON.stringify(mealsToSave));
+      console.log('Successfully saved meals to storage:', storageKey);
+    } catch (error) {
+      console.error('Error saving meals:', error);
+    }
+  };
+
+  const updateMeals = useCallback(async (newMeals: { [key: string]: MealDetails[] }) => {
+    try {
+      // Create a deep copy and ensure IDs
+      const structuredMeals = {
+        breakfast: (newMeals.breakfast || []).map(meal => ({
+          ...meal,
+          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
+        })),
+        lunch: (newMeals.lunch || []).map(meal => ({
+          ...meal,
+          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
+        })),
+        dinner: (newMeals.dinner || []).map(meal => ({
+          ...meal,
+          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
+        })),
+        snacks: (newMeals.snacks || []).map(meal => ({
+          ...meal,
+          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
+        }))
+      };
+
+      // Save to storage with proper IDs
+      const storageKey = getStorageKeyForDate(selectedDate);
+      await AsyncStorage.setItem(storageKey, JSON.stringify(structuredMeals));
+      
+      // Update state
+      setMeals(structuredMeals);
+      
+      // Update totals
+      const { calories, macros } = calculateTotals(structuredMeals);
+      setTotalCalories(calories);
+      setTotalMacros(macros);
+    } catch (error) {
+      console.error('Error updating meals:', error);
+    }
+  }, [selectedDate, calculateTotals]);
+
+  const addMeal = useCallback(async (meal: MealDetails) => {
+    try {
+      const mealType = meal.mealType.toLowerCase();
+      const updatedMeals = {
+        ...meals,
+        [mealType]: [...(meals[mealType] || []), {
+          ...meal,
+          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
+        }]
+      };
+      
+      await updateMeals(updatedMeals);
+    } catch (error) {
+      console.error('Error adding meal:', error);
+    }
+  }, [meals, selectedDate, updateMeals]);
+
+  const completeMeal = useCallback(async (mealId: string, completed: boolean) => {
+    try {
+      const updatedMeals = JSON.parse(JSON.stringify(meals));
+      let found = false;
+
+      for (const mealType of ['breakfast', 'lunch', 'dinner', 'snacks']) {
+        if (!Array.isArray(updatedMeals[mealType])) {
+          updatedMeals[mealType] = [];
+          continue;
+        }
+
+        const mealIndex = updatedMeals[mealType].findIndex((meal: MealDetails) => {
+          const normalizedMealType = meal.mealType === 'snack' ? 'snacks' : meal.mealType;
+          const currentMealId = meal.id || `${meal.name}-${normalizedMealType}-${selectedDate.toISOString()}`;
+          return currentMealId === mealId;
+        });
+
+        if (mealIndex !== -1) {
+          updatedMeals[mealType][mealIndex] = {
+            ...updatedMeals[mealType][mealIndex],
+            completed: completed,
+            id: mealId,
+            mealType: updatedMeals[mealType][mealIndex].mealType === 'snack' ? 'snacks' : updatedMeals[mealType][mealIndex].mealType
+          };
+          found = true;
+          break;
+        }
       }
-    }, 300),
-    [selectedDate]
-  );
 
-  const updateMeals = useCallback((newMeals: { [key: string]: MealDetails[] }) => {
-    setMeals(newMeals);
-    debouncedSaveMeals(newMeals);
-    
-    // Immediately calculate and update totals
-    const { calories, macros } = calculateTotals(newMeals);
-    setTotalCalories(calories);
-    setTotalMacros(macros);
-  }, [debouncedSaveMeals, calculateTotals]);
-
-  const addMeal = useCallback((meal: MealDetails) => {
-    setMeals(prevMeals => {
-      const storageKey = getStorageKeyForDate(selectedDate);
-      const updatedMeals = {
-        ...prevMeals,
-        [storageKey]: [...(prevMeals[storageKey] || []), meal]
-      };
-      
-      // Save meals and update totals
-      debouncedSaveMeals(updatedMeals);
-      return updatedMeals;
-    });
-  }, [selectedDate, debouncedSaveMeals]);
-
-  const completeMeal = useCallback((mealId: string, completed: boolean) => {
-    setMeals(prevMeals => {
-      const storageKey = getStorageKeyForDate(selectedDate);
-      const currentMeals = prevMeals[storageKey] || [];
-      const updatedMeals = {
-        ...prevMeals,
-        [storageKey]: currentMeals.map(meal =>
-          meal.id === mealId ? { ...meal, completed } : meal
-        )
-      };
-      
-      // Save meals and update totals
-      debouncedSaveMeals(updatedMeals);
-      return updatedMeals;
-    });
-  }, [selectedDate, debouncedSaveMeals]);
+      if (found) {
+        const storageKey = getStorageKeyForDate(selectedDate);
+        await AsyncStorage.setItem(storageKey, JSON.stringify(updatedMeals));
+        setMeals(updatedMeals);
+        
+        const { calories, macros } = calculateTotals(updatedMeals);
+        setTotalCalories(calories);
+        setTotalMacros(macros);
+      } else {
+        console.error('Meal not found:', mealId);
+      }
+    } catch (error) {
+      console.error('Error completing meal:', error);
+    }
+  }, [meals, selectedDate, calculateTotals]);
 
   const handleSetSelectedDate = useCallback((date: Date) => {
     const normalizedDate = getStartOfDay(date);
