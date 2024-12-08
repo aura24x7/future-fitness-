@@ -134,31 +134,54 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateMeals = useCallback(async (newMeals: { [key: string]: MealDetails[] }) => {
     try {
-      // Create a deep copy and ensure IDs
+      // Create a deep copy and preserve existing meal states
+      const currentMealStates = new Map();
+      Object.entries(meals).forEach(([type, mealArray]) => {
+        if (Array.isArray(mealArray)) {
+          mealArray.forEach((meal: MealDetails) => {
+            const mealId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
+            currentMealStates.set(mealId, meal.completed);
+          });
+        }
+      });
+
+      // Structure new meals while preserving completion states
       const structuredMeals = {
-        breakfast: (newMeals.breakfast || []).map(meal => ({
-          ...meal,
-          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
-          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
-        })),
-        lunch: (newMeals.lunch || []).map(meal => ({
-          ...meal,
-          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
-          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
-        })),
-        dinner: (newMeals.dinner || []).map(meal => ({
-          ...meal,
-          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
-          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
-        })),
-        snacks: (newMeals.snacks || []).map(meal => ({
-          ...meal,
-          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
-          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
-        }))
+        breakfast: (newMeals.breakfast || []).map(meal => {
+          const mealId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
+          return {
+            ...meal,
+            id: mealId,
+            completed: currentMealStates.has(mealId) ? currentMealStates.get(mealId) : meal.completed || false
+          };
+        }),
+        lunch: (newMeals.lunch || []).map(meal => {
+          const mealId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
+          return {
+            ...meal,
+            id: mealId,
+            completed: currentMealStates.has(mealId) ? currentMealStates.get(mealId) : meal.completed || false
+          };
+        }),
+        dinner: (newMeals.dinner || []).map(meal => {
+          const mealId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
+          return {
+            ...meal,
+            id: mealId,
+            completed: currentMealStates.has(mealId) ? currentMealStates.get(mealId) : meal.completed || false
+          };
+        }),
+        snacks: (newMeals.snacks || []).map(meal => {
+          const mealId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
+          return {
+            ...meal,
+            id: mealId,
+            completed: currentMealStates.has(mealId) ? currentMealStates.get(mealId) : meal.completed || false
+          };
+        })
       };
 
-      // Save to storage with proper IDs
+      // Save to storage
       const storageKey = getStorageKeyForDate(selectedDate);
       await AsyncStorage.setItem(storageKey, JSON.stringify(structuredMeals));
       
@@ -172,7 +195,7 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error updating meals:', error);
     }
-  }, [selectedDate, calculateTotals]);
+  }, [meals, selectedDate, calculateTotals]);
 
   const addMeal = useCallback(async (meal: MealDetails) => {
     try {
@@ -193,9 +216,24 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const completeMeal = useCallback(async (mealId: string, completed: boolean) => {
     try {
+      // Create a deep copy of current meals
       const updatedMeals = JSON.parse(JSON.stringify(meals));
       let found = false;
 
+      // Keep track of all meal states
+      const mealStates = new Map();
+
+      // First, collect all current meal states
+      Object.entries(updatedMeals).forEach(([type, mealArray]) => {
+        if (Array.isArray(mealArray)) {
+          mealArray.forEach((meal: MealDetails) => {
+            const currentId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
+            mealStates.set(currentId, meal.completed);
+          });
+        }
+      });
+
+      // Update the specific meal's completion state
       for (const mealType of ['breakfast', 'lunch', 'dinner', 'snacks']) {
         if (!Array.isArray(updatedMeals[mealType])) {
           updatedMeals[mealType] = [];
@@ -203,17 +241,15 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         const mealIndex = updatedMeals[mealType].findIndex((meal: MealDetails) => {
-          const normalizedMealType = meal.mealType === 'snack' ? 'snacks' : meal.mealType;
-          const currentMealId = meal.id || `${meal.name}-${normalizedMealType}-${selectedDate.toISOString()}`;
+          const currentMealId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
           return currentMealId === mealId;
         });
 
         if (mealIndex !== -1) {
+          // Update only the target meal's completion state
           updatedMeals[mealType][mealIndex] = {
             ...updatedMeals[mealType][mealIndex],
-            completed: completed,
-            id: mealId,
-            mealType: updatedMeals[mealType][mealIndex].mealType === 'snack' ? 'snacks' : updatedMeals[mealType][mealIndex].mealType
+            completed: completed
           };
           found = true;
           break;
@@ -221,10 +257,31 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (found) {
+        // Restore all other meal states
+        Object.entries(updatedMeals).forEach(([type, mealArray]) => {
+          if (Array.isArray(mealArray)) {
+            updatedMeals[type] = mealArray.map((meal: MealDetails) => {
+              const currentId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
+              // Only update the target meal, preserve all other states
+              if (currentId !== mealId) {
+                return {
+                  ...meal,
+                  completed: mealStates.get(currentId)
+                };
+              }
+              return meal;
+            });
+          }
+        });
+
+        // Save to storage
         const storageKey = getStorageKeyForDate(selectedDate);
         await AsyncStorage.setItem(storageKey, JSON.stringify(updatedMeals));
+        
+        // Update state
         setMeals(updatedMeals);
         
+        // Update totals
         const { calories, macros } = calculateTotals(updatedMeals);
         setTotalCalories(calories);
         setTotalMacros(macros);

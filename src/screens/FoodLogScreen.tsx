@@ -202,6 +202,40 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
     });
   };
 
+  const handleMealComplete = async (mealId: string, isCompleted: boolean, mealType: MealType) => {
+    try {
+      // Get the meal array for the specific type
+      const mealTypeKey = mealType.toString().toLowerCase();
+      
+      // Validate meal type key
+      if (!['breakfast', 'lunch', 'dinner', 'snacks'].includes(mealTypeKey)) {
+        console.error('Invalid meal type:', mealType);
+        return;
+      }
+
+      // Find the meal
+      const mealArray = meals[mealTypeKey];
+      if (!Array.isArray(mealArray)) {
+        console.error('Invalid meal array for type:', mealType);
+        return;
+      }
+
+      const meal = mealArray.find(m => {
+        const currentMealId = m.id || `${m.name}-${m.mealType}-${selectedDate.toISOString()}`;
+        return currentMealId === mealId;
+      });
+
+      if (meal) {
+        // Use the completeMeal function from context
+        await completeMeal(mealId, isCompleted);
+      } else {
+        console.error('Meal not found:', mealId);
+      }
+    } catch (error) {
+      console.error('Error updating meal completion:', error);
+    }
+  };
+
   const renderMealItem = useCallback((item: MealDetails) => {
     // Ensure each meal has a stable unique ID
     const mealId = item.id || `${item.name}-${item.mealType}-${selectedDate.toISOString()}`;
@@ -307,34 +341,6 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
       updateMeals(updatedMeals);
     } catch (error) {
       console.error('Error saving custom meal:', error);
-    }
-  };
-
-  const handleMealComplete = async (mealId: string, isCompleted: boolean, mealType: MealType) => {
-    try {
-      // Get the meal array for the specific type
-      const mealTypeKey = mealType.toString().toLowerCase();
-      
-      // Validate meal type key
-      if (!['breakfast', 'lunch', 'dinner', 'snacks'].includes(mealTypeKey)) {
-        console.error('Invalid meal type:', mealType);
-        return;
-      }
-
-      // Find the meal and ensure it has an ID
-      const meal = meals[mealTypeKey]?.find(m => {
-        const currentMealId = m.id || `${m.name}-${m.mealType}-${selectedDate.toISOString()}`;
-        return currentMealId === mealId;
-      });
-
-      if (meal) {
-        // Use the completeMeal function from context
-        await completeMeal(mealId, isCompleted);
-      } else {
-        console.error('Meal not found:', mealId);
-      }
-    } catch (error) {
-      console.error('Error updating meal:', error);
     }
   };
 
