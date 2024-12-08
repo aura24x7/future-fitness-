@@ -1,16 +1,25 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '../context/AuthContext';
 
 const WelcomeScreen = ({ navigation }) => {
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigation.replace('Dashboard');
+    }
+  }, [isAuthenticated]);
+
   return (
     <LinearGradient
       colors={['#4c669f', '#3b5998', '#192f6a']}
       style={styles.container}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>AI Fitness</Text>
-        <Text style={styles.subtitle}>Your Personal Wellness Journey</Text>
+        <Text style={styles.title}>Future Fitness</Text>
+        <Text style={styles.subtitle}>Your AI-Powered Fitness Journey</Text>
         
         <TouchableOpacity
           style={styles.button}

@@ -1,25 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import Card from '../components/Card';
-import { AppError, ErrorCodes, validateEmail, validatePassword } from '../utils/errorHandling';
+import { AppError, ErrorCodes, validateEmail } from '../utils/errorHandling';
 import { useAuth } from '../context/AuthContext';
 
-const LoginScreen = ({ navigation }) => {
+const ForgotPasswordScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const { login, isAuthenticated } = useAuth();
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigation.replace('Main');
-    }
-  }, [isAuthenticated, navigation]);
+  const { resetPassword } = useAuth();
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
@@ -30,12 +22,7 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  const handlePasswordChange = (text: string) => {
-    setPassword(text);
-    setPasswordError('');
-  };
-
-  const handleLogin = async () => {
+  const handleResetPassword = async () => {
     try {
       setLoading(true);
       
@@ -44,8 +31,8 @@ const LoginScreen = ({ navigation }) => {
         throw new AppError(
           'Email is required',
           ErrorCodes.REQUIRED_FIELD_MISSING,
-          'LoginScreen',
-          'handleLogin'
+          'ForgotPasswordScreen',
+          'handleResetPassword'
         );
       }
 
@@ -53,24 +40,19 @@ const LoginScreen = ({ navigation }) => {
         throw new AppError(
           'Please enter a valid email address',
           ErrorCodes.INVALID_EMAIL,
-          'LoginScreen',
-          'handleLogin'
+          'ForgotPasswordScreen',
+          'handleResetPassword'
         );
       }
 
-      if (!password) {
-        throw new AppError(
-          'Password is required',
-          ErrorCodes.REQUIRED_FIELD_MISSING,
-          'LoginScreen',
-          'handleLogin'
-        );
-      }
-
-      await login(email, password);
-      // Navigation is handled by the useEffect hook watching isAuthenticated
+      await resetPassword(email);
+      Alert.alert(
+        'Success',
+        'Password reset instructions have been sent to your email.',
+        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+      );
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to login');
+      Alert.alert('Error', error.message || 'Failed to reset password');
     } finally {
       setLoading(false);
     }
@@ -92,33 +74,17 @@ const LoginScreen = ({ navigation }) => {
           autoCapitalize="none"
         />
 
-        <Input
-          label="Password"
-          value={password}
-          onChangeText={handlePasswordChange}
-          error={passwordError}
-          placeholder="Enter your password"
-          secureTextEntry
-        />
-
         <Button
-          title="Login"
-          onPress={handleLogin}
+          title="Reset Password"
+          onPress={handleResetPassword}
           loading={loading}
           style={styles.button}
         />
 
         <Button
-          title="Forgot Password?"
-          onPress={() => navigation.navigate('ForgotPassword')}
+          title="Back to Login"
+          onPress={() => navigation.navigate('Login')}
           variant="text"
-          style={styles.linkButton}
-        />
-
-        <Button
-          title="Create Account"
-          onPress={() => navigation.navigate('Register')}
-          variant="outlined"
           style={styles.linkButton}
         />
       </Card>
@@ -134,13 +100,14 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: 20,
+    width: '100%',
   },
   button: {
-    marginTop: 12,
+    marginTop: 20,
   },
   linkButton: {
-    marginTop: 12,
+    marginTop: 10,
   },
 });
 
-export default LoginScreen;
+export default ForgotPasswordScreen;

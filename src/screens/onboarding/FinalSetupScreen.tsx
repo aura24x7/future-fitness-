@@ -8,6 +8,7 @@ import {
   Easing,
   Platform,
   SafeAreaView,
+  TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
@@ -16,6 +17,7 @@ import { BlurView } from 'expo-blur';
 import { TargetIcon, AIIcon, ProgressIcon } from '../../assets/icons/icons';
 import { Alert } from 'react-native';
 import { userProfileService } from '../../services/userProfileService';
+import { useAuth } from '../../context/AuthContext';
 
 type PreferenceCardProps = {
   icon: React.ReactNode;
@@ -66,21 +68,78 @@ const PreferenceCard: React.FC<PreferenceCardProps> = ({ icon, title, value, del
   );
 };
 
-const FinalSetupScreen = ({ navigation, route }) => {
-  const { onboardingData } = useOnboarding();
-  const { name } = route.params || {};
+const FinalSetupScreen = ({ navigation }) => {
+  const { onboardingData, completeOnboarding } = useOnboarding();
+  const { user } = useAuth();
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const progressAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
+  const handleComplete = async () => {
+    try {
+      setIsCreatingProfile(true);
+      setError(null);
+      
+      // Ensure all required data is present
+      if (!onboardingData.name || !onboardingData.birthday || !onboardingData.gender ||
+          !onboardingData.height || !onboardingData.weight || !onboardingData.lifestyle ||
+          !onboardingData.workoutPreference || !onboardingData.dietaryPreference) {
+        Alert.alert('Missing Information', 'Please complete all onboarding steps before proceeding.');
+        return;
+      }
+
+      // Start animations
+      Animated.parallel([
+        Animated.timing(progressAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Create the profile first
+      await userProfileService.createUserProfile({
+        ...onboardingData,
+        weightGoal: onboardingData.weightGoal || 'MAINTAIN_WEIGHT',
+        fitnessGoal: onboardingData.fitnessGoal || 'IMPROVE_FITNESS',
+        lifestyle: onboardingData.lifestyle || 'SEDENTARY',
+        dietaryPreference: onboardingData.dietaryPreference || 'NONE',
+        workoutPreference: onboardingData.workoutPreference || 'HOME',
+      });
+
+      // Mark onboarding as complete
+      await completeOnboarding();
+
+      // Wait for animations
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Navigate to main app
+      navigation.navigate('Main');
+    } catch (error) {
+      console.error('Error completing setup:', error);
+      setError(
+        'There was a problem completing your setup. Please try again.'
+      );
+    } finally {
+      setIsCreatingProfile(false);
+    }
+  };
+
   useEffect(() => {
     const setupProfile = async () => {
+      if (!user) {
+        setError('No authenticated user found. Please log in again.');
+        return;
+      }
+
       try {
-        setIsCreatingProfile(true);
-        // Create user profile
-        await userProfileService.createUserProfile(onboardingData);
-        
         // Start animations
         Animated.parallel([
           Animated.timing(progressAnim, {
@@ -99,43 +158,44 @@ const FinalSetupScreen = ({ navigation, route }) => {
           ),
         ]).start();
 
-        // Wait for animations and profile creation
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        // Wait for animations
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Navigate to main screen
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
+        // Complete onboarding and create user profile
+        await handleComplete();
       } catch (error) {
-        console.error('Error setting up profile:', error);
-        // Show error message to user
-        Alert.alert(
-          'Setup Error',
-          'There was an error setting up your profile. Please try again.',
-          [
-            {
-              text: 'Retry',
-              onPress: setupProfile
-            }
-          ]
+        console.error('Error completing onboarding:', error);
+        setError(
+          'There was an error completing your profile setup. Please try again.'
         );
-      } finally {
-        setIsCreatingProfile(false);
       }
     };
 
     setupProfile();
-  }, []);
+  }, [user]);
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => navigation.replace('Login')}
+        >
+          <Text style={styles.retryButtonText}>Return to Login</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const rotate = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
 
-  const progressWidth = progressAnim.interpolate({
+  const progressTransform = progressAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
+    outputRange: [-Dimensions.get('window').width, 0],
   });
 
   return (
@@ -148,7 +208,7 @@ const FinalSetupScreen = ({ navigation, route }) => {
 
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hello {name},</Text>
+          <Text style={styles.greeting}>Hello,</Text>
           <Text style={styles.title}>Your Profile Summary</Text>
           <Text style={styles.subtitle}>
             We're preparing your personalized fitness journey
@@ -190,7 +250,12 @@ const FinalSetupScreen = ({ navigation, route }) => {
             </Text>
             <View style={styles.progressBarContainer}>
               <Animated.View
-                style={[styles.progressBar, { width: progressWidth }]}
+                style={[
+                  styles.progressBar,
+                  {
+                    transform: [{ translateX: progressTransform }],
+                  },
+                ]}
               />
             </View>
           </BlurView>
@@ -305,9 +370,29 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressBar: {
-    height: '100%',
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
     backgroundColor: '#8B5CF6',
-    borderRadius: 2,
+    width: '100%',
+  },
+  errorText: {
+    fontSize: 17,
+    color: '#8B5CF6',
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#8B5CF6',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  retryButtonText: {
+    fontSize: 17,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });
 

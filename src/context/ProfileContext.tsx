@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { userProfileService, UserProfile } from '../services/userProfileService';
 import { useAuth } from './AuthContext';
 
@@ -8,15 +8,18 @@ interface ProfileContextType {
   error: Error | null;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   refreshProfile: () => Promise<void>;
+  syncProfile: () => Promise<void>;
 }
 
-const ProfileContext = createContext<ProfileContextType>({
-  profile: null,
-  loading: true,
-  error: null,
-  updateProfile: async () => {},
-  refreshProfile: async () => {},
-});
+const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
+
+export const useProfile = () => {
+  const context = useContext(ProfileContext);
+  if (!context) {
+    throw new Error('useProfile must be used within a ProfileProvider');
+  }
+  return context;
+};
 
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -24,28 +27,39 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [error, setError] = useState<Error | null>(null);
   const { user } = useAuth();
 
-  const loadProfile = async () => {
-    if (!user) {
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
+  const syncProfile = async () => {
+    if (!user) return;
 
     try {
       setLoading(true);
-      setError(null);
-      const userProfile = await userProfileService.getProfile();
-      setProfile(userProfile);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load profile'));
-      console.error('Error loading profile:', err);
+      const updatedProfile = await userProfileService.syncProfileWithOnboarding({});
+      setProfile(updatedProfile);
+    } catch (error) {
+      console.error('Error syncing profile:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Load profile when user changes
   useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const userProfile = await userProfileService.getProfile();
+        setProfile(userProfile);
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadProfile();
   }, [user]);
 
@@ -53,7 +67,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       setLoading(true);
       setError(null);
-      const updatedProfile = await userProfileService.updateProfile(updates);
+      const updatedProfile = await userProfileService.updateUserProfile(updates);
       setProfile(updatedProfile);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to update profile'));
@@ -76,19 +90,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         error,
         updateProfile,
         refreshProfile,
+        syncProfile,
       }}
     >
       {children}
     </ProfileContext.Provider>
   );
-};
-
-export const useProfile = () => {
-  const context = useContext(ProfileContext);
-  if (!context) {
-    throw new Error('useProfile must be used within a ProfileProvider');
-  }
-  return context;
 };
 
 export default ProfileContext;

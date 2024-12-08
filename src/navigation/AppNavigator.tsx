@@ -3,6 +3,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useOnboarding } from '../context/OnboardingContext';
 import { useAuth } from '../context/AuthContext';
 
+// Auth Screens
+import LoginScreen from '../screens/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen';
+
 // Onboarding Screens
 import WelcomeScreen from '../screens/onboarding/WelcomeScreen';
 import NameInputScreen from '../screens/onboarding/NameInputScreen';
@@ -17,23 +21,16 @@ import LocationScreen from '../screens/onboarding/LocationScreen';
 import WorkoutPreferenceScreen from '../screens/onboarding/WorkoutPreferenceScreen';
 import FinalSetupScreen from '../screens/onboarding/FinalSetupScreen';
 
-// Main Screens
-import LoginScreen from '../screens/LoginScreen';
-import RegisterScreen from '../screens/RegisterScreen';
-import TrackMealScreen from '../screens/TrackMealScreen';
-import TrackWaterScreen from '../screens/TrackWaterScreen';
-import CreateWorkoutScreen from '../screens/CreateWorkoutScreen';
-import AddCustomMealScreen from '../screens/AddCustomMealScreen';
-import { SettingsScreen } from '../screens/SettingsScreen';
+// Main App
 import MainNavigator from './MainNavigator';
 
 const Stack = createNativeStackNavigator();
 
 const AppNavigator = () => {
-  const { isOnboardingComplete, isLoading } = useOnboarding();
-  const { user } = useAuth();
+  const { isOnboardingComplete, isLoading: onboardingLoading } = useOnboarding();
+  const { user, isLoading: authLoading } = useAuth();
 
-  if (isLoading) {
+  if (authLoading || onboardingLoading) {
     return null; // Or a loading screen component
   }
 
@@ -43,10 +40,18 @@ const AppNavigator = () => {
         headerShown: false,
         gestureEnabled: false,
       }}
-      initialRouteName={isOnboardingComplete ? (user ? 'Main' : 'Login') : 'Welcome'}
+      initialRouteName={user ? (isOnboardingComplete ? 'Main' : 'Welcome') : 'Login'}
     >
-      {/* Onboarding Flow */}
-      {!isOnboardingComplete && (
+      {/* Auth Flow */}
+      {!user && (
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+        </>
+      )}
+      
+      {/* Onboarding Flow - Only shown for authenticated users who haven't completed onboarding */}
+      {user && !isOnboardingComplete && (
         <>
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="NameInput" component={NameInputScreen} />
@@ -62,74 +67,10 @@ const AppNavigator = () => {
         </>
       )}
       
-      {/* Auth Screens */}
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-      
-      {/* Main App Screens */}
-      <Stack.Screen name="Main" component={MainNavigator} />
-      <Stack.Screen 
-        name="TrackMeal" 
-        component={TrackMealScreen}
-        options={{
-          headerShown: true,
-          title: 'Track Meal',
-          headerStyle: {
-            backgroundColor: '#4c669f',
-          },
-          headerTintColor: '#fff',
-        }}
-      />
-      <Stack.Screen 
-        name="TrackWater" 
-        component={TrackWaterScreen}
-        options={{
-          headerShown: true,
-          title: 'Track Water',
-          headerStyle: {
-            backgroundColor: '#4c669f',
-          },
-          headerTintColor: '#fff',
-        }}
-      />
-      <Stack.Screen 
-        name="CreateWorkout" 
-        component={CreateWorkoutScreen}
-        options={{
-          headerShown: true,
-          title: 'Create Workout',
-          headerStyle: {
-            backgroundColor: '#4c669f',
-          },
-          headerTintColor: '#fff',
-        }}
-      />
-      <Stack.Screen 
-        name="AddCustomMeal" 
-        component={AddCustomMealScreen}
-        options={{
-          headerShown: false,
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
-        }}
-      />
-      <Stack.Screen 
-        name="Settings" 
-        component={SettingsScreen}
-        options={{
-          headerShown: true,
-          headerTitle: 'Settings',
-          headerStyle: {
-            backgroundColor: 'transparent',
-          },
-          headerTransparent: true,
-          headerTintColor: '#6366f1',
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
-          gestureEnabled: true,
-        }}
-      />
+      {/* Main App - Only shown for authenticated users who completed onboarding */}
+      {user && isOnboardingComplete && (
+        <Stack.Screen name="Main" component={MainNavigator} />
+      )}
     </Stack.Navigator>
   );
 };

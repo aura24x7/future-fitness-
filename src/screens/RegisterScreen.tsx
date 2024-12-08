@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Input from '../components/Input';
@@ -15,7 +15,13 @@ const RegisterScreen = ({ navigation }) => {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [nameError, setNameError] = useState('');
-  const { register } = useAuth();
+  const { register, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigation.replace('Dashboard');
+    }
+  }, [isAuthenticated]);
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
@@ -48,6 +54,8 @@ const RegisterScreen = ({ navigation }) => {
 
   const handleRegister = async () => {
     try {
+      setLoading(true);
+      
       // Input validation
       if (!name.trim()) {
         throw new AppError(
@@ -94,45 +102,10 @@ const RegisterScreen = ({ navigation }) => {
         );
       }
 
-      setLoading(true);
-      
-      try {
-        await register(name.trim(), email.trim(), password);
-        navigation.replace('Welcome');  
-      } catch (error) {
-        // Handle authentication-specific errors
-        throw new AppError(
-          error.message || 'Failed to create account',
-          ErrorCodes.AUTH_FAILED,
-          'RegisterScreen',
-          'handleRegister',
-          error
-        );
-      }
-    } catch (error) {
-      if (error instanceof AppError) {
-        Alert.alert('Registration Error', error.message, [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Additional error handling based on error code
-              switch (error.code) {
-                case ErrorCodes.INVALID_EMAIL:
-                  // Focus email input
-                  break;
-                case ErrorCodes.INVALID_PASSWORD:
-                  // Focus password input
-                  break;
-              }
-            },
-          },
-        ]);
-      } else {
-        Alert.alert(
-          'Unexpected Error',
-          'An unexpected error occurred. Please try again later.'
-        );
-      }
+      await register(name.trim(), email.trim(), password);
+      // Navigation is handled by the useEffect hook watching isAuthenticated
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to register');
     } finally {
       setLoading(false);
     }
@@ -146,38 +119,44 @@ const RegisterScreen = ({ navigation }) => {
       <Card style={styles.card}>
         <Input
           label="Name"
-          placeholder="Enter your name"
           value={name}
           onChangeText={handleNameChange}
           error={nameError}
+          placeholder="Enter your name"
+          autoCapitalize="words"
         />
+
         <Input
           label="Email"
-          placeholder="Enter your email"
           value={email}
           onChangeText={handleEmailChange}
+          error={emailError}
+          placeholder="Enter your email"
           keyboardType="email-address"
           autoCapitalize="none"
-          error={emailError}
         />
+
         <Input
           label="Password"
-          placeholder="Enter your password"
           value={password}
           onChangeText={handlePasswordChange}
-          secureTextEntry
           error={passwordError}
+          placeholder="Enter your password"
+          secureTextEntry
         />
+
         <Button
-          title={loading ? 'Creating Account...' : 'Create Account'}
+          title="Create Account"
           onPress={handleRegister}
-          disabled={loading}
+          loading={loading}
+          style={styles.button}
         />
+
         <Button
-          title="Back to Login"
-          onPress={() => navigation.goBack()}
-          variant="outline"
-          style={styles.loginButton}
+          title="Already have an account? Login"
+          onPress={() => navigation.navigate('Login')}
+          variant="text"
+          style={styles.linkButton}
         />
       </Card>
     </LinearGradient>
@@ -193,7 +172,10 @@ const styles = StyleSheet.create({
   card: {
     padding: 20,
   },
-  loginButton: {
+  button: {
+    marginTop: 12,
+  },
+  linkButton: {
     marginTop: 12,
   },
 });

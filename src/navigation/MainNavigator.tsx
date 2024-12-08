@@ -1,8 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { RootStackParamList } from '../types/navigation';
+import { Ionicons } from '@expo/vector-icons';
 
 // Import screens
 import DashboardScreen from '../screens/DashboardScreen';
@@ -55,6 +56,7 @@ const TabNavigator = () => {
         tabBarHideOnKeyboard: true,
         headerShadowVisible: false,
       }}
+      initialRouteName="Dashboard"
     >
       <Tab.Screen
         name="Dashboard"
@@ -62,6 +64,9 @@ const TabNavigator = () => {
         options={{
           title: 'Dashboard',
           headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -126,152 +131,137 @@ const MainNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: '#ffffff',
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 0,
-        },
-        headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: 17,
-          color: '#1a1a1a',
-        },
-        headerTitleAlign: 'center',
-        headerShadowVisible: false,
+        headerShown: false,
       }}
+      initialRouteName="TabNavigator"
     >
-      <Stack.Screen
-        name="MainTabs"
-        component={TabNavigator}
-        options={{ headerShown: false }}
-      />
+      <Stack.Screen name="TabNavigator" component={TabNavigator} />
       <Stack.Screen
         name="WorkoutDetails"
         component={WorkoutDetails}
         options={{
-          headerTitle: 'Workout Details',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Workout Details'
         }}
       />
       <Stack.Screen
         name="AddCustomWorkout"
         component={AddCustomWorkoutScreen}
         options={{
-          headerTitle: 'Add Custom Workout',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Add Custom Workout'
         }}
       />
       <Stack.Screen
         name="FoodScanner"
         component={FoodScannerScreen}
         options={{
-          headerTitle: 'Scan Food',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Scan Food'
         }}
       />
       <Stack.Screen
         name="ScannedFoodDetails"
         component={ScannedFoodDetailsScreen}
         options={{
-          headerTitle: 'Food Details',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Food Details'
         }}
       />
       <Stack.Screen
         name="CreateGroup"
         component={CreateGroupScreen}
         options={{
-          headerTitle: 'Create Group',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Create Group'
         }}
       />
       <Stack.Screen
         name="GroupDetails"
         component={GroupDetailsScreen}
         options={{
-          headerTitle: 'Group Details',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Group Details'
         }}
       />
       <Stack.Screen
         name="InviteMembers"
         component={InviteMembersScreen}
         options={{
-          headerTitle: 'Invite Members',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Invite Members'
         }}
       />
       <Stack.Screen
         name="ManageInvites"
         component={ManageInvitesScreen}
         options={{
-          headerTitle: 'Manage Invites',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Manage Invites'
         }}
       />
       <Stack.Screen
         name="GroupWorkouts"
         component={GroupWorkoutsScreen}
         options={{
-          headerTitle: 'Group Workouts',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Group Workouts'
         }}
       />
       <Stack.Screen
         name="SelectWorkout"
         component={SelectWorkoutScreen}
         options={{
-          headerTitle: 'Select Workout',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Select Workout'
         }}
       />
       <Stack.Screen
         name="ShareWorkout"
         component={ShareWorkoutScreen}
         options={{
-          headerTitle: 'Share Workout',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Share Workout'
         }}
       />
       <Stack.Screen
         name="GroupAnalytics"
         component={GroupAnalyticsScreen}
         options={{
-          headerTitle: 'Group Analytics',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Group Analytics'
         }}
       />
       <Stack.Screen
         name="GroupChallenges"
         component={GroupChallengesScreen}
         options={{
-          headerTitle: 'Group Challenges',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Group Challenges'
         }}
       />
       <Stack.Screen
         name="ProfileGroups"
         component={ProfileGroupsScreen}
         options={{
-          headerTitle: 'Groups',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Groups'
         }}
       />
       <Stack.Screen
         name="AddIndividual"
         component={AddIndividualScreen}
         options={{
-          headerTitle: 'Add Individual',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Add Individual'
         }}
       />
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
-          headerTitle: 'Settings',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Settings',
           headerStyle: {
             backgroundColor: 'transparent',
           },

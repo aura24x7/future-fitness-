@@ -1,24 +1,51 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingData } from '../context/OnboardingContext';
+import { firebaseService } from './firebaseService';
+import { auth, firestore } from '../config/firebase';
+import { getDoc, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 const USER_PROFILE_KEY = '@aifit_user_profile';
 
-export interface UserProfile extends OnboardingData {
-  id?: string;
-  email?: string;
-  createdAt: Date;
-  updatedAt: Date;
+export interface UserProfile {
+  uid: string;
+  id: string;
+  email: string;
+  name: string;
+  displayName: string;
+  birthday?: Date | null;
+  gender?: string;
+  height?: {
+    value: number;
+    unit: string;
+  } | null;
+  weight?: {
+    value: number;
+    unit: string;
+  } | null;
+  targetWeight?: {
+    value: number;
+    unit: string;
+  } | null;
+  fitnessGoal?: string;
+  activityLevel?: string;
+  dietaryPreference?: string;
+  workoutPreference?: string;
+  country?: string;
+  state?: string;
+  weightGoal?: string;
   metrics?: {
-    bmi?: number;
-    bmr?: number;
-    tdee?: number;
-    recommendedCalories?: number;
+    bmi: number;
+    bmr: number;
+    tdee: number;
+    recommendedCalories: number;
   };
   preferences?: {
     notifications: boolean;
-    measurementSystem: 'metric' | 'imperial';
+    measurementSystem: string;
     language: string;
   };
+  createdAt: any;
+  updatedAt: any;
 }
 
 class UserProfileService {
@@ -34,161 +61,220 @@ class UserProfileService {
     return UserProfileService.instance;
   }
 
-  async createUserProfile(onboardingData: OnboardingData): Promise<UserProfile> {
-    try {
-      const profile: UserProfile = {
-        ...onboardingData,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metrics: this.calculateMetrics(onboardingData),
-        preferences: {
-          notifications: true,
-          measurementSystem: onboardingData.height?.unit === 'cm' ? 'metric' : 'imperial',
-          language: 'en',
-        },
-      };
+  async getProfile(): Promise<UserProfile | null> {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('No authenticated user');
+    }
 
-      await this.saveProfile(profile);
+    try {
+      const userDoc = await getDoc(doc(firestore, 'users', currentUser.uid));
+      if (!userDoc.exists()) {
+        return null;
+      }
+      const profile = userDoc.data() as UserProfile;
       this.currentProfile = profile;
       return profile;
     } catch (error) {
-      console.error('Error creating user profile:', error);
-      throw new Error('Failed to create user profile');
+      console.error('Error getting user profile:', error);
+      throw error;
     }
+  }
+
+  async getCurrentProfile(): Promise<UserProfile | null> {
+    return this.getProfile();
   }
 
   private calculateMetrics(data: OnboardingData) {
-    const metrics: UserProfile['metrics'] = {};
+    const height = data.height?.value || 0;
+    const weight = data.weight?.value || 0;
+    const age = data.birthday ? Math.floor((new Date().getTime() - new Date(data.birthday).getTime()) / 31557600000) : 0;
+    const gender = data.gender || 'OTHER';
+    const activityLevel = data.lifestyle || 'SEDENTARY';
 
-    if (data.height?.value && data.weight?.value) {
-      // Convert height to meters if in feet
-      const heightInM = data.height.unit === 'cm' 
-        ? data.height.value / 100
-        : data.height.value * 0.3048;
+    console.log('Calculated age:', age);
 
-      // Convert weight to kg if in lbs
-      const weightInKg = data.weight.unit === 'kg'
-        ? data.weight.value
-        : data.weight.value * 0.453592;
+    // Calculate BMI
+    const heightInMeters = data.height?.unit === 'cm' ? height / 100 : height * 0.3048;
+    const weightInKg = data.weight?.unit === 'kg' ? weight : weight * 0.453592;
+    const bmi = heightInMeters > 0 ? +(weightInKg / (heightInMeters * heightInMeters)).toFixed(1) : 0;
 
-      // Calculate BMI
-      metrics.bmi = Number((weightInKg / (heightInM * heightInM)).toFixed(1));
-
-      // Calculate BMR using Mifflin-St Jeor Equation
-      if (data.gender && data.birthday) {
-        const age = new Date().getFullYear() - new Date(data.birthday).getFullYear();
-        metrics.bmr = data.gender === 'MALE'
-          ? (10 * weightInKg) + (6.25 * (heightInM * 100)) - (5 * age) + 5
-          : (10 * weightInKg) + (6.25 * (heightInM * 100)) - (5 * age) - 161;
-
-        // Calculate TDEE based on activity level
-        const activityMultipliers = {
-          BEGINNER: 1.2,
-          INTERMEDIATE: 1.375,
-          ADVANCED: 1.55,
-          EXPERT: 1.725,
-        };
-        
-        const multiplier = data.activityLevel 
-          ? activityMultipliers[data.activityLevel]
-          : 1.2;
-
-        metrics.tdee = Math.round(metrics.bmr * multiplier);
-
-        // Calculate recommended calories based on fitness goal
-        const goalMultipliers = {
-          LOSE_WEIGHT: 0.8,
-          BUILD_MUSCLE: 1.1,
-          IMPROVE_FITNESS: 1,
-          MAINTAIN_HEALTH: 1,
-        };
-
-        const goalMultiplier = data.fitnessGoal 
-          ? goalMultipliers[data.fitnessGoal]
-          : 1;
-
-        metrics.recommendedCalories = Math.round(metrics.tdee * goalMultiplier);
-      }
+    // Calculate BMR using Mifflin-St Jeor Equation
+    let bmr = 0;
+    if (gender === 'MALE') {
+      bmr = 10 * weightInKg + 6.25 * (height) - 5 * age + 5;
+    } else if (gender === 'FEMALE') {
+      bmr = 10 * weightInKg + 6.25 * (height) - 5 * age - 161;
+    } else {
+      bmr = 10 * weightInKg + 6.25 * (height) - 5 * age - 78;
     }
 
-    return metrics;
+    console.log('BMR calculated:', Math.round(bmr));
+    console.log('Lifestyle:', activityLevel);
+
+    // Calculate TDEE based on activity level
+    const activityMultipliers: { [key: string]: number } = {
+      SEDENTARY: 1.2,
+      LIGHTLY_ACTIVE: 1.375,
+      MODERATELY_ACTIVE: 1.55,
+      VERY_ACTIVE: 1.725,
+      SUPER_ACTIVE: 1.9
+    };
+    const tdee = Math.round(bmr * (activityMultipliers[activityLevel] || 1.2));
+    console.log('TDEE calculated:', tdee);
+
+    // Calculate recommended calories based on weight goal
+    let recommendedCalories = tdee;
+    console.log('Weight Goal:', data.weightGoal);
+    if (data.weightGoal === 'LOSE_WEIGHT') {
+      recommendedCalories = Math.max(1200, tdee - 500);
+    } else if (data.weightGoal === 'GAIN_WEIGHT') {
+      recommendedCalories = tdee + 500;
+    }
+    console.log('Final calories calculated:', recommendedCalories);
+
+    return {
+      bmi: bmi,
+      bmr: Math.round(bmr),
+      tdee: tdee,
+      recommendedCalories: Math.round(recommendedCalories)
+    };
   }
 
-  async getProfile(): Promise<UserProfile | null> {
-    if (this.currentProfile) {
-      return this.currentProfile;
+  async createUserProfile(onboardingData: OnboardingData): Promise<UserProfile> {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('No authenticated user');
     }
 
     try {
-      const stored = await AsyncStorage.getItem(USER_PROFILE_KEY);
-      if (stored) {
-        const profile = JSON.parse(stored);
-        // Convert stored date strings back to Date objects
-        profile.createdAt = new Date(profile.createdAt);
-        profile.updatedAt = new Date(profile.updatedAt);
-        if (profile.birthday) {
-          profile.birthday = new Date(profile.birthday);
-        }
-        this.currentProfile = profile;
-        return profile;
-      }
-      return null;
+      const metrics = this.calculateMetrics(onboardingData);
+      
+      const userProfile: UserProfile = {
+        uid: currentUser.uid,
+        id: currentUser.uid,
+        email: currentUser.email || '',
+        name: onboardingData.name || '',
+        displayName: onboardingData.name || '',
+        birthday: onboardingData.birthday,
+        gender: onboardingData.gender,
+        height: onboardingData.height ? {
+          value: onboardingData.height.value,
+          unit: onboardingData.height.unit
+        } : null,
+        weight: onboardingData.weight ? {
+          value: onboardingData.weight.value,
+          unit: onboardingData.weight.unit
+        } : null,
+        targetWeight: onboardingData.targetWeight ? {
+          value: onboardingData.targetWeight.value,
+          unit: onboardingData.targetWeight.unit
+        } : null,
+        fitnessGoal: onboardingData.fitnessGoal,
+        activityLevel: onboardingData.lifestyle,
+        dietaryPreference: onboardingData.dietaryPreference,
+        workoutPreference: onboardingData.workoutPreference,
+        country: onboardingData.country,
+        state: onboardingData.state,
+        weightGoal: onboardingData.weightGoal,
+        metrics: metrics,
+        preferences: {
+          notifications: true,
+          measurementSystem: onboardingData.height?.unit === 'cm' ? 'metric' : 'imperial',
+          language: 'en'
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      await setDoc(doc(firestore, 'users', currentUser.uid), userProfile);
+      this.currentProfile = userProfile;
+      return userProfile;
     } catch (error) {
-      console.error('Error getting user profile:', error);
-      return null;
+      console.error('Error creating user profile:', error);
+      throw error;
     }
   }
 
   async updateProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
+    return this.updateUserProfile(updates);
+  }
+
+  async updateUserProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('No authenticated user');
+    }
+
     try {
       const currentProfile = await this.getProfile();
       if (!currentProfile) {
-        throw new Error('No profile exists to update');
+        throw new Error('No existing profile found');
       }
 
-      const updatedProfile: UserProfile = {
+      const updatedProfile = {
         ...currentProfile,
         ...updates,
-        updatedAt: new Date(),
+        updatedAt: serverTimestamp()
       };
 
-      // Recalculate metrics if relevant data was updated
-      if (
-        updates.height ||
-        updates.weight ||
-        updates.gender ||
-        updates.birthday ||
-        updates.activityLevel ||
-        updates.fitnessGoal
-      ) {
-        updatedProfile.metrics = this.calculateMetrics(updatedProfile);
-      }
-
-      await this.saveProfile(updatedProfile);
+      await updateDoc(doc(firestore, 'users', currentUser.uid), updatedProfile);
       this.currentProfile = updatedProfile;
       return updatedProfile;
     } catch (error) {
       console.error('Error updating user profile:', error);
-      throw new Error('Failed to update user profile');
+      throw error;
     }
   }
 
-  private async saveProfile(profile: UserProfile): Promise<void> {
+  async syncProfileWithOnboarding(onboardingData: OnboardingData): Promise<UserProfile> {
     try {
-      await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
+      const currentProfile = await this.getProfile();
+      if (!currentProfile) {
+        return this.createUserProfile(onboardingData);
+      }
+
+      const metrics = this.calculateMetrics(onboardingData);
+      const updates: Partial<UserProfile> = {
+        name: onboardingData.name,
+        displayName: onboardingData.name,
+        birthday: onboardingData.birthday,
+        gender: onboardingData.gender,
+        height: onboardingData.height,
+        weight: onboardingData.weight,
+        targetWeight: onboardingData.targetWeight,
+        fitnessGoal: onboardingData.fitnessGoal,
+        activityLevel: onboardingData.lifestyle,
+        dietaryPreference: onboardingData.dietaryPreference,
+        workoutPreference: onboardingData.workoutPreference,
+        country: onboardingData.country,
+        state: onboardingData.state,
+        weightGoal: onboardingData.weightGoal,
+        metrics: metrics,
+        preferences: {
+          ...currentProfile.preferences,
+          measurementSystem: onboardingData.height?.unit === 'cm' ? 'metric' : 'imperial',
+        },
+      };
+
+      return this.updateUserProfile(updates);
     } catch (error) {
-      console.error('Error saving user profile:', error);
-      throw new Error('Failed to save user profile');
+      console.error('Error syncing profile with onboarding:', error);
+      throw error;
     }
   }
 
   async deleteProfile(): Promise<void> {
     try {
+      const user = auth.currentUser;
+      if (user) {
+        await firebaseService.deleteUserProfile(user.uid);
+      }
       await AsyncStorage.removeItem(USER_PROFILE_KEY);
       this.currentProfile = null;
     } catch (error) {
-      console.error('Error deleting user profile:', error);
-      throw new Error('Failed to delete user profile');
+      console.error('Error deleting profile:', error);
+      throw error;
     }
   }
 }

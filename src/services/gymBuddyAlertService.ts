@@ -1,4 +1,4 @@
-import { db, auth } from '../config/firebase';
+import { auth, firestore } from '../config/firebase';
 import { 
   collection, 
   addDoc, 
@@ -15,8 +15,8 @@ import {
 import { GymBuddyAlert, AlertResponse } from '../types/gymBuddyAlert';
 
 class GymBuddyAlertService {
-  private alertsCollection = collection(db, 'gym_buddy_alerts');
-  private usersCollection = collection(db, 'users');
+  private alertsCollection = collection(firestore, 'gym_buddy_alerts');
+  private usersCollection = collection(firestore, 'users');
 
   private async getUserName(userId: string): Promise<string> {
     try {

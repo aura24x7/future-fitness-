@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { userProfileService } from '../services/userProfileService';
+import { useAuth } from './AuthContext'; // Assuming useAuth hook is defined in this file
 
 export const ONBOARDING_STORAGE_KEY = '@aifit_onboarding_data';
 export const ONBOARDING_COMPLETE_KEY = '@aifit_onboarding_complete';
@@ -68,62 +69,107 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [onboardingData, setOnboardingData] = useState<OnboardingData>(defaultOnboardingData);
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const { user, loading: authLoading } = useAuth();
 
-  // Load onboarding state from storage
   useEffect(() => {
     const loadOnboardingState = async () => {
+      // Wait for auth to be initialized
+      if (authLoading) {
+        return;
+      }
+
+      // If no user, reset state and stop loading
+      if (!user) {
+        setOnboardingData(defaultOnboardingData);
+        setIsOnboardingComplete(false);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const [storedData, storedComplete] = await Promise.all([
-          AsyncStorage.getItem(ONBOARDING_STORAGE_KEY),
-          AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY),
+          AsyncStorage.getItem(`${ONBOARDING_STORAGE_KEY}_${user.uid}`),
+          AsyncStorage.getItem(`${ONBOARDING_COMPLETE_KEY}_${user.uid}`),
         ]);
 
+        let currentOnboardingData = defaultOnboardingData;
+
         if (storedData) {
-          const parsedData = JSON.parse(storedData);
-          // Convert stored date string back to Date object
-          if (parsedData.birthday) {
-            parsedData.birthday = new Date(parsedData.birthday);
+          try {
+            const parsedData = JSON.parse(storedData);
+            if (parsedData.birthday) {
+              parsedData.birthday = new Date(parsedData.birthday);
+            }
+            currentOnboardingData = {
+              ...defaultOnboardingData,
+              ...parsedData
+            };
+            setOnboardingData(currentOnboardingData);
+          } catch (parseError) {
+            console.error('Error parsing stored onboarding data:', parseError);
+            setOnboardingData(defaultOnboardingData);
           }
-          setOnboardingData(parsedData);
         }
 
         const isComplete = storedComplete === 'true';
         setIsOnboardingComplete(isComplete);
 
-        // If onboarding is complete, ensure we have a user profile
-        if (isComplete) {
-          const profile = await userProfileService.getProfile();
-          if (!profile) {
-            // Create profile from onboarding data if it doesn't exist
-            await userProfileService.createUserProfile(parsedData);
+        if (isComplete && currentOnboardingData) {
+          try {
+            const profile = await userProfileService.getCurrentProfile();
+            if (!profile) {
+              await userProfileService.createUserProfile(currentOnboardingData);
+            }
+          } catch (profileError) {
+            console.error('Error handling user profile:', profileError);
           }
         }
       } catch (error) {
         console.error('Error loading onboarding state:', error);
+        setOnboardingData(defaultOnboardingData);
+        setIsOnboardingComplete(false);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadOnboardingState();
-  }, []);
+  }, [user, authLoading]);
 
   const updateOnboardingData = async (data: Partial<OnboardingData>) => {
-    const updatedData = { ...onboardingData, ...data };
-    setOnboardingData(updatedData);
+    if (!user) {
+      throw new Error('No authenticated user');
+    }
+
     try {
-      await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(updatedData));
+      const updatedData = {
+        ...onboardingData,
+        ...data
+      };
+      
+      const sanitizedData = {
+        ...defaultOnboardingData,
+        ...updatedData
+      };
+
+      setOnboardingData(sanitizedData);
+      await AsyncStorage.setItem(
+        `${ONBOARDING_STORAGE_KEY}_${user.uid}`,
+        JSON.stringify(sanitizedData)
+      );
     } catch (error) {
-      console.error('Error saving onboarding data:', error);
+      console.error('Error updating onboarding data:', error);
+      throw error;
     }
   };
 
   const completeOnboarding = async () => {
+    if (!user) {
+      throw new Error('No authenticated user');
+    }
+
     try {
-      await Promise.all([
-        AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true'),
-        userProfileService.createUserProfile(onboardingData),
-      ]);
+      await AsyncStorage.setItem(`${ONBOARDING_COMPLETE_KEY}_${user.uid}`, 'true');
       setIsOnboardingComplete(true);
     } catch (error) {
       console.error('Error completing onboarding:', error);
@@ -132,11 +178,14 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const resetOnboarding = async () => {
+    if (!user) {
+      throw new Error('No authenticated user');
+    }
+
     try {
       await Promise.all([
-        AsyncStorage.removeItem(ONBOARDING_STORAGE_KEY),
-        AsyncStorage.removeItem(ONBOARDING_COMPLETE_KEY),
-        userProfileService.deleteProfile(),
+        AsyncStorage.removeItem(`${ONBOARDING_STORAGE_KEY}_${user.uid}`),
+        AsyncStorage.removeItem(`${ONBOARDING_COMPLETE_KEY}_${user.uid}`),
       ]);
       setOnboardingData(defaultOnboardingData);
       setIsOnboardingComplete(false);

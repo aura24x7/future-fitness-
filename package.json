@@ -1,8 +1,26 @@
 {
-  "name": "ai_fitness",
+  "name": "future-fitness",
   "version": "1.0.0",
-  "description": "AI-powered fitness and wellness platform",
+  "description": "A modern fitness and wellness application built with React Native and Expo",
   "main": "node_modules/expo/AppEntry.js",
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/future-fitness.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/future-fitness/issues"
+  },
+  "homepage": "https://github.com/yourusername/future-fitness#readme",
+  "keywords": [
+    "fitness",
+    "health",
+    "wellness",
+    "react-native",
+    "expo",
+    "mobile-app"
+  ],
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
