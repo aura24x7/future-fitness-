@@ -78,36 +78,45 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const storageKey = getStorageKeyForDate(selectedDate);
         const savedMealsStr = await AsyncStorage.getItem(storageKey);
-        const savedMeals = savedMealsStr ? JSON.parse(savedMealsStr) : {
-          breakfast: [],
-          lunch: [],
-          dinner: [],
-          snacks: []
-        };
         
-        // Ensure proper meal type structure and IDs
-        const structuredMeals = {
-          breakfast: (savedMeals.breakfast || []).map((meal: MealDetails) => ({
-            ...meal,
-            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
-          })),
-          lunch: (savedMeals.lunch || []).map((meal: MealDetails) => ({
-            ...meal,
-            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
-          })),
-          dinner: (savedMeals.dinner || []).map((meal: MealDetails) => ({
-            ...meal,
-            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
-          })),
-          snacks: (savedMeals.snacks || []).map((meal: MealDetails) => ({
-            ...meal,
-            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
-          }))
-        };
-        
-        setMeals(structuredMeals);
+        if (savedMealsStr) {
+          const savedMeals = JSON.parse(savedMealsStr);
+          // Ensure proper meal type structure and IDs
+          const structuredMeals = {
+            breakfast: (savedMeals.breakfast || []).map((meal: MealDetails) => ({
+              ...meal,
+              id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+              mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
+            })),
+            lunch: (savedMeals.lunch || []).map((meal: MealDetails) => ({
+              ...meal,
+              id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+              mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
+            })),
+            dinner: (savedMeals.dinner || []).map((meal: MealDetails) => ({
+              ...meal,
+              id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+              mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
+            })),
+            snacks: (savedMeals.snacks || []).map((meal: MealDetails) => ({
+              ...meal,
+              id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+              mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType
+            }))
+          };
+          setMeals(structuredMeals);
+        } else {
+          // Reset meals if none found for the date
+          setMeals({
+            breakfast: [],
+            lunch: [],
+            dinner: [],
+            snacks: []
+          });
+        }
       } catch (error) {
         console.error('Error loading meals:', error);
+        // Reset meals on error
         setMeals({
           breakfast: [],
           lunch: [],
@@ -117,9 +126,7 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    if (selectedDate) {
-      loadMeals();
-    }
+    loadMeals();
   }, [selectedDate]);
 
   const saveMealsToStorage = async (mealsToSave: { [key: string]: MealDetails[] }) => {
@@ -147,38 +154,30 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Structure new meals while preserving completion states
       const structuredMeals = {
-        breakfast: (newMeals.breakfast || []).map(meal => {
-          const mealId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
-          return {
-            ...meal,
-            id: mealId,
-            completed: currentMealStates.has(mealId) ? currentMealStates.get(mealId) : meal.completed || false
-          };
-        }),
-        lunch: (newMeals.lunch || []).map(meal => {
-          const mealId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
-          return {
-            ...meal,
-            id: mealId,
-            completed: currentMealStates.has(mealId) ? currentMealStates.get(mealId) : meal.completed || false
-          };
-        }),
-        dinner: (newMeals.dinner || []).map(meal => {
-          const mealId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
-          return {
-            ...meal,
-            id: mealId,
-            completed: currentMealStates.has(mealId) ? currentMealStates.get(mealId) : meal.completed || false
-          };
-        }),
-        snacks: (newMeals.snacks || []).map(meal => {
-          const mealId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
-          return {
-            ...meal,
-            id: mealId,
-            completed: currentMealStates.has(mealId) ? currentMealStates.get(mealId) : meal.completed || false
-          };
-        })
+        breakfast: (newMeals.breakfast || []).map(meal => ({
+          ...meal,
+          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType,
+          completed: currentMealStates.has(meal.id) ? currentMealStates.get(meal.id) : meal.completed || false
+        })),
+        lunch: (newMeals.lunch || []).map(meal => ({
+          ...meal,
+          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType,
+          completed: currentMealStates.has(meal.id) ? currentMealStates.get(meal.id) : meal.completed || false
+        })),
+        dinner: (newMeals.dinner || []).map(meal => ({
+          ...meal,
+          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType,
+          completed: currentMealStates.has(meal.id) ? currentMealStates.get(meal.id) : meal.completed || false
+        })),
+        snacks: (newMeals.snacks || []).map(meal => ({
+          ...meal,
+          id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+          mealType: meal.mealType === 'snack' ? 'snacks' : meal.mealType,
+          completed: currentMealStates.has(meal.id) ? currentMealStates.get(meal.id) : meal.completed || false
+        }))
       };
 
       // Save to storage
@@ -227,8 +226,8 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
       Object.entries(updatedMeals).forEach(([type, mealArray]) => {
         if (Array.isArray(mealArray)) {
           mealArray.forEach((meal: MealDetails) => {
-            const currentId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
-            mealStates.set(currentId, meal.completed);
+            const mealId = meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`;
+            mealStates.set(mealId, meal.completed);
           });
         }
       });

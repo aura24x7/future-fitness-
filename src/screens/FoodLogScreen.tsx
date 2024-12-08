@@ -67,76 +67,60 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
 
   // Update selected day when date changes
   useEffect(() => {
-    const dayOfWeek = getDayOfWeek(new Date());
+    const dayOfWeek = getDayOfWeek(selectedDate);
     setSelectedDay(dayOfWeek);
   }, [selectedDate]);
 
   // Load saved meals on mount and when date changes
   useEffect(() => {
     loadSavedMeals();
-  }, [selectedDate, weeklyMealPlan]);
+  }, [selectedDate]);
 
   const loadSavedMeals = async () => {
     try {
       setIsLoading(true);
+      const storageKey = getStorageKeyForDate(selectedDate);
+      const savedMealsStr = await AsyncStorage.getItem(storageKey);
       
-      // First try to load from weekly meal plan if available
-      if (weeklyMealPlan) {
+      if (savedMealsStr) {
+        // If we have saved meals for this date, use them
+        const savedMeals = JSON.parse(savedMealsStr);
+        updateMeals(savedMeals);
+      } else if (weeklyMealPlan) {
+        // If no saved meals but we have a weekly plan, use it
+        const dayOfWeek = getDayOfWeek(selectedDate);
         const dayPlan = weeklyMealPlan.weeklyPlan.find(
-          plan => plan.dayOfWeek === selectedDay
+          plan => plan.dayOfWeek === dayOfWeek
         );
         
         if (dayPlan) {
-          // Ensure each meal has an ID before updating
           const mealsWithIds = {
             breakfast: (dayPlan.meals.breakfast || []).map(meal => ({
               ...meal,
-              id: `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
+              id: `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+              completed: false
             })),
             lunch: (dayPlan.meals.lunch || []).map(meal => ({
               ...meal,
-              id: `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
+              id: `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+              completed: false
             })),
             dinner: (dayPlan.meals.dinner || []).map(meal => ({
               ...meal,
-              id: `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
+              id: `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+              completed: false
             })),
             snacks: (dayPlan.meals.snacks || []).map(meal => ({
               ...meal,
-              id: `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
+              id: `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`,
+              completed: false
             }))
           };
+          
+          // Save the meals for this date
+          await AsyncStorage.setItem(storageKey, JSON.stringify(mealsWithIds));
           updateMeals(mealsWithIds);
-          return;
         }
-      }
-      
-      // If no weekly plan, try to load saved meals for the date
-      const storageKey = getStorageKeyForDate(selectedDate);
-      const savedMealsString = await AsyncStorage.getItem(storageKey);
-      
-      if (savedMealsString) {
-        const savedMeals = JSON.parse(savedMealsString);
-        // Ensure IDs are present in saved meals
-        const mealsWithIds = {
-          breakfast: (savedMeals.breakfast || []).map(meal => ({
-            ...meal,
-            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
-          })),
-          lunch: (savedMeals.lunch || []).map(meal => ({
-            ...meal,
-            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
-          })),
-          dinner: (savedMeals.dinner || []).map(meal => ({
-            ...meal,
-            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
-          })),
-          snacks: (savedMeals.snacks || []).map(meal => ({
-            ...meal,
-            id: meal.id || `${meal.name}-${meal.mealType}-${selectedDate.toISOString()}`
-          }))
-        };
-        updateMeals(mealsWithIds);
       }
     } catch (error) {
       console.error('Error loading saved meals:', error);
