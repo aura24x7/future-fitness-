@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Dimensions, Animated } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Dimensions, Animated, Platform } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTabBar } from '../context/TabBarContext';
+import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TAB_BAR_WIDTH = SCREEN_WIDTH * 0.7;
@@ -11,6 +13,7 @@ const TAB_BAR_WIDTH = SCREEN_WIDTH * 0.7;
 export const FloatingTabBar = ({ state, navigation, descriptors }: BottomTabBarProps) => {
   const insets = useSafeAreaInsets();
   const { isTabBarVisible } = useTabBar();
+  const { isDarkMode } = useTheme();
   const translateY = React.useRef(new Animated.Value(0)).current;
   const opacity = React.useRef(new Animated.Value(1)).current;
 
@@ -59,7 +62,23 @@ export const FloatingTabBar = ({ state, navigation, descriptors }: BottomTabBarP
         },
       ]}
     >
-      <View style={styles.tabBar}>
+      <View style={[
+        styles.tabBar,
+        {
+          backgroundColor: isDarkMode ? colors.background.card.dark : colors.background.card.light,
+          borderColor: isDarkMode ? colors.border.dark : colors.border.light,
+          borderWidth: 1,
+          ...Platform.select({
+            ios: {
+              shadowColor: isDarkMode ? '#000' : '#000',
+              shadowOpacity: isDarkMode ? 0.3 : 0.25,
+            },
+            android: {
+              elevation: isDarkMode ? 8 : 5,
+            },
+          }),
+        }
+      ]}>
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
@@ -83,13 +102,24 @@ export const FloatingTabBar = ({ state, navigation, descriptors }: BottomTabBarP
               accessibilityState={isFocused ? { selected: true } : {}}
               accessibilityLabel={options.tabBarAccessibilityLabel}
               onPress={onPress}
-              style={styles.tab}
+              style={[
+                styles.tab,
+                isFocused && {
+                  backgroundColor: isDarkMode 
+                    ? colors.background.secondary.dark 
+                    : colors.background.secondary.light,
+                  borderRadius: 20,
+                }
+              ]}
             >
               <View>
                 <Ionicons
                   name={getIcon(route.name, isFocused)}
                   size={24}
-                  color={isFocused ? '#007AFF' : '#8E8E93'}
+                  color={isFocused 
+                    ? isDarkMode ? colors.text.accent.dark : colors.text.accent.light
+                    : isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light
+                  }
                 />
               </View>
             </TouchableOpacity>
@@ -108,24 +138,24 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
     borderRadius: 30,
     padding: 10,
     width: TAB_BAR_WIDTH,
     justifyContent: 'space-around',
     alignItems: 'center',
-    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,
   },
   tab: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 8,
+    minWidth: 40,
+    minHeight: 40,
   },
 });
+
+export default FloatingTabBar;

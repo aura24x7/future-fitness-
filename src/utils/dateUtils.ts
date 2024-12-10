@@ -1,4 +1,4 @@
-import { format as formatFn, startOfDay, isSameDay as isSameDayFn } from 'date-fns';
+import { format as formatFn, parseISO, startOfDay, isSameDay as isSameDayFn } from 'date-fns';
 
 // Constants
 export const MEALS_STORAGE_KEY = '@meals';
@@ -29,7 +29,7 @@ export const normalizeDate = (date: Date): Date => {
  */
 export const getStorageKeyForDate = (date: Date): string => {
     const normalizedDate = normalizeDate(date);
-    return `${MEALS_STORAGE_KEY}_${formatDate(normalizedDate)}`;
+    return `${MEALS_STORAGE_KEY}_${formatDate(normalizedDate, 'yyyy-MM-dd')}`;
 };
 
 /**
@@ -54,12 +54,30 @@ export const getStartOfDay = (date: Date): Date => {
 /**
  * Formats a date for display
  * @param date The date to format
- * @param formatString Optional format string (defaults to 'yyyy-MM-dd')
+ * @param formatString Optional format string (defaults to 'MMMM d, yyyy')
  * @returns Formatted date string
  */
-export const formatDate = (date: Date, formatString: string = 'yyyy-MM-dd'): string => {
-    return formatFn(normalizeDate(date), formatString);
+export const formatDate = (date: Date | string, formatString: string = 'MMMM d, yyyy'): string => {
+    try {
+        const dateObj = typeof date === 'string' ? parseISO(date) : date;
+        return formatFn(dateObj, formatString);
+    } catch (error) {
+        console.error('Error formatting date:', error);
+        return '';
+    }
 };
 
-// Export renamed format function for components that need it
-export const format = formatFn;
+/**
+ * Gets the formatted today date
+ * @returns Formatted today date string
+ */
+export const getFormattedToday = (): string => {
+    return formatDate(new Date());
+};
+
+export const getGreeting = (): string => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+};

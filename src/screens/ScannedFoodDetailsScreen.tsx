@@ -62,20 +62,7 @@ const ScannedFoodDetailsScreen = () => {
   }, [imageBase64]);
 
   const navigateToFoodLog = () => {
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [
-          {
-            name: 'TabNavigator',
-            state: {
-              routes: [{ name: 'FoodLog' }],
-              index: 2, // FoodLog is the third tab (0-based index)
-            },
-          },
-        ],
-      })
-    );
+    navigation.navigate('FoodLog');
   };
 
   const handleSaveToLog = async () => {
@@ -85,7 +72,7 @@ const ScannedFoodDetailsScreen = () => {
     try {
       // Create the meal object with normalized date
       const currentDate = normalizeDate(new Date());
-      const mealType = foodData.mealType.toLowerCase();
+      const mealType = foodData.mealType?.toLowerCase() || 'snacks';
       const newMeal = {
         id: `${Date.now()}-${foodData.foodName.toLowerCase().replace(/\s+/g, '-')}`,
         name: foodData.foodName,
@@ -93,11 +80,16 @@ const ScannedFoodDetailsScreen = () => {
         protein: foodData.nutritionInfo.protein,
         carbs: foodData.nutritionInfo.carbs,
         fat: foodData.nutritionInfo.fat,
-        completed: true,
+        completed: false,
         mealType,
-        ingredients: foodData.ingredients,
+        ingredients: foodData.ingredients || [],
         servingSize: foodData.servingSize,
         date: currentDate.toISOString(),
+        description: foodData.description || '',
+        instructions: '',
+        servings: 1,
+        prepTime: 0,
+        tips: '',
       };
 
       // First save to AsyncStorage

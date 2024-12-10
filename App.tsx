@@ -10,9 +10,7 @@ import { TabBarProvider } from './src/context/TabBarContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { ProfileGroupsProvider } from './src/contexts/ProfileGroupsContext';
 import { GymBuddyAlertProvider } from './src/contexts/GymBuddyAlertContext';
-import { TamaguiProvider, Theme } from 'tamagui';
 import { ThemeProvider } from './src/theme/ThemeProvider';
-import config from './tamagui.config';
 import { AlertNotificationManager } from './src/components/GymBuddyAlert/AlertNotificationManager';
 import { ProfileProvider } from './src/context/ProfileContext';
 import { MealProvider } from './src/contexts/MealContext';
@@ -31,29 +29,27 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <TamaguiProvider config={config} defaultTheme="light">
-          <ThemeProvider>
+        <ThemeProvider>
+          <NavigationContainer>
             <AuthProvider>
               <ProfileProvider>
                 <OnboardingProvider>
                   <TabBarProvider>
                     <MealProvider>
-                      <NavigationContainer>
-                        <ProfileGroupsProvider>
-                          <GymBuddyAlertProvider>
-                            <StatusBar barStyle="dark-content" />
-                            <AppNavigator />
-                            <AlertNotificationManager />
-                          </GymBuddyAlertProvider>
-                        </ProfileGroupsProvider>
-                      </NavigationContainer>
+                      <ProfileGroupsProvider>
+                        <GymBuddyAlertProvider>
+                          <StatusBar barStyle="dark-content" />
+                          <AppNavigator />
+                          <AlertNotificationManager />
+                        </GymBuddyAlertProvider>
+                      </ProfileGroupsProvider>
                     </MealProvider>
                   </TabBarProvider>
                 </OnboardingProvider>
               </ProfileProvider>
             </AuthProvider>
-          </ThemeProvider>
-        </TamaguiProvider>
+          </NavigationContainer>
+        </ThemeProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

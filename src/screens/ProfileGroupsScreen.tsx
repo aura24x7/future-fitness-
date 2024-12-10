@@ -14,6 +14,7 @@ import { useProfileGroups } from '../contexts/ProfileGroupsContext';
 import { useGymBuddyAlert } from '../contexts/GymBuddyAlertContext';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
+import { useTheme } from '../theme/ThemeProvider';
 
 const { width } = Dimensions.get('window');
 
@@ -22,6 +23,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ProfileGroups'>;
 const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
   const { state: { individuals, groups }, fetchIndividuals, fetchGroups } = useProfileGroups();
   const { state: alertState } = useGymBuddyAlert();
+  const { colors, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState(0);
   const [scrollX] = useState(new Animated.Value(0));
 
@@ -56,15 +58,19 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Social</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { 
+        backgroundColor: colors.cardBackground,
+        borderBottomColor: colors.border 
+      }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Social</Text>
         <View style={styles.tabContainer}>
           <Animated.View
             style={[
               styles.tabIndicator,
               {
                 transform: [{ translateX }],
+                backgroundColor: colors.primary,
               },
             ]}
           />
@@ -73,7 +79,11 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => handleTabPress(0)}
           >
             <Text
-              style={[styles.tabText, activeTab === 0 && styles.activeTabText]}
+              style={[
+                styles.tabText, 
+                { color: activeTab === 0 ? colors.primary : colors.textSecondary },
+                activeTab === 0 && styles.activeTabText
+              ]}
             >
               {getSectionTitle('Individuals', individuals.data || [])}
             </Text>
@@ -83,7 +93,11 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => handleTabPress(1)}
           >
             <Text
-              style={[styles.tabText, activeTab === 1 && styles.activeTabText]}
+              style={[
+                styles.tabText, 
+                { color: activeTab === 1 ? colors.primary : colors.textSecondary },
+                activeTab === 1 && styles.activeTabText
+              ]}
             >
               {getSectionTitle('Groups', groups.data || [])}
             </Text>
@@ -100,7 +114,7 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
           { useNativeDriver: false }
         )}
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor: colors.background }]}
       >
         <View style={[styles.page, { width }]}>
           <ScrollView>
@@ -114,7 +128,7 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
           </ScrollView>
         </View>
         <View style={[styles.page, { width }]}>
-          <GroupsSection navigation={navigation} />
+          <GroupsSection />
         </View>
       </Animated.ScrollView>
     </View>
@@ -124,14 +138,11 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F7',
   },
   header: {
-    backgroundColor: '#FFFFFF',
     paddingTop: 60,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -141,7 +152,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 34,
     fontWeight: '700',
-    color: '#1D1D1F',
     marginBottom: 16,
     paddingHorizontal: 20,
   },
@@ -156,7 +166,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '50%',
     height: 2,
-    backgroundColor: '#007AFF',
     borderRadius: 2,
   },
   tab: {
@@ -170,11 +179,9 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 16,
-    color: '#8E8E93',
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#007AFF',
     fontWeight: '600',
   },
   scrollView: {

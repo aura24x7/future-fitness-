@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatDate } from '../utils/dateUtils';
 import Svg, { Circle, G } from 'react-native-svg';
@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing } from '../theme/spacing';
 import { colors } from '../theme/colors';
 import { Macros } from '../contexts/MealContext';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface CalorieTrackerCardProps {
   targetCalories: number;
@@ -23,8 +24,7 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
   date,
   onDateChange,
 }) => {
-  const colorScheme = useColorScheme();
-  const isDarkMode = colorScheme === 'dark';
+  const { isDarkMode } = useTheme();
 
   const size = 200;
   const strokeWidth = 15;
@@ -52,11 +52,25 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
     <View style={[
       styles.container,
       {
-        backgroundColor: isDarkMode ? colors.background.dark : colors.background.light,
+        backgroundColor: isDarkMode ? colors.background.card.dark : colors.background.card.light,
+        borderColor: isDarkMode ? colors.border.dark : colors.border.light,
+        borderWidth: 1,
+        ...Platform.select({
+          ios: {
+            shadowColor: isDarkMode ? '#000' : '#000',
+            shadowOpacity: isDarkMode ? 0.3 : 0.1,
+          },
+          android: {
+            elevation: isDarkMode ? 4 : 3,
+          },
+        }),
       }
     ]}>
       <LinearGradient
-        colors={[`${colors.accent}08`, 'transparent']}
+        colors={[
+          isDarkMode ? `${colors.accent}15` : `${colors.accent}08`,
+          'transparent'
+        ]}
         style={styles.headerGradient}
       >
         <View style={styles.dateContainer}>
@@ -66,11 +80,21 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
           ]}>
             {formatDate(date, 'MMMM dd')}
           </Text>
-          <TouchableOpacity onPress={() => onDateChange?.(new Date())} style={styles.calendarButton}>
+          <TouchableOpacity 
+            onPress={() => onDateChange?.(new Date())} 
+            style={[
+              styles.calendarButton,
+              {
+                backgroundColor: isDarkMode 
+                  ? colors.background.secondary.dark 
+                  : colors.background.secondary.light,
+              }
+            ]}
+          >
             <Ionicons 
               name="calendar" 
               size={20} 
-              color={colors.accent}
+              color={isDarkMode ? colors.text.accent.dark : colors.text.accent.light}
             />
           </TouchableOpacity>
         </View>
@@ -88,7 +112,7 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
               strokeWidth={strokeWidth}
             />
             <Circle
-              stroke={colors.progress.indicator}
+              stroke={isDarkMode ? colors.progress.success.dark : colors.progress.success.light}
               fill="none"
               cx={center}
               cy={center}
@@ -118,21 +142,30 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
       </View>
 
       <View style={styles.macroContainer}>
-        {macroNutrients.map((macro, index) => (
+        {macroNutrients.map((macro) => (
           <View
             key={macro.name}
             style={[
               styles.macroCard,
               {
                 backgroundColor: isDarkMode 
-                  ? colors.background.card.dark 
-                  : colors.background.card.light,
+                  ? colors.background.secondary.dark 
+                  : colors.background.secondary.light,
+                borderColor: isDarkMode ? colors.border.dark : colors.border.light,
+                borderWidth: 1,
               }
             ]}
           >
             <View style={styles.macroContent}>
               <View style={styles.macroHeader}>
-                <View style={styles.macroIconContainer}>
+                <View style={[
+                  styles.macroIconContainer,
+                  {
+                    backgroundColor: isDarkMode 
+                      ? `${macro.color}15` 
+                      : `${macro.color}10`
+                  }
+                ]}>
                   <Ionicons name={macro.icon as any} size={14} color={macro.color} />
                   <Text style={[
                     styles.macroName,
@@ -164,9 +197,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
         shadowRadius: 6,
       },
       android: {
@@ -190,6 +221,7 @@ const styles = StyleSheet.create({
   },
   calendarButton: {
     padding: spacing.tiny,
+    borderRadius: 8,
   },
   circleContainer: {
     alignItems: 'center',
@@ -233,6 +265,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.tiny,
+    padding: spacing.tiny,
+    borderRadius: 6,
   },
   macroName: {
     fontSize: 12,

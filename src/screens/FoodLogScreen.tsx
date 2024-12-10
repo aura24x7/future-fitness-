@@ -24,6 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { format, isToday } from 'date-fns';
 import { useMeals } from '../contexts/MealContext';
 import { getStorageKeyForDate, MEALS_STORAGE_KEY, getDayOfWeek } from '../utils/dateUtils';
+import { useTheme } from '../theme/ThemeProvider';
 
 const STORAGE_KEY = '@meal_plan';
 
@@ -36,6 +37,7 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
   const [weeklyMealPlan, setWeeklyMealPlan] = useState<WeeklyMealPlan | null>(null);
   const [selectedDay, setSelectedDay] = useState('');
   const { handleScroll } = useScrollToTabBar();
+  const { colors, isDarkMode } = useTheme();
 
   // Define sections for SectionList
   const sections = useMemo(() => {
@@ -362,14 +364,14 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#F3F4F6',
+      backgroundColor: isDarkMode ? colors.background : '#F3F4F6',
     },
     header: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: isDarkMode ? colors.cardBackground : '#FFFFFF',
       paddingTop: 15,
       paddingBottom: 15,
       borderBottomWidth: 1,
-      borderBottomColor: '#E5E7EB',
+      borderBottomColor: isDarkMode ? colors.border : '#E5E7EB',
     },
     dateSelector: {
       flexDirection: 'row',
@@ -380,15 +382,15 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
     dateText: {
       fontSize: 18,
       fontWeight: '600',
-      color: '#1F2937',
+      color: isDarkMode ? colors.text : '#1F2937',
     },
     summaryCard: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: isDarkMode ? colors.cardBackground : '#FFFFFF',
       borderRadius: 16,
       margin: 16,
-      shadowColor: '#000',
+      shadowColor: isDarkMode ? '#000' : '#000',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
+      shadowOpacity: isDarkMode ? 0.25 : 0.05,
       shadowRadius: 8,
       elevation: 3,
     },
@@ -398,7 +400,7 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
     summaryTitle: {
       fontSize: 18,
       fontWeight: '600',
-      color: '#1D1D1F',
+      color: isDarkMode ? colors.text : '#1D1D1F',
       marginBottom: 16,
       letterSpacing: -0.5,
     },
@@ -414,32 +416,32 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
     statValue: {
       fontSize: 20,
       fontWeight: '600',
-      color: '#1D1D1F',
+      color: isDarkMode ? colors.text : '#1D1D1F',
       marginTop: 4,
     },
     statLabel: {
       fontSize: 13,
-      color: '#86868B',
+      color: isDarkMode ? colors.secondaryText : '#86868B',
       marginTop: 2,
     },
     statDivider: {
       width: 1,
       height: 40,
-      backgroundColor: '#E5E7EB',
+      backgroundColor: isDarkMode ? colors.border : '#E5E7EB',
     },
     sectionHeader: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: isDarkMode ? colors.cardBackground : '#FFFFFF',
       paddingVertical: 12,
       paddingHorizontal: 15,
       marginTop: 10,
       marginHorizontal: 10,
       borderRadius: 10,
-      shadowColor: '#000',
+      shadowColor: isDarkMode ? '#000' : '#000',
       shadowOffset: {
         width: 0,
         height: 1,
       },
-      shadowOpacity: 0.1,
+      shadowOpacity: isDarkMode ? 0.25 : 0.1,
       shadowRadius: 2,
       elevation: 2,
     },
@@ -451,14 +453,14 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
     sectionTitle: {
       fontSize: 17,
       fontWeight: '600',
-      color: '#1F2937',
+      color: isDarkMode ? colors.text : '#1F2937',
     },
     addButton: {
       padding: 8,
     },
     mealContainer: {
       marginBottom: 12,
-      backgroundColor: '#F5F5F7',
+      backgroundColor: isDarkMode ? colors.cardBackground : '#F5F5F7',
       borderRadius: 12,
       overflow: 'hidden',
     },
@@ -477,12 +479,12 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
       height: 24,
       borderRadius: 12,
       borderWidth: 2,
-      borderColor: '#0A84FF',
+      borderColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
     },
     checkboxChecked: {
-      backgroundColor: '#0A84FF',
+      backgroundColor: colors.primary,
     },
     mealContentTouchable: {
       flex: 1,
@@ -505,12 +507,12 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
     mealName: {
       fontSize: 16,
       fontWeight: '500',
-      color: '#1F2937',
+      color: isDarkMode ? colors.text : '#1F2937',
       marginBottom: 2,
     },
     mealNameCompleted: {
       textDecorationLine: 'line-through',
-      color: '#86868B',
+      color: isDarkMode ? colors.secondaryText : '#86868B',
     },
     mealDetails: {
       marginTop: 12,
@@ -526,23 +528,23 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
     },
     macroLabel: {
       fontSize: 13,
-      color: '#86868B',
+      color: isDarkMode ? colors.secondaryText : '#86868B',
       marginBottom: 2,
     },
     macroValue: {
       fontSize: 15,
       fontWeight: '500',
-      color: '#1F2937',
+      color: isDarkMode ? colors.text : '#1F2937',
     },
     divider: {
       height: 1,
-      backgroundColor: '#E5E7EB',
+      backgroundColor: isDarkMode ? colors.border : '#E5E7EB',
       marginVertical: 12,
     },
     ingredientsLabel: {
       fontSize: 13,
       fontWeight: '500',
-      color: '#1F2937',
+      color: isDarkMode ? colors.text : '#1F2937',
       marginBottom: 4,
     },
     ingredientsList: {
@@ -556,15 +558,15 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
     },
     ingredientText: {
       marginLeft: 8,
-      color: '#4A5568',
+      color: isDarkMode ? colors.text : '#4A5568',
       fontSize: 14,
     },
     buttonContainer: {
       padding: 16,
       paddingBottom: 32,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: isDarkMode ? colors.cardBackground : '#FFFFFF',
       borderTopWidth: 1,
-      borderTopColor: '#E5E7EB',
+      borderTopColor: isDarkMode ? colors.border : '#E5E7EB',
     },
     button: {
       flexDirection: 'row',
@@ -575,7 +577,7 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
       marginBottom: 12,
     },
     generateButton: {
-      backgroundColor: '#0A84FF',
+      backgroundColor: colors.primary,
     },
     buttonText: {
       fontSize: 16,
@@ -590,14 +592,14 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
       <View style={styles.header}>
         <View style={styles.dateSelector}>
           <TouchableOpacity onPress={handlePrevDay}>
-            <Ionicons name="chevron-back" size={24} color="#6366F1" />
+            <Ionicons name="chevron-back" size={24} color={colors.primary} />
           </TouchableOpacity>
           <Text style={styles.dateText}>
             {format(selectedDate, 'EEEE, MMMM d')}
             {isToday(selectedDate) && ' (Today)'}
           </Text>
           <TouchableOpacity onPress={handleNextDay}>
-            <Ionicons name="chevron-forward" size={24} color="#6366F1" />
+            <Ionicons name="chevron-forward" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -607,25 +609,41 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={styles.summaryTitle}>Daily Summary</Text>
           <View style={styles.summaryStats}>
             <View style={styles.statItem}>
-              <Ionicons name="flame-outline" size={24} color="#1D1D1F" />
+              <Ionicons 
+                name="flame-outline" 
+                size={24} 
+                color={isDarkMode ? colors.text : '#1D1D1F'} 
+              />
               <Text style={styles.statValue}>{totalCalories.toFixed(0)}</Text>
               <Text style={styles.statLabel}>Calories</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Ionicons name="barbell-outline" size={24} color="#1D1D1F" />
+              <Ionicons 
+                name="barbell-outline" 
+                size={24} 
+                color={isDarkMode ? colors.text : '#1D1D1F'} 
+              />
               <Text style={styles.statValue}>{totalMacros.proteins.toFixed(1)}g</Text>
               <Text style={styles.statLabel}>Protein</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Ionicons name="leaf-outline" size={24} color="#1D1D1F" />
+              <Ionicons 
+                name="leaf-outline" 
+                size={24} 
+                color={isDarkMode ? colors.text : '#1D1D1F'} 
+              />
               <Text style={styles.statValue}>{totalMacros.carbs.toFixed(1)}g</Text>
               <Text style={styles.statLabel}>Carbs</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Ionicons name="water-outline" size={24} color="#1D1D1F" />
+              <Ionicons 
+                name="water-outline" 
+                size={24} 
+                color={isDarkMode ? colors.text : '#1D1D1F'} 
+              />
               <Text style={styles.statValue}>{totalMacros.fats.toFixed(1)}g</Text>
               <Text style={styles.statLabel}>Fat</Text>
             </View>
@@ -645,7 +663,7 @@ const FoodLogScreen: React.FC<Props> = ({ navigation, route }) => {
                 style={styles.addButton}
                 onPress={() => handleAddMeal()}
               >
-                <Ionicons name="add" size={24} color="#6366F1" />
+                <Ionicons name="add" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </View>

@@ -125,3 +125,8 @@ export const validateMeasurement = (value: number, unit: string): boolean => {
       return false;
   }
 };
+
+export const handleDateFormatError = (error: Error, fallbackValue: string = ''): string => {
+  console.error('Date formatting error:', error);
+  return fallbackValue;
+};

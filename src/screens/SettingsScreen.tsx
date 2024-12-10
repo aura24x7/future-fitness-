@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export const SettingsScreen = () => {
-  const { theme, isDarkMode, toggleTheme } = useTheme();
+  const { colors, isDarkMode, toggleTheme } = useTheme();
   const { signOut } = useAuth();
   const { resetOnboarding } = useOnboarding();
   const navigation = useNavigation();
@@ -54,14 +54,14 @@ export const SettingsScreen = () => {
     <TouchableOpacity
       style={[
         styles.settingItem,
-        { backgroundColor: theme.colors.cardBackground }
+        { backgroundColor: colors.cardBackground }
       ]}
       onPress={onPress}
       disabled={isSwitch}
     >
       <View style={styles.settingItemLeft}>
-        <Ionicons name={icon as any} size={24} color={theme.colors.primary} />
-        <Text style={[styles.settingItemText, { color: theme.colors.text }]}>
+        <Ionicons name={icon as any} size={24} color={colors.primary} />
+        <Text style={[styles.settingItemText, { color: colors.text }]}>
           {title}
         </Text>
       </View>
@@ -69,24 +69,24 @@ export const SettingsScreen = () => {
         <Switch
           value={value}
           onValueChange={onPress}
-          trackColor={{ false: '#767577', true: theme.colors.primary }}
+          trackColor={{ false: '#767577', true: colors.primary }}
           thumbColor={value ? '#fff' : '#f4f3f4'}
         />
       ) : (
         <Ionicons
           name="chevron-forward"
           size={24}
-          color={theme.colors.secondaryText}
+          color={colors.textSecondary}
         />
       )}
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView>
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.secondaryText }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             Appearance
           </Text>
           <SettingItem
@@ -99,7 +99,7 @@ export const SettingsScreen = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.secondaryText }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             Account
           </Text>
           <SettingItem
@@ -120,7 +120,7 @@ export const SettingsScreen = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.secondaryText }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             Profile
           </Text>
           <TouchableOpacity 
@@ -128,15 +128,15 @@ export const SettingsScreen = () => {
             onPress={handleResetOnboarding}
           >
             <View style={styles.menuItemContent}>
-              <Ionicons name="refresh-outline" size={24} color={theme.colors.primary} />
-              <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Reset Onboarding</Text>
+              <Ionicons name="refresh-outline" size={24} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Reset Onboarding</Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
           </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.secondaryText }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             Support
           </Text>
           <SettingItem
@@ -152,7 +152,7 @@ export const SettingsScreen = () => {
         </View>
 
         <TouchableOpacity
-          style={[styles.signOutButton, { backgroundColor: theme.colors.error }]}
+          style={[styles.signOutButton, { backgroundColor: colors.primary }]}
           onPress={handleSignOut}
         >
           <Text style={styles.signOutButtonText}>Sign Out</Text>

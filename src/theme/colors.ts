@@ -13,18 +13,30 @@ export const colors = {
     card: {
       light: '#FFFFFF',
       dark: '#1F2937'
+    },
+    secondary: {
+      light: '#F3F4F6',
+      dark: '#374151'
+    },
+    input: {
+      light: '#F3F4F6',
+      dark: '#374151'
     }
   },
 
   // Text Colors
   text: {
     primary: {
-      light: '#1F2937',
+      light: '#111827',
       dark: '#F9FAFB'
     },
     secondary: {
       light: '#6B7280',
       dark: '#9CA3AF'
+    },
+    accent: {
+      light: '#8B5CF6',
+      dark: '#A78BFA'
     }
   },
 
@@ -34,6 +46,14 @@ export const colors = {
     background: {
       light: '#E5E7EB',
       dark: '#374151'
+    },
+    success: {
+      light: '#10B981',
+      dark: '#059669'
+    },
+    error: {
+      light: '#EF4444',
+      dark: '#DC2626'
     }
   },
 
@@ -48,7 +68,43 @@ export const colors = {
   // Border Colors
   border: {
     light: '#E5E7EB',
-    dark: '#374151'
+    dark: '#374151',
+    focus: {
+      light: '#8B5CF6',
+      dark: '#A78BFA'
+    }
+  },
+
+  // Input Colors
+  input: {
+    background: {
+      light: '#FFFFFF',
+      dark: '#1F2937'
+    },
+    placeholder: {
+      light: '#9CA3AF',
+      dark: '#6B7280'
+    },
+    border: {
+      light: '#E5E7EB',
+      dark: '#374151',
+      focus: {
+        light: '#8B5CF6',
+        dark: '#A78BFA'
+      }
+    }
+  },
+
+  // Chart Colors
+  chart: {
+    grid: {
+      light: '#E5E7EB',
+      dark: '#374151'
+    },
+    label: {
+      light: '#6B7280',
+      dark: '#9CA3AF'
+    }
   }
 } as const;
 
@@ -62,34 +118,70 @@ export const opacity = {
 // Shadows
 export const shadows = {
   small: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
+    light: {
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    dark: {
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 3,
+    }
   },
   medium: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
+    light: {
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 5,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    dark: {
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.35,
+      shadowRadius: 8,
+      elevation: 5,
+    }
   },
   large: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 6,
+    light: {
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 6,
+      },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 8,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
+    dark: {
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 6,
+      },
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+      elevation: 8,
+    }
   },
 } as const;
 

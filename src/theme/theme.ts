@@ -1,70 +1,66 @@
-import { DarkTheme, DefaultTheme, Theme } from '@react-navigation/native';
+import { Theme as NavigationTheme } from '@react-navigation/native';
+
+// Extend the NavigationTheme type with our custom colors
+export interface Theme extends NavigationTheme {
+  colors: NavigationTheme['colors'] & {
+    secondaryText: string;
+    success: string;
+    error: string;
+    cardBackground: string;
+    headerBackground: string;
+    tabBarBackground: string;
+    exerciseCard: string;
+    exerciseCardCompleted: string;
+    exerciseCardBorder: string;
+    gradientStart: string;
+    gradientEnd: string;
+  };
+}
 
 export const CustomLightTheme: Theme = {
-  ...DefaultTheme,
+  dark: false,
   colors: {
-    ...DefaultTheme.colors,
-    primary: '#4CAF50',
+    primary: '#6366F1',
     background: '#F3F4F6',
     card: '#FFFFFF',
     text: '#1F2937',
-    border: '#E5E5E5',
-    notification: '#4CAF50',
+    border: '#E5E7EB',
+    notification: '#6366F1',
     // Custom colors
-    secondaryText: '#666666',
-    success: '#45a049',
+    secondaryText: '#6B7280',
+    success: '#10B981',
     error: '#DC2626',
     cardBackground: '#FFFFFF',
     headerBackground: '#FFFFFF',
     tabBarBackground: '#FFFFFF',
     exerciseCard: '#FFFFFF',
     exerciseCardCompleted: '#F0FDF4',
-    exerciseCardBorder: '#4CAF50',
-    gradientStart: '#4CAF50',
-    gradientEnd: '#45a049',
+    exerciseCardBorder: '#6366F1',
+    gradientStart: '#6366F1',
+    gradientEnd: '#818CF8',
   },
 };
 
 export const CustomDarkTheme: Theme = {
-  ...DarkTheme,
+  dark: true,
   colors: {
-    ...DarkTheme.colors,
-    primary: '#4CAF50',
-    background: '#121212',
-    card: '#1E1E1E',
-    text: '#FFFFFF',
-    border: '#2D2D2D',
-    notification: '#4CAF50',
+    primary: '#818CF8',
+    background: '#111827',
+    card: '#1F2937',
+    text: '#F9FAFB',
+    border: '#374151',
+    notification: '#818CF8',
     // Custom colors
-    secondaryText: '#A0A0A0',
-    success: '#45a049',
+    secondaryText: '#9CA3AF',
+    success: '#059669',
     error: '#DC2626',
-    cardBackground: '#1E1E1E',
-    headerBackground: '#1E1E1E',
-    tabBarBackground: '#1E1E1E',
-    exerciseCard: '#1E1E1E',
-    exerciseCardCompleted: '#132713',
-    exerciseCardBorder: '#4CAF50',
-    gradientStart: '#4CAF50',
-    gradientEnd: '#45a049',
+    cardBackground: '#1F2937',
+    headerBackground: '#1F2937',
+    tabBarBackground: '#1F2937',
+    exerciseCard: '#1F2937',
+    exerciseCardCompleted: '#132F1A',
+    exerciseCardBorder: '#818CF8',
+    gradientStart: '#818CF8',
+    gradientEnd: '#6366F1',
   },
 };
-
-// Add custom colors to the Theme type
-declare module '@react-navigation/native' {
-  export interface Theme {
-    colors: {
-      secondaryText: string;
-      success: string;
-      error: string;
-      cardBackground: string;
-      headerBackground: string;
-      tabBarBackground: string;
-      exerciseCard: string;
-      exerciseCardCompleted: string;
-      exerciseCardBorder: string;
-      gradientStart: string;
-      gradientEnd: string;
-    };
-  }
-}

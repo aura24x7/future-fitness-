@@ -165,50 +165,89 @@ export const AIWorkoutPlanComponent: React.FC<Props> = ({
             <LinearGradient
               key={exercise.id}
               colors={[
-                exercise.completed ? theme.successLight : theme.cardGradientStart,
-                exercise.completed ? theme.success : theme.cardGradientEnd
+                exercise.completed 
+                  ? colors.progress.success.light 
+                  : colors.background.card.light,
+                exercise.completed 
+                  ? colors.progress.success.dark 
+                  : colors.background.card.dark
               ]}
-              style={[styles.exerciseCard, index === 0 && styles.firstExerciseCard]}
+              style={[
+                styles.exerciseCard,
+                index === 0 && styles.firstExerciseCard,
+                { 
+                  borderColor: isDarkMode ? colors.border.dark : colors.border.light,
+                  borderWidth: 1
+                }
+              ]}
             >
               <TouchableOpacity
                 style={styles.exerciseCardContent}
                 onPress={() => handleExerciseComplete(exercise.id)}
               >
                 <View style={styles.exerciseHeader}>
-                  <Text style={[styles.exerciseName, { color: theme.text }]}>
+                  <Text style={[
+                    styles.exerciseName,
+                    { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+                  ]}>
                     {exercise.name}
                   </Text>
                   {exercise.completed && (
-                    <Ionicons name="checkmark-circle" size={24} color={theme.success} />
+                    <Ionicons 
+                      name="checkmark-circle" 
+                      size={24} 
+                      color={isDarkMode ? colors.progress.success.dark : colors.progress.success.light} 
+                    />
                   )}
                 </View>
                 
-                <Text style={[styles.exerciseDescription, { color: theme.textSecondary }]}>
+                <Text style={[
+                  styles.exerciseDescription,
+                  { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+                ]}>
                   {exercise.description}
                 </Text>
 
                 <View style={styles.exerciseDetails}>
                   <View style={styles.exerciseDetail}>
-                    <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>
+                    <Text style={[
+                      styles.detailLabel,
+                      { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+                    ]}>
                       Sets
                     </Text>
-                    <Text style={[styles.detailValue, { color: theme.text }]}>
+                    <Text style={[
+                      styles.detailValue,
+                      { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+                    ]}>
                       {exercise.sets}
                     </Text>
                   </View>
                   <View style={styles.exerciseDetail}>
-                    <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>
+                    <Text style={[
+                      styles.detailLabel,
+                      { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+                    ]}>
                       {exercise.duration ? 'Duration' : 'Reps'}
                     </Text>
-                    <Text style={[styles.detailValue, { color: theme.text }]}>
+                    <Text style={[
+                      styles.detailValue,
+                      { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+                    ]}>
                       {exercise.duration ? `${exercise.duration}s` : exercise.reps}
                     </Text>
                   </View>
                   <View style={styles.exerciseDetail}>
-                    <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>
+                    <Text style={[
+                      styles.detailLabel,
+                      { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+                    ]}>
                       Rest
                     </Text>
-                    <Text style={[styles.detailValue, { color: theme.text }]}>
+                    <Text style={[
+                      styles.detailValue,
+                      { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+                    ]}>
                       {exercise.restPeriod}s
                     </Text>
                   </View>
@@ -296,6 +335,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   firstExerciseCard: {
     marginTop: 0,

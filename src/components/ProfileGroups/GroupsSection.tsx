@@ -3,30 +3,43 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
+  ScrollView,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { groupService } from '../../services/groupService';
 import { Group } from '../../types/group';
-import { RootStackParamList } from '../../types/navigation';
+import { useTheme } from '../../theme/ThemeProvider';
 
-type GroupsNavigationProp = NavigationProp<RootStackParamList>;
+interface ExtendedGroup extends Group {
+  lastActive: string;
+  type: string;
+  memberCount: number;
+}
+
+type GroupsNavigationProp = any;
 
 export const GroupsSection: React.FC = () => {
   const navigation = useNavigation<GroupsNavigationProp>();
-  const [groups, setGroups] = useState<Group[]>([]);
+  const { colors, isDarkMode: isDark } = useTheme();
+  const [groups, setGroups] = useState<ExtendedGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadGroups = async () => {
     try {
       const fetchedGroups = await groupService.getAllGroups();
-      setGroups(fetchedGroups);
+      const extendedGroups: ExtendedGroup[] = fetchedGroups.map(group => ({
+        ...group,
+        lastActive: new Date().toLocaleDateString(),
+        type: 'Fitness',
+        memberCount: group.members?.length || 0,
+      }));
+      setGroups(extendedGroups);
     } catch (error) {
       console.error('Error loading groups:', error);
     } finally {
@@ -48,14 +61,14 @@ export const GroupsSection: React.FC = () => {
     navigation.navigate('CreateGroup');
   };
 
-  const handleGroupPress = (group: Group) => {
+  const handleGroupPress = (group: ExtendedGroup) => {
     navigation.navigate('GroupDetails', { groupId: group.id });
   };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -72,20 +85,24 @@ export const GroupsSection: React.FC = () => {
         onPress={handleCreateGroup}
       >
         <LinearGradient
-          colors={['#6366f1', '#818cf8']}
+          colors={[colors.primary, colors.primary + '80']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.createGroupGradient}
         >
-          <Ionicons name="add-circle-outline" size={24} color="white" />
-          <Text style={styles.createGroupText}>Create New Group</Text>
+          <Ionicons name="add-circle-outline" size={24} color={colors.card} />
+          <Text style={[styles.createGroupText, { color: colors.card }]}>
+            Create New Group
+          </Text>
         </LinearGradient>
       </TouchableOpacity>
 
       {groups.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No groups found</Text>
-          <Text style={styles.emptySubText}>
+          <Text style={[styles.emptyText, { color: colors.text }]}>
+            No groups found
+          </Text>
+          <Text style={[styles.emptySubText, { color: colors.text + '80' }]}>
             Create a group to start collaborating with others
           </Text>
         </View>
@@ -93,24 +110,31 @@ export const GroupsSection: React.FC = () => {
         groups.map((group) => (
           <TouchableOpacity
             key={group.id}
-            style={styles.groupCard}
+            style={[styles.groupCard, { 
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            }]}
             onPress={() => handleGroupPress(group)}
           >
             <View style={styles.groupHeader}>
-              <Text style={styles.groupName}>{group.name}</Text>
-              <Text style={styles.memberCount}>
+              <Text style={[styles.groupName, { color: colors.text }]}>
+                {group.name}
+              </Text>
+              <Text style={[styles.memberCount, { color: colors.text + '80' }]}>
                 {group.memberCount} members
               </Text>
             </View>
-            <Text style={styles.groupDescription} numberOfLines={2}>
+            <Text style={[styles.groupDescription, { color: colors.text + '80' }]} numberOfLines={2}>
               {group.description}
             </Text>
             <View style={styles.groupFooter}>
-              <Text style={styles.lastActive}>
+              <Text style={[styles.lastActive, { color: colors.text + '80' }]}>
                 Last active: {group.lastActive}
               </Text>
-              <View style={styles.groupType}>
-                <Text style={styles.groupTypeText}>{group.type}</Text>
+              <View style={[styles.groupType, { backgroundColor: colors.primary + '20' }]}>
+                <Text style={[styles.groupTypeText, { color: colors.primary }]}>
+                  {group.type}
+                </Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -123,8 +147,7 @@ export const GroupsSection: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    padding: 16,
+    paddingHorizontal: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -132,43 +155,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   createGroupButton: {
-    marginBottom: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
+    marginVertical: 16,
   },
   createGroupGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
+    borderRadius: 12,
+    gap: 8,
   },
   createGroupText: {
-    color: 'white',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
+    paddingVertical: 32,
   },
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#4B5563',
     marginBottom: 8,
   },
   emptySubText: {
     fontSize: 14,
-    color: '#6B7280',
     textAlign: 'center',
   },
   groupCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -187,15 +206,12 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
   },
   memberCount: {
     fontSize: 14,
-    color: '#6B7280',
   },
   groupDescription: {
     fontSize: 14,
-    color: '#4B5563',
     marginBottom: 12,
   },
   groupFooter: {
@@ -205,17 +221,14 @@ const styles = StyleSheet.create({
   },
   lastActive: {
     fontSize: 12,
-    color: '#6B7280',
   },
   groupType: {
-    backgroundColor: '#EEF2FF',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   groupTypeText: {
     fontSize: 12,
-    color: '#6366f1',
     fontWeight: '500',
   },
 });

@@ -54,7 +54,7 @@ const ProfileScreen = () => {
   const { onboardingData } = useOnboarding();
   const { profile, loading } = useProfile();
   const { handleScroll } = useScrollToTabBar();
-  const { theme, isDarkMode } = useTheme();
+  const { colors, isDarkMode } = useTheme();
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const AnimatedScrollView = Animated.ScrollView;
 
@@ -331,11 +331,11 @@ const ProfileScreen = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LinearGradient
         colors={isDarkMode ? 
-          [theme.colors.primary, '#2d3748', theme.colors.background] :
-          [theme.colors.primary, '#818cf8', '#a5b4fc']
+          [colors.primary, '#2d3748', colors.background] :
+          [colors.primary, '#818cf8', '#a5b4fc']
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
@@ -353,7 +353,7 @@ const ProfileScreen = () => {
                 />
                 <TouchableOpacity style={[
                   styles.editAvatarButton,
-                  { backgroundColor: theme.colors.primary }
+                  { backgroundColor: colors.primary }
                 ]}>
                   <Ionicons name="camera" size={16} color="#fff" />
                 </TouchableOpacity>
@@ -370,7 +370,7 @@ const ProfileScreen = () => {
                   end={{ x: 1, y: 1 }}
                   style={styles.editProfileGradient}
                 >
-                  <Text style={[styles.editProfileText, { color: theme.colors.text }]}>
+                  <Text style={[styles.editProfileText, { color: colors.text }]}>
                     Edit Profile
                   </Text>
                 </LinearGradient>
@@ -391,24 +391,24 @@ const ProfileScreen = () => {
                   <Ionicons 
                     name="settings-outline" 
                     size={20} 
-                    color={theme.colors.text} 
+                    color={colors.text} 
                   />
                 </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
           <View style={styles.userInfoSection}>
-            <Text style={[styles.userName, { color: theme.colors.text }]}>{onboardingData.name || 'User'}</Text>
-            <Text style={[styles.userEmail, { color: theme.colors.secondaryText }]}>
+            <Text style={[styles.userName, { color: colors.text }]}>{onboardingData.name || 'User'}</Text>
+            <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
               {profile?.email || '@user'}
             </Text>
             <View style={styles.joinedSection}>
               <Ionicons 
                 name="calendar-outline" 
                 size={14} 
-                color={theme.colors.secondaryText} 
+                color={colors.textSecondary} 
               />
-              <Text style={[styles.joinedText, { color: theme.colors.secondaryText }]}>
+              <Text style={[styles.joinedText, { color: colors.textSecondary }]}>
                 {profile?.joinedDate ? `Joined ${new Date(profile.joinedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` : 'New Member'}
               </Text>
             </View>
@@ -429,32 +429,32 @@ const ProfileScreen = () => {
           }
           style={[styles.section, styles.glassEffect]}
         >
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            <Ionicons name="body-outline" size={20} color={theme.colors.primary} /> Basic Information
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            <Ionicons name="body-outline" size={20} color={colors.primary} /> Basic Information
           </Text>
           <View style={styles.infoGrid}>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Height</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Height</Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
                 {onboardingData.height?.value || '--'} {onboardingData.height?.unit || 'cm'}
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Weight</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Weight</Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
                 {onboardingData.weight?.value || '--'} {onboardingData.weight?.unit || 'kg'}
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Target Weight</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Target Weight</Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
                 {onboardingData.targetWeight?.value || '--'} {onboardingData.targetWeight?.unit || 'kg'}
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>BMI</Text>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>BMI</Text>
               <View>
-                <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
                   {bmiData?.value?.toFixed(1) || '--'}
                 </Text>
                 {bmiData && (
@@ -465,41 +465,41 @@ const ProfileScreen = () => {
               </View>
             </View>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Weight Goal</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Weight Goal</Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
                 {onboardingData.weightGoal?.split('_').map(word => 
                   word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
                 ).join(' ') || '--'}
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Age</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Age</Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
                 {userAge || '--'} years
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Gender</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Gender</Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
                 {onboardingData.gender?.charAt(0).toUpperCase() + 
                  onboardingData.gender?.slice(1).toLowerCase() || '--'}
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Lifestyle</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Lifestyle</Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
                 {userData.lifestyle}
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Diet Type</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Diet Type</Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
                 {userData.dietType}
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: theme.colors.secondaryText }]}>Workout Type</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Workout Type</Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
                 {userData.workoutType}
               </Text>
             </View>
@@ -510,7 +510,7 @@ const ProfileScreen = () => {
                   {calculatedCalories ? `${calculatedCalories.toLocaleString()} kcal` : '--'}
                 </Text>
                 {calculatedCalories && (
-                  <Text style={[styles.calorieDescription, { color: theme.colors.primary }]}>
+                  <Text style={[styles.calorieDescription, { color: colors.primary }]}>
                     {onboardingData?.weightGoal === 'LOSE_WEIGHT' ? '20% calorie deficit' :
                      onboardingData?.weightGoal === 'GAIN_WEIGHT' ? '10% calorie surplus' :
                      'Maintenance calories'}
@@ -530,10 +530,10 @@ const ProfileScreen = () => {
             style={[styles.statCard, styles.glassEffect]}
           >
             <View style={[styles.statIconContainer, { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
-              <Ionicons name="body-outline" size={24} color={theme.colors.primary} />
+              <Ionicons name="body-outline" size={24} color={colors.primary} />
             </View>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{userData.lifestyle}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.secondaryText }]}>Lifestyle</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{userData.lifestyle}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Lifestyle</Text>
           </LinearGradient>
           
           <LinearGradient
@@ -544,10 +544,10 @@ const ProfileScreen = () => {
             style={[styles.statCard, styles.glassEffect]}
           >
             <View style={[styles.statIconContainer, { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
-              <Ionicons name="barbell-outline" size={24} color={theme.colors.primary} />
+              <Ionicons name="barbell-outline" size={24} color={colors.primary} />
             </View>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{userData.workoutType}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.secondaryText }]}>Workout Type</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{userData.workoutType}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Workout Type</Text>
           </LinearGradient>
           
           <LinearGradient
@@ -558,10 +558,10 @@ const ProfileScreen = () => {
             style={[styles.statCard, styles.glassEffect]}
           >
             <View style={[styles.statIconContainer, { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
-              <Ionicons name="time-outline" size={24} color={theme.colors.primary} />
+              <Ionicons name="time-outline" size={24} color={colors.primary} />
             </View>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{userStats.hours}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.secondaryText }]}>Hours</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{userStats.hours}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Hours</Text>
           </LinearGradient>
         </View>
 
@@ -572,27 +572,27 @@ const ProfileScreen = () => {
           }
           style={[styles.section, styles.glassEffect]}
         >
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            <Ionicons name="settings-outline" size={20} color={theme.colors.primary} /> Settings
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            <Ionicons name="settings-outline" size={20} color={colors.primary} /> Settings
           </Text>
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuItemContent}>
-              <Ionicons name="person-outline" size={24} color={theme.colors.primary} />
-              <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Edit Profile</Text>
+              <Ionicons name="person-outline" size={24} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Edit Profile</Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuItemContent}>
-              <Ionicons name="notifications-outline" size={24} color={theme.colors.primary} />
-              <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Notifications</Text>
+              <Ionicons name="notifications-outline" size={24} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Notifications</Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuItemContent}>
-              <Ionicons name="lock-closed-outline" size={24} color={theme.colors.primary} />
-              <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Privacy</Text>
+              <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Privacy</Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
           </TouchableOpacity>
@@ -600,7 +600,7 @@ const ProfileScreen = () => {
 
         <TouchableOpacity style={styles.logoutButton}>
           <Ionicons name="log-out-outline" size={24} color="#ef4444" />
-          <Text style={[styles.logoutButtonText, { color: theme.colors.text }]}>Log Out</Text>
+          <Text style={[styles.logoutButtonText, { color: colors.text }]}>Log Out</Text>
         </TouchableOpacity>
       </AnimatedScrollView>
     </View>
