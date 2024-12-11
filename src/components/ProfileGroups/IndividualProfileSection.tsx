@@ -11,16 +11,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRoute } from '@react-navigation/native';
 import { useGymBuddyAlert } from '../../contexts/GymBuddyAlertContext';
 import { useTheme } from '../../theme/ThemeProvider';
-
-interface GymBuddyAlert {
-  id: string;
-  senderId: string;
-  recipientId: string;
-  type: string;
-  message: string;
-  status: 'pending' | 'accepted' | 'rejected';
-  createdAt: string;
-}
+import { ReceiveAlertModal } from '../../components/GymBuddyAlert/ReceiveAlertModal';
+import { SendAlertModal } from '../../components/GymBuddyAlert/SendAlertModal';
+import { GymBuddyAlert } from '../../types/gymBuddyAlert';
 
 interface IndividualProfileSectionProps {
   profile: {
@@ -60,10 +53,16 @@ export function IndividualProfileSection({
     if (isShareMode && onSelect) {
       onSelect(profile.id);
     } else if (pendingAlerts.length > 0 && pendingAlerts[0]) {
+      // Create a complete alert object with all required properties
       const alert: GymBuddyAlert = {
-        ...pendingAlerts[0],
-        type: pendingAlerts[0].type || 'default',
-        createdAt: pendingAlerts[0].createdAt || new Date().toISOString(),
+        id: pendingAlerts[0].id,
+        senderId: pendingAlerts[0].senderId,
+        receiverId: pendingAlerts[0].receiverId,
+        message: pendingAlerts[0].message,
+        status: pendingAlerts[0].status,
+        createdAt: pendingAlerts[0].createdAt,
+        senderName: pendingAlerts[0].senderName || profile.name,
+        receiverName: pendingAlerts[0].receiverName
       };
       setSelectedAlert(alert);
     } else {
@@ -134,21 +133,20 @@ export function IndividualProfileSection({
       </View>
 
       {selectedAlert && (
-        <View>
-          {/* Alert modal placeholder - implement actual modal component */}
-          <TouchableOpacity onPress={() => setSelectedAlert(null)}>
-            <Text style={{ color: colors.text }}>Close Alert</Text>
-          </TouchableOpacity>
-        </View>
+        <ReceiveAlertModal
+          isVisible={!!selectedAlert}
+          onClose={() => setSelectedAlert(null)}
+          alert={selectedAlert}
+        />
       )}
 
       {isSendModalVisible && (
-        <View>
-          {/* Send modal placeholder - implement actual modal component */}
-          <TouchableOpacity onPress={handleCloseSendModal}>
-            <Text style={{ color: colors.text }}>Close Send Modal</Text>
-          </TouchableOpacity>
-        </View>
+        <SendAlertModal
+          visible={isSendModalVisible}
+          onClose={handleCloseSendModal}
+          recipientId={profile.id}
+          recipientName={profile.name}
+        />
       )}
     </>
   );

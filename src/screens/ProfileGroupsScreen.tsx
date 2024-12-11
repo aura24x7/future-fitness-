@@ -1,24 +1,25 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
-  StyleSheet,
-  Dimensions,
-  Animated,
-  TouchableOpacity,
   Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+  Dimensions,
   ScrollView,
 } from 'react-native';
-import { IndividualProfileSection } from '../components/ProfileGroups/IndividualProfileSection';
-import { GroupsSection } from '../components/ProfileGroups/GroupsSection';
+import { Ionicons } from '@expo/vector-icons';
 import { useProfileGroups } from '../contexts/ProfileGroupsContext';
 import { useGymBuddyAlert } from '../contexts/GymBuddyAlertContext';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../types/navigation';
 import { useTheme } from '../theme/ThemeProvider';
+import { IndividualProfileSection } from '../components/ProfileGroups/IndividualProfileSection';
+import { GroupsSection } from '../components/ProfileGroups/GroupsSection';
 
 const { width } = Dimensions.get('window');
 
-type Props = NativeStackScreenProps<RootStackParamList, 'ProfileGroups'>;
+interface Props {
+  navigation: any;
+}
 
 const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
   const { state: { individuals, groups }, fetchIndividuals, fetchGroups } = useProfileGroups();
@@ -59,51 +60,60 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { 
-        backgroundColor: colors.cardBackground,
-        borderBottomColor: colors.border 
-      }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Social</Text>
-        <View style={styles.tabContainer}>
-          <Animated.View
-            style={[
-              styles.tabIndicator,
-              {
-                transform: [{ translateX }],
-                backgroundColor: colors.primary,
-              },
-            ]}
-          />
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 0 && styles.activeTab]}
-            onPress={() => handleTabPress(0)}
-          >
-            <Text
-              style={[
-                styles.tabText, 
-                { color: activeTab === 0 ? colors.primary : colors.textSecondary },
-                activeTab === 0 && styles.activeTabText
-              ]}
-            >
-              {getSectionTitle('Individuals', individuals.data || [])}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 1 && styles.activeTab]}
-            onPress={() => handleTabPress(1)}
-          >
-            <Text
-              style={[
-                styles.tabText, 
-                { color: activeTab === 1 ? colors.primary : colors.textSecondary },
-                activeTab === 1 && styles.activeTabText
-              ]}
-            >
-              {getSectionTitle('Groups', groups.data || [])}
-            </Text>
-          </TouchableOpacity>
-        </View>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>Social</Text>
       </View>
+
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={styles.tabButton}
+          onPress={() => handleTabPress(0)}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              { color: activeTab === 0 ? colors.primary : colors.textSecondary },
+            ]}
+          >
+            {getSectionTitle('Individuals', individuals.data)}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.tabButton}
+          onPress={() => handleTabPress(1)}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              { color: activeTab === 1 ? colors.primary : colors.textSecondary },
+            ]}
+          >
+            {getSectionTitle('Groups', groups.data)}
+          </Text>
+        </TouchableOpacity>
+
+        <Animated.View
+          style={[
+            styles.tabIndicator,
+            {
+              backgroundColor: colors.primary,
+              transform: [{ translateX }],
+            },
+          ]}
+        />
+      </View>
+
+      {/* Add User Button */}
+      {activeTab === 0 && (
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: colors.primary }]}
+          onPress={() => navigation.navigate('AddIndividual')}
+        >
+          <Ionicons name="person-add" size={20} color="#FFFFFF" />
+          <Text style={styles.addButtonText}>Add Individual</Text>
+        </TouchableOpacity>
+      )}
 
       <Animated.ScrollView
         horizontal
@@ -140,55 +150,55 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  headerTitle: {
-    fontSize: 34,
-    fontWeight: '700',
-    marginBottom: 16,
     paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
   },
   tabContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
     position: 'relative',
-    height: 44,
+    marginBottom: 10,
+    paddingHorizontal: 20,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   tabIndicator: {
     position: 'absolute',
     bottom: 0,
     width: '50%',
     height: 2,
-    borderRadius: 2,
-  },
-  tab: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100%',
-  },
-  activeTab: {
-    backgroundColor: 'transparent',
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  activeTabText: {
-    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
   },
   page: {
     flex: 1,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
