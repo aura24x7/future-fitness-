@@ -14,40 +14,25 @@ export type TabParamList = {
 };
 
 export type RootStackParamList = {
-  Welcome: undefined;
-  NameInput: undefined;
-  Birthday: undefined;
-  Gender: undefined;
-  HeightWeight: undefined;
-  FitnessGoal: undefined;
-  ActivityLevel: undefined;
-  DietaryPreference: undefined;
-  WeightGoal: undefined;
-  WorkoutPreference: undefined;
-  FinalSetup: undefined;
-  Login: undefined;
-  Register: undefined;
-  Main: NavigatorScreenParams<TabParamList>;
-  MainTabs: undefined;
-  TrackMeal: undefined;
-  TrackWater: undefined;
-  CreateWorkout: undefined;
-  AddCustomMeal: undefined;
-  WorkoutDetails: { workoutId: string };
-  AddCustomWorkout: undefined;
-  FoodScanner: undefined;
-  ScannedFoodDetails: { foodData: any };
-  CreateGroup: undefined;
-  GroupDetails: { groupId: string };
-  InviteMembers: { groupId: string };
-  ManageInvites: { groupId: string };
-  GroupWorkouts: { groupId: string };
-  SelectWorkout: undefined;
-  ShareWorkout: { workoutId: string };
-  GroupAnalytics: { groupId: string };
-  GroupChallenges: { groupId: string };
+  // Main screens
+  Dashboard: undefined;
   ProfileGroups: undefined;
+  FoodScanner: undefined;
+  Profile: undefined;
+  FoodLog: undefined;
+  Progress: undefined;
+  
+  // Group-related screens
+  GroupDetails: { groupId: string };
+  CreateGroup: undefined;
+  InviteMembers: { groupId: string };
+  ManageInvites: undefined;
   AddIndividual: undefined;
+  
+  // Food-related screens
+  ScannedFoodDetails: { foodId: string };
+  
+  // Settings
   Settings: undefined;
 };
 

@@ -1,17 +1,16 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Alert,
   TouchableOpacity,
   StatusBar,
-  ImageBackground,
   Platform,
-  PanResponder,
-  useColorScheme,
+  ActivityIndicator,
 } from 'react-native';
+import { Text } from 'tamagui';
+import { Header } from '../components/Header';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -32,6 +31,7 @@ import { useTabBarScroll } from '../hooks/useTabBarScroll';
 import { formatDate } from '../utils/dateUtils';
 import { format } from 'date-fns';
 import { getGreeting } from '../utils/dateUtils';
+import BottomTaskbar from '../components/BottomTaskbar';
 
 const DashboardScreen = ({ navigation }) => {
   const { colors, isDarkMode } = useTheme();
@@ -119,7 +119,7 @@ const DashboardScreen = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text color="$gray12">Loading...</Text>
       </View>
     );
   }
@@ -132,20 +132,12 @@ const DashboardScreen = ({ navigation }) => {
         translucent
       />
       
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.cardBackground }]}>
-        <Text style={[styles.greeting, { color: colors.text }]}>
-          {getGreeting()}, {userData?.name || 'User'}
-        </Text>
-        <Text style={[styles.date, { color: colors.textSecondary }]}>
-          {format(new Date(), 'EEEE, MMMM d')}
-        </Text>
-      </View>
+      <Header />
 
-      {/* Content */}
       <ScrollView 
         ref={scrollViewRef}
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -172,10 +164,10 @@ const DashboardScreen = ({ navigation }) => {
               }]}>
                 <Ionicons name="water-outline" size={24} color="#4ECDC4" />
               </View>
-              <Text style={[styles.statValue, { color: colors.text }]}>
+              <Text color={colors.text} fontSize={18} fontWeight="bold" marginBottom={4}>
                 {todayStats.waterIntake}ml
               </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              <Text color={colors.textSecondary} fontSize={14}>
                 Water
               </Text>
             </View>
@@ -185,40 +177,86 @@ const DashboardScreen = ({ navigation }) => {
               borderColor: colors.border,
               borderWidth: 1,
             }]}>
-              <View style={[styles.iconContainer, { 
-                backgroundColor: isDarkMode ? 'rgba(255, 178, 54, 0.2)' : '#FFB23620' 
+              <View style={[styles.iconContainer, {
+                backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.2)' : '#6366F120'
               }]}>
-                <Ionicons name="body-outline" size={24} color="#FFB236" />
+                <Ionicons name="body-outline" size={24} color="#6366F1" />
               </View>
-              <Text style={[styles.statValue, { color: colors.text }]}>
+              <Text color={colors.text} fontSize={18} fontWeight="bold" marginBottom={4}>
                 {calculateBMI(userData?.weight, userData?.height).toFixed(1)}
               </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              <Text color={colors.textSecondary} fontSize={14}>
                 BMI
               </Text>
             </View>
 
             <TouchableOpacity 
-              style={[styles.statCard, styles.scanCard, { 
+              style={[styles.statCard, { 
                 backgroundColor: colors.cardBackground,
                 borderColor: colors.border,
                 borderWidth: 1,
               }]}
-              onPress={() => navigation.navigate('FoodScanner')}
+              onPress={handleAddMeal}
             >
-              <View style={[styles.iconContainer, { 
-                backgroundColor: isDarkMode ? 'rgba(255, 107, 107, 0.2)' : '#FF6B6B20' 
+              <View style={[styles.iconContainer, {
+                backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#EF444420'
               }]}>
-                <Ionicons name="scan-outline" size={24} color="#FF6B6B" />
+                <Ionicons name="scan-outline" size={24} color="#EF4444" />
               </View>
-              <Text style={[styles.statValue, { color: '#FF6B6B' }]}>Scan</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              <Text color={colors.textSecondary} fontSize={14}>
+                Scan
+              </Text>
+              <Text color={colors.textSecondary} fontSize={14}>
                 Food
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Shortcut Buttons */}
+          <View style={styles.shortcutContainer}>
+            <TouchableOpacity
+              style={[styles.shortcutButton, { backgroundColor: colors.cardBackground }]}
+              onPress={() => navigation.navigate('FoodLog')}
+            >
+              <View style={[styles.shortcutIcon, { backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#6366F110' }]}>
+                <Ionicons name="restaurant-outline" size={24} color="#6366F1" />
+              </View>
+              <Text color={colors.text} fontSize={14} fontWeight="600">Food Log</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.shortcutButton, { backgroundColor: colors.cardBackground }]}
+              onPress={() => navigation.navigate('Progress')}
+            >
+              <View style={[styles.shortcutIcon, { backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#6366F110' }]}>
+                <Ionicons name="trending-up-outline" size={24} color="#6366F1" />
+              </View>
+              <Text color={colors.text} fontSize={14} fontWeight="600">Progress</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.shortcutButton, { backgroundColor: colors.cardBackground }]}
+              onPress={() => navigation.navigate('Workouts')}
+            >
+              <View style={[styles.shortcutIcon, { backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#6366F110' }]}>
+                <Ionicons name="fitness-outline" size={24} color="#6366F1" />
+              </View>
+              <Text color={colors.text} fontSize={14} fontWeight="600">Workouts</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.shortcutButton, { backgroundColor: colors.cardBackground }]}
+              onPress={() => navigation.navigate('Settings')}
+            >
+              <View style={[styles.shortcutIcon, { backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#6366F110' }]}>
+                <Ionicons name="settings-outline" size={24} color="#6366F1" />
+              </View>
+              <Text color={colors.text} fontSize={14} fontWeight="600">Settings</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
+      <BottomTaskbar />
     </View>
   );
 };
@@ -226,35 +264,13 @@ const DashboardScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : StatusBar.currentHeight + 20,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
-  },
-  greeting: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  date: {
-    fontSize: 16,
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   content: {
     padding: 20,
@@ -293,14 +309,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 8,
   },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
+  shortcutContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 16,
+    gap: 12,
   },
-  statLabel: {
-    fontSize: 14,
+  shortcutButton: {
+    width: '47%',
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+    marginBottom: 12,
   },
+  shortcutIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  }
 });
 
 export default DashboardScreen;

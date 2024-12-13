@@ -17,7 +17,7 @@ import { userProfileService } from '../services/userProfileService';
 
 const { width } = Dimensions.get('window');
 
-type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Profile'>;
 
 const getBMICategory = (bmi: number): { category: string; color: string } => {
   if (bmi < 18.5) return { category: 'Underweight', color: '#3B82F6' };
@@ -265,6 +265,7 @@ const ProfileScreen = () => {
   };
 
   const handleSettingsPress = () => {
+    console.log('Navigating to Settings screen...');
     navigation.navigate('Settings');
   };
 

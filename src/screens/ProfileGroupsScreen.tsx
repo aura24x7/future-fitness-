@@ -62,6 +62,12 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Social</Text>
+        <TouchableOpacity
+          style={styles.searchButton}
+          onPress={() => navigation.navigate('AddIndividual')}
+        >
+          <Ionicons name="search-outline" size={24} color={colors.text} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.tabContainer}>
@@ -153,6 +159,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   title: {
     fontSize: 32,
@@ -199,6 +208,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  searchButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
   },
 });
 
