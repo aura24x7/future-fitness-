@@ -8,7 +8,7 @@ const config = createTamagui({
     light: lightTheme,
     dark: darkTheme,
   },
-  defaultTheme: 'light',
+  defaultTheme: 'dark',
   shouldAddPrefersColorThemes: true,
   themeClassNameOnRoot: true,
 })

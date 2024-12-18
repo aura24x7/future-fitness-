@@ -9,18 +9,18 @@ export const colors = {
   // Background Colors
   background: {
     light: '#F9FAFB',           // Light gray
-    dark: '#111827',            // Dark gray
+    dark: '#000000',            // AMOLED black
     card: {
       light: '#FFFFFF',
-      dark: '#1F2937'
+      dark: '#000000'           // Updated to AMOLED black
     },
     secondary: {
       light: '#F3F4F6',
-      dark: '#374151'
+      dark: '#000000'           // Updated to AMOLED black
     },
     input: {
       light: '#F3F4F6',
-      dark: '#374151'
+      dark: '#000000'           // Updated to AMOLED black
     }
   },
 
@@ -28,15 +28,15 @@ export const colors = {
   text: {
     primary: {
       light: '#111827',
-      dark: '#F9FAFB'
+      dark: '#FFFFFF'           // Updated for better contrast
     },
     secondary: {
       light: '#6B7280',
-      dark: '#9CA3AF'
+      dark: '#94A3B8'           // Updated for better contrast
     },
     accent: {
       light: '#8B5CF6',
-      dark: '#A78BFA'
+      dark: '#818CF8'           // Updated for better contrast
     }
   },
 
@@ -75,11 +75,17 @@ export const colors = {
     }
   },
 
+  // Gradient Colors
+  gradient: {
+    primary: ['#6366F1', '#818CF8'],    // Indigo gradient
+    secondary: ['#3B82F6', '#60A5FA'],   // Blue gradient
+  },
+
   // Input Colors
   input: {
     background: {
       light: '#FFFFFF',
-      dark: '#1F2937'
+      dark: '#000000'           // Updated to AMOLED black
     },
     placeholder: {
       light: '#9CA3AF',

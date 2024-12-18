@@ -3,10 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStorageKeyForDate, isSameDay, getStartOfDay, MEALS_STORAGE_KEY } from '../utils/dateUtils';
 import { debounce } from '../utils/debounce';
 
+const CALORIE_TOTALS_KEY = '@calorie_totals';
+
 export interface Macros {
-  proteins: number;
+  protein: number;
   carbs: number;
-  fats: number;
+  fat: number;
 }
 
 export interface MealDetails {
@@ -30,6 +32,8 @@ interface MealContextType {
   completeMeal: (mealId: string, completed: boolean) => void;
   selectedDate: Date;
   setSelectedDate: (date: Date) => void;
+  updateTotalCalories: (calories: number) => void;
+  updateTotalMacros: (macros: Macros) => void;
 }
 
 const MealContext = createContext<MealContextType | undefined>(undefined);
@@ -39,9 +43,9 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [selectedDate, setSelectedDate] = useState<Date>(getStartOfDay(new Date()));
   const [totalCalories, setTotalCalories] = useState<number>(0);
   const [totalMacros, setTotalMacros] = useState<Macros>({
-    proteins: 0,
+    protein: 0,
     carbs: 0,
-    fats: 0,
+    fat: 0,
   });
 
   const calculateTotals = useCallback((mealsToCalculate: { [key: string]: MealDetails[] }) => {
@@ -61,16 +65,45 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return {
       calories,
-      macros: { proteins, carbs, fats }
+      macros: { protein: proteins, carbs, fat: fats }
     };
   }, []);
 
-  // Update totals whenever meals change
+  // Load saved totals on mount
+  useEffect(() => {
+    const loadSavedTotals = async () => {
+      try {
+        const storageKey = `${CALORIE_TOTALS_KEY}_${getStorageKeyForDate(selectedDate)}`;
+        const savedTotals = await AsyncStorage.getItem(storageKey);
+        if (savedTotals) {
+          const { calories, macros } = JSON.parse(savedTotals);
+          setTotalCalories(calories);
+          setTotalMacros(macros);
+        }
+      } catch (error) {
+        console.error('Error loading saved totals:', error);
+      }
+    };
+    loadSavedTotals();
+  }, [selectedDate]);
+
+  const saveTotals = useCallback(async (calories: number, macros: Macros) => {
+    try {
+      const storageKey = `${CALORIE_TOTALS_KEY}_${getStorageKeyForDate(selectedDate)}`;
+      await AsyncStorage.setItem(storageKey, JSON.stringify({ calories, macros }));
+      console.log('Successfully saved totals:', { calories, macros });
+    } catch (error) {
+      console.error('Error saving totals:', error);
+    }
+  }, [selectedDate]);
+
+  // Calculate and save totals whenever meals change
   useEffect(() => {
     const { calories, macros } = calculateTotals(meals);
     setTotalCalories(calories);
     setTotalMacros(macros);
-  }, [meals, calculateTotals]);
+    saveTotals(calories, macros);
+  }, [meals, calculateTotals, saveTotals]);
 
   // Load meals for the selected date
   useEffect(() => {
@@ -299,19 +332,39 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [selectedDate]);
 
+  // Add update methods
+  const updateTotalCalories = useCallback((calories: number) => {
+    console.log('MealContext - Updating total calories:', calories);
+    setTotalCalories(calories);
+    // Don't call saveTotals here to prevent circular updates
+  }, []);
+
+  const updateTotalMacros = useCallback((macros: Macros) => {
+    console.log('MealContext - Updating total macros:', macros);
+    setTotalMacros(macros);
+    // Don't call saveTotals here to prevent circular updates
+  }, []);
+
+  // Add a new effect to handle saving totals when either calories or macros change
+  useEffect(() => {
+    saveTotals(totalCalories, totalMacros);
+  }, [totalCalories, totalMacros, saveTotals]);
+
+  const value = {
+    meals,
+    totalCalories,
+    totalMacros,
+    updateMeals,
+    addMeal,
+    completeMeal,
+    selectedDate,
+    setSelectedDate: handleSetSelectedDate,
+    updateTotalCalories,
+    updateTotalMacros,
+  };
+
   return (
-    <MealContext.Provider
-      value={{
-        meals,
-        totalCalories,
-        totalMacros,
-        updateMeals,
-        addMeal,
-        completeMeal,
-        selectedDate,
-        setSelectedDate: handleSetSelectedDate,
-      }}
-    >
+    <MealContext.Provider value={value}>
       {children}
     </MealContext.Provider>
   );

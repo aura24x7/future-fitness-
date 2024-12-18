@@ -14,6 +14,7 @@ import { ThemeProvider } from './src/theme/ThemeProvider';
 import { AlertNotificationManager } from './src/components/GymBuddyAlert/AlertNotificationManager';
 import { ProfileProvider } from './src/context/ProfileContext';
 import { MealProvider } from './src/contexts/MealContext';
+import { SimpleFoodLogProvider } from './src/contexts/SimpleFoodLogContext';
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
@@ -36,13 +37,15 @@ export default function App() {
                 <OnboardingProvider>
                   <TabBarProvider>
                     <MealProvider>
-                      <ProfileGroupsProvider>
-                        <GymBuddyAlertProvider>
-                          <StatusBar barStyle="dark-content" />
-                          <AppNavigator />
-                          <AlertNotificationManager />
-                        </GymBuddyAlertProvider>
-                      </ProfileGroupsProvider>
+                      <SimpleFoodLogProvider>
+                        <ProfileGroupsProvider>
+                          <GymBuddyAlertProvider>
+                            <StatusBar barStyle="dark-content" />
+                            <AppNavigator />
+                            <AlertNotificationManager />
+                          </GymBuddyAlertProvider>
+                        </ProfileGroupsProvider>
+                      </SimpleFoodLogProvider>
                     </MealProvider>
                   </TabBarProvider>
                 </OnboardingProvider>

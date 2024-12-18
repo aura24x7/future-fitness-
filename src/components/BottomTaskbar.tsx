@@ -41,13 +41,21 @@ const BottomTaskbar = () => {
         style={styles.tab}
         onPress={() => navigation.navigate('FoodScanner')}
       >
-        <View style={styles.iconContainer}>
-          <Ionicons
-            name="scan"
-            size={24}
-            color={colors.primary}
-          />
-          <Text style={[styles.label, { color: colors.text }]}>Scan</Text>
+        <View style={[styles.iconContainer, styles.scanContainer]}>
+          <View style={styles.scanIconWrapper}>
+            <Ionicons
+              name="scan-outline"
+              size={22}
+              color={colors.primary}
+            />
+            <Ionicons
+              name="star"
+              size={12}
+              color={colors.primary}
+              style={styles.starIcon}
+            />
+          </View>
+          <Text style={[styles.label, { color: colors.text }]}>AI Scan</Text>
         </View>
       </TouchableOpacity>
     </View>
@@ -84,17 +92,33 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    padding: 6,
+  },
+  scanContainer: {
+    position: 'relative',
+  },
+  scanIconWrapper: {
+    position: 'relative',
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  starIcon: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
   },
   label: {
     fontSize: 12,
-    marginTop: 4,
-    fontWeight: '500',
+    marginTop: 2,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
 });
 

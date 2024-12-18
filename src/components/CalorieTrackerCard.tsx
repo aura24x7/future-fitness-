@@ -34,8 +34,8 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
 
   const macroNutrients = [
     { name: 'Carbs', value: macros.carbs || 0, color: colors.macros.carbs, icon: 'nutrition', unit: 'g' },
-    { name: 'Protein', value: macros.proteins || 0, color: colors.macros.protein, icon: 'fish', unit: 'g' },
-    { name: 'Fats', value: macros.fats || 0, color: colors.macros.fats, icon: 'water', unit: 'g' },
+    { name: 'Protein', value: macros.protein || 0, color: colors.macros.protein, icon: 'fish', unit: 'g' },
+    { name: 'Fats', value: macros.fat || 0, color: colors.macros.fats, icon: 'water', unit: 'g' },
   ];
 
   const progress = React.useMemo(() => 

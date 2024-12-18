@@ -41,7 +41,7 @@ export const tokens = createTokens({
     gray400: '#666666',
     gray500: '#2D2D2D',
     gray600: '#1E1E1E',
-    gray700: '#121212',
+    gray700: '#000000',  // Updated to pure black for AMOLED screens
     
     // Theme-specific colors
     background: '#F3F4F6',

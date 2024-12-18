@@ -14,34 +14,146 @@ import { Header } from '../components/Header';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import Animated, {
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  withDelay,
+  useSharedValue,
+  interpolate,
+} from 'react-native-reanimated';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import CalorieTrackerCard from '../components/CalorieTrackerCard';
 import { mockAuth, mockWaterService, mockWorkoutService } from '../services/mockData';
 import { workoutTrackingService } from '../services/workoutTrackingService';
-import { MealType } from '../types/calorie';
-import { MealLog } from '../services/ai/meal/types';
-import { CalorieGoal, CalorieStats } from '../types/calorie';
-import { colors, spacing, borderRadius } from '../theme/colors';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../theme/ThemeProvider';
 import { getStartOfDay } from '../utils/dateUtils';
 import { useMeals } from '../contexts/MealContext';
 import { useTabBarScroll } from '../hooks/useTabBarScroll';
 import { formatDate } from '../utils/dateUtils';
-import { format } from 'date-fns';
 import { getGreeting } from '../utils/dateUtils';
 import BottomTaskbar from '../components/BottomTaskbar';
+import SimpleFoodLogSection from '../components/SimpleFoodLogSection';
+
+interface TodayStats {
+  burned: number;
+  consumed: number;
+  remaining: number;
+  steps: number;
+  water: number;
+  waterIntake?: number;
+}
+
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+
+interface ShortcutButtonProps {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  delay?: number;
+  isLocked?: boolean;
+  style?: any;
+  isDarkMode: boolean;
+}
+
+const ShortcutButton: React.FC<ShortcutButtonProps> = ({ 
+  icon, 
+  label, 
+  onPress, 
+  delay = 0, 
+  isLocked = true,
+  style,
+  isDarkMode
+}) => {
+  const { colors } = useTheme();
+  const scale = useSharedValue(0.8);
+  const opacity = useSharedValue(0);
+  const pressed = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = withDelay(
+      delay,
+      withSpring(1, {
+        damping: 12,
+        stiffness: 100,
+      })
+    );
+    opacity.value = withDelay(
+      delay,
+      withTiming(1, { duration: 500 })
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value * pressed.value }],
+    opacity: opacity.value,
+  }));
+
+  const handlePressIn = () => {
+    pressed.value = withSpring(0.95);
+  };
+
+  const handlePressOut = () => {
+    pressed.value = withSpring(1);
+  };
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [
+      { 
+        scale: interpolate(
+          pressed.value,
+          [0.95, 1],
+          [0.9, 1]
+        )
+      }
+    ],
+  }));
+
+  return (
+    <AnimatedTouchableOpacity
+      style={[styles.shortcutButton, style, animatedStyle]}
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <Animated.View 
+        style={[
+          styles.shortcutIcon, 
+          { backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#6366F110' },
+          iconStyle
+        ]}
+      >
+        <View style={styles.iconWrapper}>
+          <Ionicons name={icon} size={24} color="#6366F1" />
+          {isLocked && (
+            <Animated.View style={[styles.lockIconContainer, iconStyle]}>
+              <Ionicons 
+                name="lock-closed" 
+                size={14} 
+                color="#6366F1" 
+                style={styles.lockIcon} 
+              />
+            </Animated.View>
+          )}
+        </View>
+      </Animated.View>
+      <Text color={colors.text} fontSize={14} fontWeight="600">{label}</Text>
+    </AnimatedTouchableOpacity>
+  );
+};
 
 const DashboardScreen = ({ navigation }) => {
   const { colors, isDarkMode } = useTheme();
   const [userData, setUserData] = useState(null);
-  const [todayStats, setTodayStats] = useState({
+  const [todayStats, setTodayStats] = useState<TodayStats>({
     burned: 0,
     consumed: 0,
     remaining: 0,
     steps: 0,
     water: 0,
+    waterIntake: 0,
   });
   const [loading, setLoading] = useState(true);
   const { selectedDate, setSelectedDate, meals, totalCalories, totalMacros } = useMeals();
@@ -107,6 +219,10 @@ const DashboardScreen = ({ navigation }) => {
 
   const handleAddMeal = () => {
     navigation.navigate('TrackMeal');
+  };
+
+  const handleScanFood = () => {
+    navigation.navigate('ScanFood');
   };
 
   const calculateBMI = (weight?: number, height?: number) => {
@@ -214,46 +330,64 @@ const DashboardScreen = ({ navigation }) => {
 
           {/* Shortcut Buttons */}
           <View style={styles.shortcutContainer}>
-            <TouchableOpacity
-              style={[styles.shortcutButton, { backgroundColor: colors.cardBackground }]}
-              onPress={() => navigation.navigate('FoodLog')}
-            >
-              <View style={[styles.shortcutIcon, { backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#6366F110' }]}>
-                <Ionicons name="restaurant-outline" size={24} color="#6366F1" />
-              </View>
-              <Text color={colors.text} fontSize={14} fontWeight="600">Food Log</Text>
-            </TouchableOpacity>
+            <ShortcutButton
+              icon="restaurant-outline"
+              label="Food Log"
+              onPress={() => Alert.alert("Coming Soon!", "Something is cooking! This feature will be available in future updates.")}
+              delay={100}
+              isDarkMode={isDarkMode}
+              style={{ 
+                backgroundColor: colors.cardBackground,
+                borderColor: colors.border,
+                borderWidth: 1,
+              }}
+            />
 
-            <TouchableOpacity
-              style={[styles.shortcutButton, { backgroundColor: colors.cardBackground }]}
-              onPress={() => navigation.navigate('Progress')}
-            >
-              <View style={[styles.shortcutIcon, { backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#6366F110' }]}>
-                <Ionicons name="trending-up-outline" size={24} color="#6366F1" />
-              </View>
-              <Text color={colors.text} fontSize={14} fontWeight="600">Progress</Text>
-            </TouchableOpacity>
+            <ShortcutButton
+              icon="trending-up-outline"
+              label="Progress"
+              onPress={() => Alert.alert("Coming Soon!", "Something is cooking! This feature will be available in future updates.")}
+              delay={200}
+              isDarkMode={isDarkMode}
+              style={{ 
+                backgroundColor: colors.cardBackground,
+                borderColor: colors.border,
+                borderWidth: 1,
+              }}
+            />
 
-            <TouchableOpacity
-              style={[styles.shortcutButton, { backgroundColor: colors.cardBackground }]}
-              onPress={() => navigation.navigate('Workouts')}
-            >
-              <View style={[styles.shortcutIcon, { backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#6366F110' }]}>
-                <Ionicons name="fitness-outline" size={24} color="#6366F1" />
-              </View>
-              <Text color={colors.text} fontSize={14} fontWeight="600">Workouts</Text>
-            </TouchableOpacity>
+            <ShortcutButton
+              icon="fitness-outline"
+              label="Workouts"
+              onPress={() => Alert.alert("Coming Soon!", "Something is cooking! This feature will be available in future updates.")}
+              delay={300}
+              isDarkMode={isDarkMode}
+              style={{ 
+                backgroundColor: colors.cardBackground,
+                borderColor: colors.border,
+                borderWidth: 1,
+              }}
+            />
 
-            <TouchableOpacity
-              style={[styles.shortcutButton, { backgroundColor: colors.cardBackground }]}
-              onPress={() => navigation.navigate('Settings')}
-            >
-              <View style={[styles.shortcutIcon, { backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#6366F110' }]}>
-                <Ionicons name="settings-outline" size={24} color="#6366F1" />
-              </View>
-              <Text color={colors.text} fontSize={14} fontWeight="600">Settings</Text>
-            </TouchableOpacity>
+            <ShortcutButton
+              icon="person-outline"
+              label="Profile"
+              onPress={() => navigation.navigate('Profile')}
+              delay={400}
+              isLocked={false}
+              isDarkMode={isDarkMode}
+              style={{ 
+                backgroundColor: colors.cardBackground,
+                borderColor: colors.border,
+                borderWidth: 1,
+              }}
+            />
           </View>
+
+          {/* Simple Food Log Section */}
+          <SimpleFoodLogSection 
+            onScanFood={handleScanFood}
+          />
         </View>
       </ScrollView>
       <BottomTaskbar />
@@ -312,14 +446,14 @@ const styles = StyleSheet.create({
   shortcutContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 8,
     marginTop: 16,
-    gap: 12,
+    gap: 8,
   },
   shortcutButton: {
-    width: '47%',
-    padding: 16,
+    width: '31%',
+    padding: 12,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -331,16 +465,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   shortcutIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
-  }
+    marginBottom: 6,
+  },
+  iconWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockIconContainer: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: 'transparent',
+  },
+  lockIcon: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+  },
 });
 
 export default DashboardScreen;

@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, Dimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Dimensions, Platform, Switch } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native';
@@ -51,10 +51,10 @@ const getCalorieAdjustmentDescription = (
 };
 
 const ProfileScreen = () => {
-  const { onboardingData } = useOnboarding();
+  const { onboardingData, resetOnboarding } = useOnboarding();
   const { profile, loading } = useProfile();
   const { handleScroll } = useScrollToTabBar();
-  const { colors, isDarkMode } = useTheme();
+  const { colors, isDarkMode, toggleTheme } = useTheme();
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const AnimatedScrollView = Animated.ScrollView;
 
@@ -306,6 +306,15 @@ const ProfileScreen = () => {
     
     return calories;
   }, [onboardingData]);
+
+  const handleResetOnboarding = async () => {
+    try {
+      await resetOnboarding();
+      navigation.navigate('Welcome');
+    } catch (error) {
+      console.error('Error resetting onboarding:', error);
+    }
+  };
 
   const GlassBackground = ({ children, style }) => {
     return Platform.OS === 'ios' ? (
@@ -576,26 +585,53 @@ const ProfileScreen = () => {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             <Ionicons name="settings-outline" size={20} color={colors.primary} /> Settings
           </Text>
+          
+          <TouchableOpacity style={styles.menuItem}>
+            <View style={styles.menuItemContent}>
+              <Ionicons name="moon-outline" size={24} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Dark Mode</Text>
+            </View>
+            <Switch
+              value={isDarkMode}
+              onValueChange={toggleTheme}
+              trackColor={{ false: '#767577', true: colors.primary }}
+              thumbColor={isDarkMode ? '#fff' : '#f4f3f4'}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={handleResetOnboarding}
+          >
+            <View style={styles.menuItemContent}>
+              <Ionicons name="refresh-outline" size={24} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Reset Onboarding</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuItemContent}>
               <Ionicons name="person-outline" size={24} color={colors.primary} />
               <Text style={[styles.menuItemText, { color: colors.text }]}>Edit Profile</Text>
             </View>
-            <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
+            <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuItemContent}>
               <Ionicons name="notifications-outline" size={24} color={colors.primary} />
               <Text style={[styles.menuItemText, { color: colors.text }]}>Notifications</Text>
             </View>
-            <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
+            <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuItemContent}>
               <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
               <Text style={[styles.menuItemText, { color: colors.text }]}>Privacy</Text>
             </View>
-            <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
+            <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
         </LinearGradient>
 

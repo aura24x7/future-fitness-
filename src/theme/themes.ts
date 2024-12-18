@@ -47,7 +47,7 @@ export const lightTheme = createTheme({
 
 // Dark theme
 export const darkTheme = createTheme({
-  background: tokens.color.gray700,
+  background: '#000000',  // Pure black background
   backgroundHover: tokens.color.gray600,
   backgroundPress: tokens.color.gray500,
   

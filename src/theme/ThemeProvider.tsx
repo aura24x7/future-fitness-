@@ -27,11 +27,11 @@ const lightColors: ThemeColors = {
 const darkColors: ThemeColors = {
   primary: '#818CF8',
   secondary: '#6366F1',
-  background: '#1F2937',
-  cardBackground: '#374151',
-  text: '#F9FAFB',
-  textSecondary: '#D1D5DB',
-  border: '#4B5563',
+  background: '#000000',
+  cardBackground: '#000000',
+  text: '#FFFFFF',
+  textSecondary: '#94A3B8',
+  border: '#374151',
 };
 
 type ThemeContextType = {
@@ -43,10 +43,10 @@ type ThemeContextType = {
 };
 
 const defaultThemeContext: ThemeContextType = {
-  colors: lightColors,
-  isDarkMode: false,
+  colors: darkColors,
+  isDarkMode: true,
   toggleTheme: () => {},
-  themePreference: 'system',
+  themePreference: 'dark',
   setThemePreference: () => {},
 };
 

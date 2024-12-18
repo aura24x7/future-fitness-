@@ -1,13 +1,20 @@
 import { styled } from 'tamagui'
 import { View } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
+import { colors } from '../../theme/colors'
+
+const GradientBorder = styled(LinearGradient, {
+  name: 'GradientBorder',
+  borderRadius: '$2',
+  padding: 1, // Border width
+})
 
 export const Card = styled(View, {
   name: 'Card',
-  backgroundColor: '$card',
+  backgroundColor: '$background',
   borderRadius: '$2',
   padding: '$3',
-  borderWidth: 1,
-  borderColor: '$borderColor',
+  overflow: 'hidden',
   shadowColor: '$shadowColor',
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.25,
@@ -29,11 +36,13 @@ export const Card = styled(View, {
     variant: {
       outlined: {
         backgroundColor: 'transparent',
-        borderWidth: 1,
       },
       filled: {
-        borderWidth: 0,
+        backgroundColor: '$background',
       },
+      gradient: {
+        backgroundColor: '$background',
+      }
     },
   },
 
@@ -42,3 +51,19 @@ export const Card = styled(View, {
     variant: 'filled',
   },
 })
+
+// Compound component that includes gradient border
+export const GradientCard = ({ children, gradientColors = ['#6366F1', '#818CF8'], style, ...props }) => {
+  return (
+    <GradientBorder
+      colors={gradientColors}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={style}
+    >
+      <Card {...props} style={{ margin: -1 }}>
+        {children}
+      </Card>
+    </GradientBorder>
+  )
+}

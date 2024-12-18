@@ -45,7 +45,7 @@ export const CustomDarkTheme: Theme = {
   dark: true,
   colors: {
     primary: '#818CF8',
-    background: '#111827',
+    background: '#000000',
     card: '#1F2937',
     text: '#F9FAFB',
     border: '#374151',
