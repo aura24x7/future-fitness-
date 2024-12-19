@@ -3,7 +3,7 @@ export const AI_CONFIG = {
     // Gemini API configuration
     GEMINI: {
         API_KEY: process.env.EXPO_PUBLIC_GEMINI_API_KEY,
-        MODEL: 'gemini-1.5-flash',  // Using Flash as unified model for both text and vision
+        MODEL: 'gemini-2.0-flash-exp',  // Using Flash as unified model for both text and vision
         GENERATION: {
             temperature: 0.7,
             topK: 1,

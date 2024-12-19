@@ -3,7 +3,7 @@ export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyAPRpoj18r9y-C
 
 // Gemini Model Configuration
 export const GEMINI_MODELS = {
-    VISION: 'gemini-1.5-flash',
-    TEXT: 'gemini-1.5-flash',
-    FAST: 'gemini-1.5-flash'
+    VISION: 'gemini-2.0-flash-exp',
+    TEXT: 'gemini-2.0-flash-exp',
+    FAST: 'gemini-2.0-flash-exp'
 } as const;

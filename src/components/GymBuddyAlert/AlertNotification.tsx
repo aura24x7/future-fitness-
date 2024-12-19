@@ -6,6 +6,7 @@ import {
   Animated,
   TouchableOpacity,
   Dimensions,
+  Vibration,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GymBuddyAlert } from '../../types/gymBuddyAlert';
@@ -26,6 +27,7 @@ export function AlertNotification({
   onDismiss,
 }: AlertNotificationProps) {
   const translateY = new Animated.Value(-100);
+  const isGymInvite = alert.type === 'GYM_INVITE';
 
   useEffect(() => {
     // Slide in
@@ -35,6 +37,11 @@ export function AlertNotification({
       tension: 20,
       friction: 6,
     }).start();
+
+    // Vibrate for gym invites
+    if (isGymInvite) {
+      Vibration.vibrate([0, 100, 100, 100]);
+    }
 
     // Auto dismiss after 10 seconds
     const timer = setTimeout(() => {
@@ -65,12 +72,19 @@ export function AlertNotification({
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Ionicons name="fitness" size={24} color="#6366F1" />
-          <Text style={styles.title}>Workout Buddy Request</Text>
+          <Ionicons 
+            name={isGymInvite ? "barbell-outline" : "fitness"} 
+            size={24} 
+            color="#6366F1" 
+          />
+          <Text style={styles.title}>
+            {isGymInvite ? 'Gym Buddy Request' : 'Workout Buddy Request'}
+          </Text>
         </View>
         
         <Text style={styles.message}>
-          <Text style={styles.name}>{alert.senderName}</Text> wants to join your workout!
+          <Text style={styles.name}>{alert.senderName}</Text>
+          {isGymInvite ? ' wants to hit the gym with you!' : ' wants to join your workout!'}
         </Text>
 
         <View style={styles.buttonContainer}>
@@ -78,14 +92,18 @@ export function AlertNotification({
             style={[styles.button, styles.rejectButton]}
             onPress={onReject}
           >
-            <Text style={[styles.buttonText, styles.rejectText]}>Decline</Text>
+            <Text style={[styles.buttonText, styles.rejectText]}>
+              {isGymInvite ? 'Not Today' : 'Decline'}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, styles.acceptButton]}
             onPress={onAccept}
           >
-            <Text style={[styles.buttonText, styles.acceptText]}>Join</Text>
+            <Text style={[styles.buttonText, styles.acceptText]}>
+              {isGymInvite ? "Let's Go!" : 'Join'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -102,7 +120,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.98)',
     padding: 16,
     margin: 16,
-    marginTop: height * 0.05, // Add some space from the top
+    marginTop: height * 0.05,
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: {

@@ -1,144 +1,126 @@
+import { GymBuddyAlert, BaseAlert } from '../types/gymBuddyAlert';
 import { auth, firestore } from '../config/firebase';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  query, 
-  where, 
-  orderBy, 
-  getDocs,
-  doc,
-  onSnapshot,
-  Timestamp,
-  getDoc
-} from 'firebase/firestore';
-import { GymBuddyAlert, AlertResponse } from '../types/gymBuddyAlert';
+import { collection, addDoc, updateDoc, doc, Timestamp, getDoc } from 'firebase/firestore';
+import { notificationService } from './notificationService';
+import { Alert } from 'react-native';
 
 class GymBuddyAlertService {
-  private alertsCollection = collection(firestore, 'gym_buddy_alerts');
-  private usersCollection = collection(firestore, 'users');
-
-  private async getUserName(userId: string): Promise<string> {
-    try {
-      const userDoc = await getDoc(doc(this.usersCollection, userId));
-      if (userDoc.exists()) {
-        return userDoc.data().name || 'Unknown User';
-      }
-      return 'Unknown User';
-    } catch (error) {
-      console.error('Error getting user name:', error);
-      return 'Unknown User';
+  async sendAlert(
+    recipientId: string, 
+    message: string, 
+    type: 'CUSTOM_MESSAGE' | 'GYM_INVITE' = 'CUSTOM_MESSAGE'
+  ): Promise<GymBuddyAlert> {
+    console.log('Starting to send alert:', { recipientId, message, type });
+    
+    const user = auth.currentUser;
+    if (!user) {
+      const error = 'User must be authenticated to send alerts';
+      console.error(error);
+      throw new Error(error);
     }
-  }
 
-  async sendAlert(receiverId: string, message: string): Promise<GymBuddyAlert> {
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('No authenticated user');
-
-      const [senderName, receiverName] = await Promise.all([
-        this.getUserName(currentUser.uid),
-        this.getUserName(receiverId)
-      ]);
-
-      const alert: Omit<GymBuddyAlert, 'id'> = {
-        senderId: currentUser.uid,
-        receiverId,
-        message,
+      const baseAlert: BaseAlert = {
+        senderId: user.uid,
+        senderName: user.displayName || 'Unknown User',
+        receiverId: recipientId,
         status: 'pending',
-        createdAt: new Date().toISOString(),
-        senderName,
-        receiverName
+        createdAt: Timestamp.now().toDate().toISOString(),
+        type,
+        message: type === 'GYM_INVITE' ? "Let's hit the gym!" : message
       };
 
-      const docRef = await addDoc(this.alertsCollection, {
-        ...alert,
-        createdAt: Timestamp.now()
-      });
+      console.log('Creating alert document:', baseAlert);
+      const docRef = await addDoc(collection(firestore, 'alerts'), baseAlert);
+      const newAlert = { ...baseAlert, id: docRef.id };
+      console.log('Alert document created:', newAlert);
 
-      return { ...alert, id: docRef.id };
+      // Send notification
+      const notificationTitle = type === 'GYM_INVITE' ? 'Gym Buddy Request' : 'New Alert';
+      const notificationBody = type === 'GYM_INVITE'
+        ? `${user.displayName || 'Someone'} wants to hit the gym with you!`
+        : message;
+
+      try {
+        console.log('Sending notification:', { title: notificationTitle, body: notificationBody });
+        await notificationService.sendLocalNotification(
+          notificationTitle,
+          notificationBody,
+          {
+            type,
+            alertId: docRef.id,
+            senderId: user.uid,
+            senderName: user.displayName,
+          }
+        );
+        console.log('Notification sent successfully');
+      } catch (error) {
+        console.error('Error sending notification:', error);
+        // Show error but don't throw since alert was created
+        Alert.alert('Warning', 'Alert created but notification might be delayed');
+      }
+
+      return newAlert;
     } catch (error) {
-      console.error('Error sending alert:', error);
+      console.error('Error in sendAlert:', error);
       throw error;
     }
   }
 
   async respondToAlert(alertId: string, response: 'accept' | 'decline'): Promise<void> {
+    console.log('Responding to alert:', { alertId, response });
+    
+    const status = response === 'accept' ? 'accepted' : 'declined';
+    const alertRef = doc(firestore, 'alerts', alertId);
+    
     try {
-      const alertRef = doc(this.alertsCollection, alertId);
+      // Get alert data to notify sender
+      const alertDoc = await getDoc(alertRef);
+      if (!alertDoc.exists()) {
+        throw new Error('Alert not found');
+      }
+
+      const alertData = alertDoc.data() as GymBuddyAlert;
+      console.log('Found alert data:', alertData);
+      
       await updateDoc(alertRef, {
-        status: response === 'accept' ? 'accepted' : 'declined',
-        responseAt: Timestamp.now()
+        status,
+        responseAt: Timestamp.now().toDate().toISOString(),
       });
-    } catch (error) {
-      console.error('Error responding to alert:', error);
-      throw error;
-    }
-  }
+      console.log('Alert status updated');
 
-  subscribeToReceivedAlerts(callback: (alerts: GymBuddyAlert[]) => void) {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return () => {};
-
-    const q = query(
-      this.alertsCollection,
-      where('receiverId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
-
-    return onSnapshot(q, (snapshot) => {
-      const alerts = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate().toISOString(),
-        responseAt: doc.data().responseAt?.toDate().toISOString()
-      } as GymBuddyAlert));
-      callback(alerts);
-    });
-  }
-
-  subscribeToPendingAlerts(callback: (alerts: GymBuddyAlert[]) => void) {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return () => {};
-
-    const q = query(
-      this.alertsCollection,
-      where('receiverId', '==', currentUser.uid),
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc')
-    );
-
-    return onSnapshot(q, (snapshot) => {
-      const alerts = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate().toISOString(),
-        responseAt: doc.data().responseAt?.toDate().toISOString()
-      } as GymBuddyAlert));
-      callback(alerts);
-    });
-  }
-
-  async getSentAlerts(): Promise<GymBuddyAlert[]> {
-    try {
+      // Send notification to sender about the response
       const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('No authenticated user');
+      if (!currentUser) {
+        throw new Error('User must be authenticated to respond to alerts');
+      }
 
-      const q = query(
-        this.alertsCollection,
-        where('senderId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
-      );
+      const responderName = currentUser.displayName || 'Someone';
+      const notificationTitle = 'Gym Buddy Response';
+      const notificationBody = status === 'accepted'
+        ? `${responderName} accepted your gym invitation!`
+        : `${responderName} can't make it this time.`;
 
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate().toISOString(),
-        responseAt: doc.data().responseAt?.toDate().toISOString()
-      } as GymBuddyAlert));
+      try {
+        console.log('Sending response notification:', { title: notificationTitle, body: notificationBody });
+        await notificationService.sendLocalNotification(
+          notificationTitle,
+          notificationBody,
+          {
+            type: 'RESPONSE',
+            alertId,
+            status,
+            responderId: currentUser.uid,
+            responderName,
+          }
+        );
+        console.log('Response notification sent successfully');
+      } catch (error) {
+        console.error('Error sending response notification:', error);
+        Alert.alert('Warning', 'Response recorded but notification might be delayed');
+      }
     } catch (error) {
-      console.error('Error getting sent alerts:', error);
+      console.error('Error in respondToAlert:', error);
       throw error;
     }
   }

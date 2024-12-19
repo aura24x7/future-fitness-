@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
+  Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,8 +15,8 @@ import { useRoute } from '@react-navigation/native';
 import { useGymBuddyAlert } from '../../contexts/GymBuddyAlertContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import { ReceiveAlertModal } from '../../components/GymBuddyAlert/ReceiveAlertModal';
-import { SendAlertModal } from '../../components/GymBuddyAlert/SendAlertModal';
 import { GymBuddyAlert } from '../../types/gymBuddyAlert';
+import { auth } from '../../config/firebase';
 
 interface IndividualProfileSectionProps {
   profile: {
@@ -40,20 +43,59 @@ export function IndividualProfileSection({
   const { colors, isDarkMode: isDark } = useTheme();
   const params = route.params as RouteParams;
   const isShareMode = params?.mode === 'share';
-  const { state } = useGymBuddyAlert();
-  const [isSendModalVisible, setSendModalVisible] = useState(false);
+  const { state, sendGymInvite } = useGymBuddyAlert();
   const [selectedAlert, setSelectedAlert] = useState<GymBuddyAlert | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [lastClickTime, setLastClickTime] = useState(0);
+
+  // For testing: Use current user's ID
+  const currentUser = auth.currentUser;
+  const testRecipientId = currentUser?.uid || profile.id;
 
   // Find pending alerts for this profile
   const pendingAlerts = state.receivedAlerts.filter(
     alert => alert.senderId === profile.id && alert.status === 'pending'
   );
 
-  const handlePress = () => {
+  const showAlert = useCallback((title: string, message: string) => {
+    Alert.alert(
+      title,
+      message,
+      [{ text: 'OK' }],
+      { 
+        cancelable: true,
+        onDismiss: () => {},
+      }
+    );
+  }, []);
+
+  const handlePress = useCallback(async () => {
+    // Prevent double clicks
+    const now = Date.now();
+    if (now - lastClickTime < 500) { // 500ms debounce
+      return;
+    }
+    setLastClickTime(now);
+
+    console.log('Button pressed', { profile, currentUser });
+    
     if (isShareMode && onSelect) {
-      onSelect(profile.id);
-    } else if (pendingAlerts.length > 0 && pendingAlerts[0]) {
-      // Create a complete alert object with all required properties
+      try {
+        onSelect(profile.id);
+      } catch (error) {
+        console.error('Error in onSelect:', error);
+        showAlert('Error', 'Failed to select profile. Please try again.');
+      }
+      return;
+    }
+
+    if (!currentUser) {
+      showAlert('Error', 'You must be logged in to use this feature');
+      return;
+    }
+
+    if (pendingAlerts.length > 0 && pendingAlerts[0]) {
+      console.log('Opening existing alert', pendingAlerts[0]);
       const alert: GymBuddyAlert = {
         id: pendingAlerts[0].id,
         senderId: pendingAlerts[0].senderId,
@@ -62,17 +104,55 @@ export function IndividualProfileSection({
         status: pendingAlerts[0].status,
         createdAt: pendingAlerts[0].createdAt,
         senderName: pendingAlerts[0].senderName || profile.name,
-        receiverName: pendingAlerts[0].receiverName
+        receiverName: pendingAlerts[0].receiverName,
+        type: pendingAlerts[0].type || 'CUSTOM_MESSAGE'
       };
       setSelectedAlert(alert);
     } else {
-      setSendModalVisible(true);
-    }
-  };
+      if (isSending) {
+        console.log('Already sending, ignoring click');
+        return;
+      }
 
-  const handleCloseSendModal = () => {
-    setSendModalVisible(false);
-  };
+      try {
+        setIsSending(true);
+        console.log('Sending gym invite to:', testRecipientId);
+        
+        const result = await sendGymInvite(testRecipientId);
+        console.log('Gym invite sent successfully:', result);
+        
+        // Show alert for 3 seconds
+        setTimeout(() => {
+          showAlert(
+            'Success',
+            'Gym invite sent successfully!'
+          );
+        }, 500); // Small delay to ensure loading indicator is visible
+      } catch (error) {
+        console.error('Failed to send gym invite:', error);
+        showAlert(
+          'Error',
+          'Failed to send gym invite. Please try again.'
+        );
+      } finally {
+        // Keep loading indicator visible for at least 1 second
+        setTimeout(() => {
+          setIsSending(false);
+        }, 1000);
+      }
+    }
+  }, [
+    profile,
+    currentUser,
+    isShareMode,
+    onSelect,
+    pendingAlerts,
+    isSending,
+    testRecipientId,
+    sendGymInvite,
+    showAlert,
+    lastClickTime,
+  ]);
 
   return (
     <>
@@ -89,7 +169,10 @@ export function IndividualProfileSection({
           )}
 
           <View style={styles.profileInfo}>
-            <Text style={[styles.name, { color: colors.text }]}>{profile.name}</Text>
+            <Text style={[styles.name, { color: colors.text }]}>
+              {profile.name}
+              {currentUser && profile.id === currentUser.uid && ' (You)'}
+            </Text>
             {profile.status && (
               <Text style={[styles.status, { color: colors.textSecondary }]}>
                 {profile.status}
@@ -114,19 +197,38 @@ export function IndividualProfileSection({
         </View>
 
         <TouchableOpacity
-          style={styles.alertButton}
+          style={[
+            styles.alertButton,
+            isSending && styles.disabledButton,
+            Platform.select({
+              android: styles.androidButton,
+              ios: styles.iosButton
+            })
+          ]}
           onPress={handlePress}
+          disabled={isSending}
+          activeOpacity={0.7}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+          pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+          delayPressIn={0}
+          delayPressOut={0}
         >
-          <Ionicons
-            name={pendingAlerts.length > 0 ? "notifications" : "notifications-outline"}
-            size={24}
-            color={pendingAlerts.length > 0 ? colors.primary : colors.textSecondary}
-          />
-          {pendingAlerts.length > 0 && (
-            <View style={[styles.alertBadge, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.alertBadgeText, { color: colors.cardBackground }]}>
-                {pendingAlerts.length}
-              </Text>
+          {isSending ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <View style={styles.buttonContent}>
+              <Ionicons
+                name={pendingAlerts.length > 0 ? "notifications" : "barbell-outline"}
+                size={24}
+                color={pendingAlerts.length > 0 ? colors.primary : colors.textSecondary}
+              />
+              {pendingAlerts.length > 0 && (
+                <View style={[styles.alertBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={[styles.alertBadgeText, { color: colors.cardBackground }]}>
+                    {pendingAlerts.length}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </TouchableOpacity>
@@ -137,15 +239,6 @@ export function IndividualProfileSection({
           isVisible={!!selectedAlert}
           onClose={() => setSelectedAlert(null)}
           alert={selectedAlert}
-        />
-      )}
-
-      {isSendModalVisible && (
-        <SendAlertModal
-          visible={isSendModalVisible}
-          onClose={handleCloseSendModal}
-          recipientId={profile.id}
-          recipientName={profile.name}
         />
       )}
     </>
@@ -219,22 +312,44 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   alertButton: {
-    padding: 8,
+    padding: 12,
     position: 'relative',
+    minWidth: 48,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  androidButton: {
+    elevation: 0,
+  },
+  iosButton: {
+    // iOS specific styles if needed
+  },
+  buttonContent: {
+    position: 'relative',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   alertBadge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: -8,
+    right: -8,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
+    zIndex: 2,
   },
   alertBadgeText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });

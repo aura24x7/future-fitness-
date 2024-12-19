@@ -1,14 +1,28 @@
-export interface GymBuddyAlert {
-  id: string;
+export interface BaseAlert {
   senderId: string;
+  senderName?: string;
   receiverId: string;
-  message: string;
+  receiverName?: string;
   status: 'pending' | 'accepted' | 'declined';
   createdAt: string;
   responseAt?: string;
-  senderName?: string;
-  receiverName?: string;
+  type: 'CUSTOM_MESSAGE' | 'GYM_INVITE';
+  message: string;
 }
+
+export interface BaseAlertWithId extends BaseAlert {
+  id: string;
+}
+
+export interface CustomMessageAlert extends BaseAlertWithId {
+  type: 'CUSTOM_MESSAGE';
+}
+
+export interface GymInviteAlert extends BaseAlertWithId {
+  type: 'GYM_INVITE';
+}
+
+export type GymBuddyAlert = CustomMessageAlert | GymInviteAlert;
 
 export interface AlertResponse {
   alertId: string;

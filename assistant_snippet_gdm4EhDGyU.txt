@@ -1,0 +1,2 @@
+1|expo-notifications: Push notifications functionality will be removed from Expo Go in SDK 53 
+1|React Native's New Architecture is always enabled in Expo Go 

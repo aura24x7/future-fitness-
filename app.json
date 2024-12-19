@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "AI Fitness",
-    "slug": "ai-fitness",
+    "name": "Future Fitness",
+    "slug": "future-fitness",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -14,52 +14,61 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 33,
-            "targetSdkVersion": 33,
-            "buildToolsVersion": "33.0.0"
-          },
-          "ios": {
-            "deploymentTarget": "15.1"
-          }
-        }
-      ]
-    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aifit.aifitness",
+      "bundleIdentifier": "com.futurefitness.app",
+      "buildNumber": "1.0.0",
       "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to scan food items for nutritional tracking.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to save food images."
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
-      "package": "com.aifit.aifitness",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4c669f"
       },
+      "package": "com.futurefitness.app",
+      "versionCode": 1,
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "NOTIFICATIONS",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
       ]
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/notification-sound.wav"]
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Future Fitness to access your camera."
+        }
+      ],
+      [
+        "expo-file-system",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ],
+      "expo-splash-screen"
+    ],
     "extra": {
       "eas": {
-        "projectId": "822972139614"
+        "projectId": "your-project-id"
       }
     },
     "newArchEnabled": true,
-    "runtimeVersion": {
-      "policy": "appVersion"
+    "experiments": {
+      "tsconfigPaths": true
     },
-    "updates": {
-      "url": "https://u.expo.dev/822972139614"
-    }
+    "scheme": "future-fitness"
   }
 }

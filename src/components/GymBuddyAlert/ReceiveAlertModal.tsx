@@ -6,11 +6,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Vibration,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGymBuddyAlert } from '../../contexts/GymBuddyAlertContext';
 import { GymBuddyAlert } from '../../types/gymBuddyAlert';
 import { format } from 'date-fns';
+import { Ionicons } from '@expo/vector-icons';
 
 interface ReceiveAlertModalProps {
   isVisible: boolean;
@@ -26,10 +28,17 @@ export function ReceiveAlertModal({
   const { respondToAlert } = useGymBuddyAlert();
   const [loading, setLoading] = React.useState(false);
 
+  React.useEffect(() => {
+    if (isVisible && alert.type === 'GYM_INVITE') {
+      // Vibration pattern for gym invites: 2 short pulses
+      Vibration.vibrate([0, 100, 100, 100]);
+    }
+  }, [isVisible, alert.type]);
+
   const handleResponse = async (response: 'accept' | 'decline') => {
     setLoading(true);
     try {
-      await respondToAlert(alert.id, response);
+      await respondToAlert(alert.id, response === 'accept');
       onClose();
     } catch (error) {
       console.error('Error responding to alert:', error);
@@ -37,6 +46,8 @@ export function ReceiveAlertModal({
       setLoading(false);
     }
   };
+
+  const isGymInvite = alert.type === 'GYM_INVITE';
 
   return (
     <Modal
@@ -53,7 +64,14 @@ export function ReceiveAlertModal({
             end={{ x: 1, y: 1 }}
             style={styles.gradientHeader}
           >
-            <Text style={styles.headerText}>New Alert from {alert.senderName}</Text>
+            {isGymInvite ? (
+              <View style={styles.headerContent}>
+                <Ionicons name="barbell-outline" size={24} color="#fff" />
+                <Text style={styles.headerText}>Gym Buddy Invite</Text>
+              </View>
+            ) : (
+              <Text style={styles.headerText}>New Alert from {alert.senderName}</Text>
+            )}
             <Text style={styles.timeText}>
               {format(new Date(alert.createdAt), 'MMM d, h:mm a')}
             </Text>
@@ -61,7 +79,14 @@ export function ReceiveAlertModal({
 
           <View style={styles.content}>
             <View style={styles.messageContainer}>
-              <Text style={styles.message}>{alert.message}</Text>
+              {isGymInvite ? (
+                <View style={styles.gymInviteContent}>
+                  <Text style={styles.senderName}>{alert.senderName}</Text>
+                  <Text style={styles.message}>wants to hit the gym with you!</Text>
+                </View>
+              ) : (
+                <Text style={styles.message}>{alert.message}</Text>
+              )}
             </View>
 
             <View style={styles.footer}>
@@ -73,7 +98,9 @@ export function ReceiveAlertModal({
                 {loading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.buttonText}>Decline</Text>
+                  <Text style={styles.buttonText}>
+                    {isGymInvite ? 'Not Today' : 'Decline'}
+                  </Text>
                 )}
               </TouchableOpacity>
 
@@ -85,7 +112,9 @@ export function ReceiveAlertModal({
                 {loading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.buttonText}>Accept</Text>
+                  <Text style={styles.buttonText}>
+                    {isGymInvite ? "Let's Go!" : 'Accept'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -120,6 +149,12 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 5,
+  },
   headerText: {
     color: '#fff',
     fontSize: 18,
@@ -140,6 +175,15 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 20,
     minHeight: 80,
+  },
+  gymInviteContent: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  senderName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
   },
   message: {
     fontSize: 16,
