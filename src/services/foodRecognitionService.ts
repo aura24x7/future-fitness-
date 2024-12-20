@@ -139,10 +139,22 @@ export interface FoodAnalysisResult {
 
 export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysisResult> => {
   try {
+    const modelName = GEMINI_MODELS.VISION;
+    console.log('\n🤖 Food Recognition Model Information:');
+    console.log('----------------------------------------');
+    console.log(`Model: ${modelName}`);
+    console.log('Configuration:', {
+      temperature: 0.2,
+      topK: 32,
+      topP: 0.7,
+      maxOutputTokens: 2048
+    });
+    console.log('----------------------------------------\n');
+
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
+      model: modelName,
       generationConfig: {
-        temperature: 0.2, // Lower temperature for more precise analysis
+        temperature: 0.2,
         topK: 32,
         topP: 0.7,
         maxOutputTokens: 2048
@@ -160,6 +172,8 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
       }
     };
 
+    console.log('Starting food analysis with model:', modelName);
+    
     // Get multiple analyses for better accuracy
     const analysisPromises = Array(2).fill(null).map(async () => {
       const result = await model.generateContent([prompt, imagePart]);
@@ -269,14 +283,72 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
   }
 };
 
-function combineAnalysisResults(results: any[]): any {
+interface TotalNutrition {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sugar: number;
+}
+
+interface FoodAnalysisItem {
+  name: string;
+  quantity: number;
+  description: string;
+  ingredients: string[];
+  preparation: string;
+  individualNutrition: TotalNutrition;
+}
+
+interface FoodAnalysisBreakdown {
+  itemList: FoodAnalysisItem[];
+  totalItems: number;
+}
+
+interface InternalHealthScoreBreakdown {
+  nutrientDensity: number;
+  portionSize: number;
+  ingredientQuality: number;
+  preparationMethod: number;
+}
+
+interface InternalHealthScore {
+  overall: number;
+  breakdown: InternalHealthScoreBreakdown;
+  recommendations: string[];
+}
+
+interface ServingInfo {
+  totalServings: number;
+  perItemServing: string;
+}
+
+interface DietaryInfo {
+  isVegetarian: boolean;
+  isVegan: boolean;
+  isGlutenFree: boolean;
+  isDairyFree: boolean;
+}
+
+interface FoodAnalysisRawResult {
+  foodName: string;
+  description: string;
+  itemBreakdown: FoodAnalysisBreakdown;
+  nutritionInfo: TotalNutrition;
+  servingInfo: ServingInfo;
+  healthScore: InternalHealthScore;
+  dietaryInfo: DietaryInfo;
+}
+
+function combineAnalysisResults(results: FoodAnalysisRawResult[]): FoodAnalysisRawResult {
   // Get the most detailed result
   const mostDetailedResult = results.reduce((prev, curr) => 
     (curr.itemBreakdown?.totalItems || 1) > (prev.itemBreakdown?.totalItems || 1) ? curr : prev
   );
 
   // Combine nutrition values
-  const totalNutrition = {
+  const totalNutrition: TotalNutrition = {
     calories: 0,
     protein: 0,
     carbs: 0,
@@ -285,15 +357,17 @@ function combineAnalysisResults(results: any[]): any {
     sugar: 0
   };
 
+  const nutritionKeys = (Object.keys(totalNutrition) as Array<keyof TotalNutrition>);
+
   if (mostDetailedResult.itemBreakdown?.itemList) {
-    mostDetailedResult.itemBreakdown.itemList.forEach(item => {
-      Object.keys(totalNutrition).forEach(key => {
+    mostDetailedResult.itemBreakdown.itemList.forEach((item: FoodAnalysisItem) => {
+      nutritionKeys.forEach(key => {
         totalNutrition[key] += Number(item.individualNutrition?.[key] || 0);
       });
     });
   } else {
-    results.forEach(result => {
-      Object.keys(totalNutrition).forEach(key => {
+    results.forEach((result: FoodAnalysisRawResult) => {
+      nutritionKeys.forEach(key => {
         totalNutrition[key] += Number(result.nutritionInfo?.[key] || 0) / results.length;
       });
     });

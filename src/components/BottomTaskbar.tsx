@@ -4,13 +4,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
 
 const { width } = Dimensions.get('window');
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const BottomTaskbar = () => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
 
   return (
     <View
@@ -34,6 +38,20 @@ const BottomTaskbar = () => {
             color={colors.primary}
           />
           <Text style={[styles.label, { color: colors.text }]}>Groups</Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.tab}
+        onPress={() => navigation.navigate('FoodTextInput')}
+      >
+        <View style={styles.iconContainer}>
+          <Ionicons
+            name="text"
+            size={24}
+            color={colors.primary}
+          />
+          <Text style={[styles.label, { color: colors.text }]}>Text Log</Text>
         </View>
       </TouchableOpacity>
 

@@ -12,6 +12,7 @@ import {
   Easing,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useRoute, useNavigation, CommonActions } from '@react-navigation/native';
@@ -22,8 +23,10 @@ import { useSimpleFoodLog } from '../contexts/SimpleFoodLogContext';
 import { useTheme } from '../theme/ThemeProvider';
 
 type ScannedFoodDetailsParams = {
-  imageUri: string;
+  imageUri?: string;
   imageBase64?: string;
+  result?: FoodAnalysisResult;
+  source?: 'image' | 'text';
 };
 
 type RouteParams = {
@@ -33,9 +36,9 @@ type RouteParams = {
 const ScannedFoodDetailsScreen = () => {
   const route = useRoute<RouteProp<RouteParams, 'ScannedFoodDetails'>>();
   const navigation = useNavigation();
-  const { imageUri, imageBase64 } = route.params;
-  const [isAnalyzing, setIsAnalyzing] = useState(true);
-  const [foodData, setFoodData] = useState<FoodAnalysisResult | null>(null);
+  const { imageUri, imageBase64, result: initialResult, source } = route.params;
+  const [isAnalyzing, setIsAnalyzing] = useState(!initialResult);
+  const [foodData, setFoodData] = useState<FoodAnalysisResult | null>(initialResult || null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { addFoodItem } = useSimpleFoodLog();
@@ -52,7 +55,13 @@ const ScannedFoodDetailsScreen = () => {
 
   useEffect(() => {
     const analyzeFoodData = async () => {
-      if (!imageBase64) {
+      if (initialResult) {
+        setFoodData(initialResult);
+        setIsAnalyzing(false);
+        return;
+      }
+
+      if (!imageBase64 && source === 'image') {
         setError('No image data available');
         setIsAnalyzing(false);
         return;
@@ -60,20 +69,20 @@ const ScannedFoodDetailsScreen = () => {
 
       try {
         console.log('Starting food analysis...');
-        const result = await analyzeFoodImage(imageBase64);
+        const result = await analyzeFoodImage(imageBase64!);
         console.log('Analysis complete:', result);
         setFoodData(result);
       } catch (err) {
         console.error('Error analyzing food:', err);
-        setError('Failed to analyze food image. Please try again.');
-        Alert.alert('Error', 'Failed to analyze food image. Please try again.');
+        setError('Failed to analyze food. Please try again.');
+        Alert.alert('Error', 'Failed to analyze food. Please try again.');
       } finally {
         setIsAnalyzing(false);
       }
     };
 
     analyzeFoodData();
-  }, [imageBase64]);
+  }, [imageBase64, initialResult, source]);
 
   const startAnimations = () => {
     if (hasAnimated.current || isAnimating || !foodData?.healthScore) return;
@@ -282,14 +291,43 @@ const ScannedFoodDetailsScreen = () => {
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        alwaysBounceVertical={true}
+        overScrollMode="always"
       >
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: imageUri }} style={styles.image} />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={styles.imageGradient}
-          />
-        </View>
+        {source === 'image' && imageUri && (
+          <View style={styles.imageContainer}>
+            <Image 
+              source={{ uri: imageUri }} 
+              style={styles.image}
+              resizeMode="cover"
+            />
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.7)']}
+              style={styles.imageGradient}
+            />
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!imageUri && (
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              Food Analysis
+            </Text>
+            <View style={styles.headerRight} />
+          </View>
+        )}
         
         {foodData && (
           <Animated.View style={[styles.detailsContainer, { 
@@ -561,10 +599,36 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: 80,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  headerRight: {
+    width: 40,
+  },
+  backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 44 : 16,
+    left: 16,
+    zIndex: 10,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   imageContainer: {
     height: 250,
@@ -584,8 +648,8 @@ const styles = StyleSheet.create({
     height: 100,
   },
   detailsContainer: {
-    flex: 1,
     padding: 16,
+    paddingBottom: 80,
   },
   foodName: {
     fontSize: 28,

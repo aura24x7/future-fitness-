@@ -17,6 +17,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import FoodLogScreen from '../screens/FoodLogScreen';
 import ProgressScreen from '../screens/ProgressScreen';
 import WorkoutScreen from '../screens/WorkoutScreen';
+import FoodTextInputScreen from '../screens/FoodTextInputScreen';
 
 // Import custom bottom taskbar
 import { BottomTaskbar } from '../components/BottomTaskbar';
@@ -169,6 +170,13 @@ const MainNavigator = () => {
         options={{
           headerShown: true,
           title: 'Scan Food'
+        }}
+      />
+      <Stack.Screen
+        name="FoodTextInput"
+        component={FoodTextInputScreen}
+        options={{
+          headerShown: false
         }}
       />
       <Stack.Screen

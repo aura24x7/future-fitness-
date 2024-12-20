@@ -28,6 +28,8 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
         maxOutputTokens: 2048,
       }
     });
+    
+    console.log(`🤖 Using Gemini model: ${GEMINI_MODELS.VISION} for food analysis`);
 
     // Prepare the analysis request
     const prompt = {
@@ -45,6 +47,7 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
     const analysisPromises = Array(2).fill(null).map(async () => {
       const result = await model.generateContent([prompt, imagePart]);
       const response = await result.response;
+      console.log(`Analysis complete (using ${GEMINI_MODELS.VISION}):`, JSON.stringify(response));
       return response.text();
     });
 
@@ -96,7 +99,7 @@ export const analyzeFoodImage = async (imageBase64: string): Promise<FoodAnalysi
       }
     };
 
-    console.log('Final validated result:', validatedResult);
+    console.log(`Analysis complete (using ${GEMINI_MODELS.VISION}):`, JSON.stringify(validatedResult));
     return validatedResult;
 
   } catch (error) {

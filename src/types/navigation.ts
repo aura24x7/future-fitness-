@@ -1,8 +1,5 @@
-import { Exercise } from '../services/geminiService';
-import { Meal } from '../services/mealPlanService';
-import { MealLog } from '../types/calorie';
-import { AIWorkoutPlan } from './workout';
 import { NavigatorScreenParams } from '@react-navigation/native';
+import { FoodAnalysisResult } from './food';
 
 export type TabParamList = {
   Dashboard: undefined;
@@ -11,6 +8,9 @@ export type TabParamList = {
   Progress: undefined;
   Groups: undefined;
   Profile: undefined;
+  ProfileGroups: undefined;
+  FoodScanner: undefined;
+  FoodTextInput: undefined;
 };
 
 export type RootStackParamList = {
@@ -26,11 +26,17 @@ export type RootStackParamList = {
   GroupDetails: { groupId: string };
   CreateGroup: undefined;
   InviteMembers: { groupId: string };
-  ManageInvites: undefined;
-  AddIndividual: undefined;
+  ManageInvites: { groupId: string };
+  AddIndividual: { groupId: string };
   
   // Food-related screens
-  ScannedFoodDetails: { foodId: string };
+  FoodTextInput: undefined;
+  ScannedFoodDetails: {
+    imageUri?: string;
+    imageBase64?: string;
+    result?: FoodAnalysisResult;
+    source?: 'camera' | 'text';
+  };
   
   // Settings
   Settings: undefined;
@@ -39,8 +45,5 @@ export type RootStackParamList = {
 declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {}
-    interface EventListenerMap {
-      customExerciseAdd: { data: Exercise };
-    }
   }
 }

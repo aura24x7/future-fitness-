@@ -1,25 +1,27 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../theme/ThemeProvider';
+import { TabParamList } from '../types/navigation';
 
 // Import screens
 import ProfileGroupsScreen from '../screens/ProfileGroupsScreen';
 import FoodScannerScreen from '../screens/FoodScannerScreen';
-import { BottomTaskbar } from '../components/BottomTaskbar';
+import FoodTextInputScreen from '../screens/FoodTextInputScreen';
+import BottomTaskbar from '../components/BottomTaskbar';
 
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<TabParamList>();
 
 export const TabNavigator = () => {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <Tab.Navigator
-      tabBar={props => <BottomTaskbar {...props} />}
       screenOptions={{
         headerStyle: {
-          backgroundColor: theme.colors.headerBackground,
+          backgroundColor: colors.background,
         },
         headerShadowVisible: false,
+        tabBarShowLabel: false,
       }}
     >
       <Tab.Screen
@@ -28,6 +30,14 @@ export const TabNavigator = () => {
         options={{
           headerShown: true,
           title: 'Groups'
+        }}
+      />
+      <Tab.Screen
+        name="FoodTextInput"
+        component={FoodTextInputScreen}
+        options={{
+          headerShown: false,
+          title: 'Text Log'
         }}
       />
       <Tab.Screen
@@ -41,3 +51,5 @@ export const TabNavigator = () => {
     </Tab.Navigator>
   );
 };
+
+export default TabNavigator;
