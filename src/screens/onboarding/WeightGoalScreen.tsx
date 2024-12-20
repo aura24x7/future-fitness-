@@ -17,11 +17,16 @@ import { useOnboarding } from '../../context/OnboardingContext';
 import { RootStackParamList } from '../../types/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useTheme } from '../../theme/ThemeProvider';
+import { colors } from '../../theme/colors';
+import { StatusBar } from 'expo-status-bar';
 
 type WeightGoalScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+type WeightGoal = 'LOSE_WEIGHT' | 'MAINTAIN_WEIGHT' | 'GAIN_WEIGHT';
+
 interface GoalOption {
-  id: string;
+  id: WeightGoal;
   title: string;
   description: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -57,11 +62,14 @@ const { width } = Dimensions.get('window');
 export const WeightGoalScreen = () => {
   const navigation = useNavigation<WeightGoalScreenNavigationProp>();
   const { onboardingData, updateOnboardingData } = useOnboarding();
-  const [selectedGoal, setSelectedGoal] = useState<string>(onboardingData.weightGoal || '');
+  const [selectedGoal, setSelectedGoal] = useState<WeightGoal | undefined>(
+    onboardingData.weightGoal as WeightGoal | undefined
+  );
   const [targetWeight, setTargetWeight] = useState<string>(
     onboardingData.targetWeight?.value?.toString() || ''
   );
   const [error, setError] = useState<string>('');
+  const { isDarkMode } = useTheme();
 
   const handleContinue = async () => {
     if (!selectedGoal) {
@@ -87,11 +95,18 @@ export const WeightGoalScreen = () => {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? colors.background.dark : colors.background.light }
+      ]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
       <LinearGradient
-        colors={['#EDE9FE', '#DDD6FE']}
+        colors={isDarkMode ? 
+          [colors.background.dark, colors.background.dark] : 
+          ['#EDE9FE', '#DDD6FE']
+        }
         style={StyleSheet.absoluteFill}
       />
       <ScrollView 
@@ -103,8 +118,14 @@ export const WeightGoalScreen = () => {
           entering={FadeInDown.duration(1000).springify()}
           style={styles.content}
         >
-          <Text style={styles.title}>What's your weight goal?</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[
+            styles.title,
+            { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+          ]}>What's your weight goal?</Text>
+          <Text style={[
+            styles.subtitle,
+            { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+          ]}>
             This helps us create a personalized plan for you
           </Text>
 
@@ -119,24 +140,47 @@ export const WeightGoalScreen = () => {
                 style={styles.goalCard}
               >
                 <LinearGradient
-                  colors={selectedGoal === goal.id ? 
-                    ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.8)'] : 
-                    ['rgba(255,255,255,0.7)', 'rgba(255,255,255,0.6)']}
+                  colors={isDarkMode ?
+                    [selectedGoal === goal.id ? '#2A2A2A' : '#1A1A1A', selectedGoal === goal.id ? '#2A2A2A' : '#1A1A1A'] :
+                    [selectedGoal === goal.id ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.7)', selectedGoal === goal.id ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.6)']
+                  }
                   style={[
                     styles.goalCardGradient,
-                    selectedGoal === goal.id && styles.selectedGoal,
+                    {
+                      borderColor: selectedGoal === goal.id ? 
+                        (isDarkMode ? colors.primaryLight : colors.primary) : 
+                        (isDarkMode ? '#2A2A2A' : 'rgba(255,255,255,0.4)'),
+                    },
                   ]}
                 >
                   <View style={[styles.iconContainer, { backgroundColor: goal.color }]}>
                     <Ionicons name={goal.icon} size={24} color="white" />
                   </View>
                   <View style={styles.goalInfo}>
-                    <Text style={styles.goalTitle}>{goal.title}</Text>
-                    <Text style={styles.goalDescription}>{goal.description}</Text>
+                    <Text style={[
+                      styles.goalTitle,
+                      { 
+                        color: isDarkMode ? 
+                          (selectedGoal === goal.id ? colors.primaryLight : colors.text.primary.dark) : 
+                          (selectedGoal === goal.id ? colors.primary : colors.text.primary.light)
+                      }
+                    ]}>{goal.title}</Text>
+                    <Text style={[
+                      styles.goalDescription,
+                      { 
+                        color: isDarkMode ? 
+                          (selectedGoal === goal.id ? colors.text.primary.dark : colors.text.secondary.dark) : 
+                          (selectedGoal === goal.id ? colors.text.primary.light : colors.text.secondary.light)
+                      }
+                    ]}>{goal.description}</Text>
                   </View>
                   {selectedGoal === goal.id && (
                     <View style={styles.checkmark}>
-                      <Ionicons name="checkmark-circle" size={24} color="#8B5CF6" />
+                      <Ionicons 
+                        name="checkmark-circle" 
+                        size={24} 
+                        color={isDarkMode ? colors.primaryLight : colors.primary} 
+                      />
                     </View>
                   )}
                 </LinearGradient>
@@ -145,12 +189,24 @@ export const WeightGoalScreen = () => {
           </View>
 
           <View style={styles.targetWeightContainer}>
-            <Text style={styles.targetWeightLabel}>
+            <Text style={[
+              styles.targetWeightLabel,
+              { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+            ]}>
               What's your target weight?
             </Text>
-            <View style={styles.inputContainer}>
+            <View style={[
+              styles.inputContainer,
+              { 
+                backgroundColor: isDarkMode ? '#1A1A1A' : 'rgba(255, 255, 255, 0.7)',
+                borderColor: isDarkMode ? '#2A2A2A' : 'rgba(139, 92, 246, 0.2)'
+              }
+            ]}>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+                ]}
                 value={targetWeight}
                 onChangeText={(text) => {
                   setTargetWeight(text);
@@ -158,9 +214,12 @@ export const WeightGoalScreen = () => {
                 }}
                 placeholder="Enter target weight"
                 keyboardType="numeric"
-                placeholderTextColor="rgba(107, 114, 128, 0.7)"
+                placeholderTextColor={isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(107, 114, 128, 0.7)'}
               />
-              <Text style={styles.unit}>{onboardingData.weight?.unit || 'kg'}</Text>
+              <Text style={[
+                styles.unit,
+                { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+              ]}>{onboardingData.weight?.unit || 'kg'}</Text>
             </View>
           </View>
 
@@ -177,12 +236,25 @@ export const WeightGoalScreen = () => {
             disabled={!selectedGoal || !targetWeight}
           >
             <LinearGradient
-              colors={['rgba(139, 92, 246, 0.9)', 'rgba(139, 92, 246, 0.8)']}
+              colors={isDarkMode ? 
+                [colors.primaryLight, colors.primary] :
+                ['rgba(139, 92, 246, 0.9)', 'rgba(139, 92, 246, 0.8)']
+              }
               style={styles.continueButtonGradient}
             >
               <Text style={styles.continueButtonText}>Continue</Text>
             </LinearGradient>
           </TouchableOpacity>
+
+          <View style={[
+            styles.progressBar,
+            { backgroundColor: isDarkMode ? '#1A1A1A' : 'rgba(139, 92, 246, 0.2)' }
+          ]}>
+            <View style={[
+              styles.progress,
+              { backgroundColor: isDarkMode ? colors.primaryLight : colors.primary }
+            ]} />
+          </View>
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -207,13 +279,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#6B7280',
     marginBottom: 32,
     textAlign: 'center',
   },
@@ -231,11 +301,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  selectedGoal: {
-    borderColor: '#8B5CF6',
-    borderWidth: 2,
   },
   iconContainer: {
     width: 48,
@@ -251,12 +316,10 @@ const styles = StyleSheet.create({
   goalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
     marginBottom: 4,
   },
   goalDescription: {
     fontSize: 14,
-    color: '#6B7280',
   },
   checkmark: {
     marginLeft: 12,
@@ -267,27 +330,22 @@ const styles = StyleSheet.create({
   targetWeightLabel: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 16,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.2)',
     paddingHorizontal: 16,
     height: 56,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#1F2937',
   },
   unit: {
     fontSize: 16,
-    color: '#6B7280',
     marginLeft: 8,
   },
   errorText: {
@@ -312,6 +370,17 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.7,
+  },
+  progressBar: {
+    width: '100%',
+    height: 6,
+    borderRadius: 3,
+    marginTop: 20,
+  },
+  progress: {
+    width: '85%',
+    height: '100%',
+    borderRadius: 3,
   },
 });
 

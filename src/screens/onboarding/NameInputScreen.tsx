@@ -11,10 +11,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
+import { useTheme } from '../../theme/ThemeProvider';
+import { colors } from '../../theme/colors';
+import { StatusBar } from 'expo-status-bar';
 
 const NameInputScreen = ({ navigation }) => {
   const [name, setName] = useState('');
   const { updateOnboardingData } = useOnboarding();
+  const { isDarkMode } = useTheme();
 
   const handleContinue = () => {
     if (name.trim()) {
@@ -28,18 +32,42 @@ const NameInputScreen = ({ navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1 }}
     >
-      <View style={styles.container}>
+      <View style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? colors.background.dark : colors.background.light }
+      ]}>
+        <StatusBar style={isDarkMode ? "light" : "dark"} />
+        <LinearGradient
+          colors={isDarkMode ? 
+            [colors.background.dark, colors.background.dark] : 
+            [colors.background.light, '#F5F3FF']
+          }
+          style={StyleSheet.absoluteFill}
+        />
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.title}>What's your name?</Text>
-            <Text style={styles.subtitle}>Let's personalize your experience</Text>
+            <Text style={[
+              styles.title,
+              { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+            ]}>What's your name?</Text>
+            <Text style={[
+              styles.subtitle,
+              { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+            ]}>Let's personalize your experience</Text>
           </View>
 
           <View style={styles.inputContainer}>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: isDarkMode ? '#1A1A1A' : '#F5F5F5',
+                  color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light,
+                  shadowColor: isDarkMode ? '#000000' : '#000000',
+                }
+              ]}
               placeholder="Enter your name"
-              placeholderTextColor="#999999"
+              placeholderTextColor={isDarkMode ? '#666666' : '#999999'}
               value={name}
               onChangeText={setName}
               autoFocus
@@ -53,7 +81,10 @@ const NameInputScreen = ({ navigation }) => {
               disabled={!name.trim()}
             >
               <LinearGradient
-                colors={['#B794F6', '#9F7AEA']}
+                colors={isDarkMode ? 
+                  [colors.primaryLight, colors.primary] :
+                  [colors.primaryLight, colors.primary]
+                }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[
@@ -71,8 +102,14 @@ const NameInputScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.progressBar}>
-            <View style={[styles.progress, { width: '20%' }]} />
+          <View style={[
+            styles.progressBar,
+            { backgroundColor: isDarkMode ? '#1A1A1A' : '#F2F2F2' }
+          ]}>
+            <View style={[
+              styles.progress,
+              { backgroundColor: isDarkMode ? colors.primaryLight : colors.primary }
+            ]} />
           </View>
         </View>
       </View>
@@ -85,7 +122,6 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -99,7 +135,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 34,
     fontWeight: '700',
-    color: '#1A1A1A',
     marginTop: 24,
     marginBottom: 8,
     textAlign: 'center',
@@ -107,7 +142,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 17,
-    color: '#666666',
     textAlign: 'center',
     letterSpacing: 0.2,
   },
@@ -115,13 +149,10 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   input: {
-    backgroundColor: '#F5F5F5',
     borderRadius: 16,
     padding: 16,
     fontSize: 17,
-    color: '#1A1A1A',
     width: '100%',
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -157,13 +188,12 @@ const styles = StyleSheet.create({
   progressBar: {
     width: '100%',
     height: 4,
-    backgroundColor: '#F2F2F2',
     borderRadius: 2,
     marginTop: 48,
   },
   progress: {
     height: '100%',
-    backgroundColor: '#9F7AEA',
+    width: '20%',
     borderRadius: 2,
   },
 });

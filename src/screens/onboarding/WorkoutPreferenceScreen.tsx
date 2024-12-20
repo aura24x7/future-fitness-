@@ -10,6 +10,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
+import { useTheme } from '../../theme/ThemeProvider';
+import { colors } from '../../theme/colors';
+import { StatusBar } from 'expo-status-bar';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../types/navigation';
 
 type WorkoutPreference = 'HOME' | 'GYM' | 'OUTDOOR' | 'HYBRID';
 
@@ -40,9 +45,14 @@ const workoutOptions: { id: WorkoutPreference; title: string; emoji: string; des
   },
 ];
 
-const WorkoutPreferenceScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
+type WorkoutPreferenceScreenProps = {
+  navigation: NativeStackNavigationProp<RootStackParamList, 'WorkoutPreference'>;
+};
+
+const WorkoutPreferenceScreen: React.FC<WorkoutPreferenceScreenProps> = ({ navigation }) => {
   const [selectedPreference, setSelectedPreference] = useState<WorkoutPreference | null>(null);
   const { updateOnboardingData } = useOnboarding();
+  const { isDarkMode } = useTheme();
 
   const handleContinue = async () => {
     if (selectedPreference) {
@@ -54,7 +64,11 @@ const WorkoutPreferenceScreen: React.FC<{ navigation: any }> = ({ navigation }) 
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container,
+      { backgroundColor: isDarkMode ? colors.background.dark : colors.background.light }
+    ]}>
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -62,8 +76,14 @@ const WorkoutPreferenceScreen: React.FC<{ navigation: any }> = ({ navigation }) 
       >
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.title}>Where do you prefer to workout?</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[
+              styles.title,
+              { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+            ]}>Where do you prefer to workout?</Text>
+            <Text style={[
+              styles.subtitle,
+              { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+            ]}>
               I'll tailor your workout plan to your preferred environment
             </Text>
           </View>
@@ -74,7 +94,15 @@ const WorkoutPreferenceScreen: React.FC<{ navigation: any }> = ({ navigation }) 
                 key={option.id}
                 style={[
                   styles.optionCard,
-                  selectedPreference === option.id && styles.selectedOption,
+                  { 
+                    backgroundColor: isDarkMode ? 
+                      (selectedPreference === option.id ? '#2A2A2A' : '#1A1A1A') : 
+                      (selectedPreference === option.id ? '#ffffff' : '#f5f5f5')
+                  },
+                  selectedPreference === option.id && [
+                    styles.selectedOption,
+                    { borderColor: isDarkMode ? colors.primaryLight : colors.primary }
+                  ],
                 ]}
                 onPress={() => setSelectedPreference(option.id)}
               >
@@ -82,13 +110,17 @@ const WorkoutPreferenceScreen: React.FC<{ navigation: any }> = ({ navigation }) 
                 <View style={styles.optionTextContainer}>
                   <Text style={[
                     styles.optionTitle,
-                    selectedPreference === option.id && styles.selectedOptionTitle,
+                    { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light },
+                    selectedPreference === option.id && [
+                      styles.selectedOptionTitle,
+                      { color: isDarkMode ? colors.primaryLight : colors.primary }
+                    ],
                   ]}>
                     {option.title}
                   </Text>
                   <Text style={[
                     styles.optionDescription,
-                    selectedPreference === option.id && styles.selectedOptionDescription,
+                    { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
                   ]}>
                     {option.description}
                   </Text>
@@ -104,7 +136,10 @@ const WorkoutPreferenceScreen: React.FC<{ navigation: any }> = ({ navigation }) 
               disabled={!selectedPreference}
             >
               <LinearGradient
-                colors={['#B794F6', '#9F7AEA']}
+                colors={isDarkMode ? 
+                  [colors.primaryLight, colors.primary] :
+                  ['#B794F6', '#9F7AEA']
+                }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[StyleSheet.absoluteFill, styles.buttonGradient]}
@@ -113,8 +148,14 @@ const WorkoutPreferenceScreen: React.FC<{ navigation: any }> = ({ navigation }) 
             </TouchableOpacity>
           </View>
 
-          <View style={styles.progressBar}>
-            <View style={[styles.progress]} />
+          <View style={[
+            styles.progressBar,
+            { backgroundColor: isDarkMode ? '#1A1A1A' : 'rgba(159, 122, 234, 0.2)' }
+          ]}>
+            <View style={[
+              styles.progress,
+              { backgroundColor: isDarkMode ? colors.primaryLight : colors.primary }
+            ]} />
           </View>
         </View>
       </ScrollView>
@@ -127,7 +168,6 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
   },
   scrollView: {
     flex: 1,
@@ -147,13 +187,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1a1a1a',
     marginTop: 20,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
     marginTop: 10,
     textAlign: 'center',
   },
@@ -162,7 +200,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   optionCard: {
-    backgroundColor: '#f5f5f5',
     borderRadius: 15,
     padding: 20,
     marginBottom: 15,
@@ -181,9 +218,7 @@ const styles = StyleSheet.create({
     }),
   },
   selectedOption: {
-    backgroundColor: '#ffffff',
     borderWidth: 2,
-    borderColor: '#9F7AEA',
   },
   optionEmoji: {
     fontSize: 32,
@@ -193,21 +228,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   optionTitle: {
-    color: '#1a1a1a',
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 4,
   },
   selectedOptionTitle: {
-    color: '#9F7AEA',
     fontWeight: '700',
   },
   optionDescription: {
-    color: '#666666',
     fontSize: 14,
-  },
-  selectedOptionDescription: {
-    color: '#666666',
   },
   footer: {
     marginTop: 40,
@@ -247,14 +276,12 @@ const styles = StyleSheet.create({
   progressBar: {
     width: '100%',
     height: 6,
-    backgroundColor: 'rgba(159, 122, 234, 0.2)',
     borderRadius: 3,
     marginTop: 20,
   },
   progress: {
     width: '90%',
     height: '100%',
-    backgroundColor: '#9F7AEA',
     borderRadius: 3,
   },
 });

@@ -18,6 +18,8 @@ import { TargetIcon, AIIcon, ProgressIcon } from '../../assets/icons/icons';
 import { Alert } from 'react-native';
 import { userProfileService } from '../../services/userProfileService';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../theme/ThemeProvider';
+import { colors } from '../../theme/colors';
 
 type PreferenceCardProps = {
   icon: React.ReactNode;
@@ -27,6 +29,7 @@ type PreferenceCardProps = {
 };
 
 const PreferenceCard: React.FC<PreferenceCardProps> = ({ icon, title, value, delay }) => {
+  const { isDarkMode } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -56,19 +59,33 @@ const PreferenceCard: React.FC<PreferenceCardProps> = ({ icon, title, value, del
         {
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
+          backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF',
+          shadowColor: isDarkMode ? '#000000' : '#8B5CF6',
         },
       ]}
     >
-      <View style={styles.iconContainer}>{icon}</View>
+      <View style={[
+        styles.iconContainer,
+        {
+          backgroundColor: isDarkMode ? '#000000' : '#F5F3FF'
+        }
+      ]}>{icon}</View>
       <View style={styles.preferenceContent}>
-        <Text style={styles.preferenceTitle}>{title}</Text>
-        <Text style={styles.preferenceValue}>{value}</Text>
+        <Text style={[
+          styles.preferenceTitle,
+          { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+        ]}>{title}</Text>
+        <Text style={[
+          styles.preferenceValue,
+          { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+        ]}>{value}</Text>
       </View>
     </Animated.View>
   );
 };
 
 const FinalSetupScreen = ({ navigation }) => {
+  const { isDarkMode } = useTheme();
   const { onboardingData, completeOnboarding } = useOnboarding();
   const { user } = useAuth();
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
@@ -176,10 +193,19 @@ const FinalSetupScreen = ({ navigation }) => {
 
   if (error) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>{error}</Text>
+      <View style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? colors.background.dark : colors.background.light }
+      ]}>
+        <Text style={[
+          styles.errorText,
+          { color: isDarkMode ? colors.primaryLight : colors.primary }
+        ]}>{error}</Text>
         <TouchableOpacity
-          style={styles.retryButton}
+          style={[
+            styles.retryButton,
+            { backgroundColor: isDarkMode ? colors.primaryLight : colors.primary }
+          ]}
           onPress={() => navigation.replace('Login')}
         >
           <Text style={styles.retryButtonText}>Return to Login</Text>
@@ -199,37 +225,52 @@ const FinalSetupScreen = ({ navigation }) => {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+    <SafeAreaView style={[
+      styles.container,
+      { backgroundColor: isDarkMode ? colors.background.dark : colors.background.light }
+    ]}>
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
       <LinearGradient
-        colors={['#FFFFFF', '#F5F3FF']}
+        colors={isDarkMode ? 
+          [colors.background.dark, colors.background.dark] : 
+          ['#FFFFFF', '#F5F3FF']
+        }
         style={StyleSheet.absoluteFill}
       />
 
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hello,</Text>
-          <Text style={styles.title}>Your Profile Summary</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[
+            styles.greeting,
+            { color: isDarkMode ? colors.primaryLight : colors.primary }
+          ]}>Hello,</Text>
+          <Text style={[
+            styles.title,
+            { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+          ]}>Your Profile Summary</Text>
+          <Text style={[
+            styles.subtitle,
+            { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+          ]}>
             We're preparing your personalized fitness journey
           </Text>
         </View>
 
         <View style={styles.preferencesContainer}>
           <PreferenceCard
-            icon={<TargetIcon size={24} />}
+            icon={<TargetIcon size={24} color={isDarkMode ? colors.primaryLight : colors.primary} />}
             title="Fitness Goal"
             value={onboardingData.fitnessGoal || 'Build Muscle'}
             delay={200}
           />
           <PreferenceCard
-            icon={<AIIcon size={24} />}
+            icon={<AIIcon size={24} color={isDarkMode ? colors.primaryLight : colors.primary} />}
             title="Activity Level"
             value={onboardingData.activityLevel || 'Intermediate'}
             delay={400}
           />
           <PreferenceCard
-            icon={<ProgressIcon size={24} />}
+            icon={<ProgressIcon size={24} color={isDarkMode ? colors.primaryLight : colors.primary} />}
             title="Diet Preference"
             value={onboardingData.dietaryPreference || 'None'}
             delay={600}
@@ -237,22 +278,39 @@ const FinalSetupScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.preparingContainer}>
-          <BlurView intensity={80} style={styles.preparingCard}>
+          <BlurView 
+            intensity={isDarkMode ? 40 : 80}
+            tint={isDarkMode ? "dark" : "light"}
+            style={[
+              styles.preparingCard,
+              { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.8)' }
+            ]}
+          >
             <Animated.View
               style={[styles.loadingIcon, { transform: [{ rotate }] }]}
             >
-              <AIIcon size={24} color="#8B5CF6" />
+              <AIIcon 
+                size={24} 
+                color={isDarkMode ? colors.primaryLight : colors.primary} 
+              />
             </Animated.View>
-            <Text style={styles.preparingText}>
+            <Text style={[
+              styles.preparingText,
+              { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+            ]}>
               {isCreatingProfile 
                 ? 'Creating your personalized profile...'
                 : 'Preparing your fitness journey...'}
             </Text>
-            <View style={styles.progressBarContainer}>
+            <View style={[
+              styles.progressBarContainer,
+              { backgroundColor: isDarkMode ? '#1A1A1A' : '#F3F4F6' }
+            ]}>
               <Animated.View
                 style={[
                   styles.progressBar,
                   {
+                    backgroundColor: isDarkMode ? colors.primaryLight : colors.primary,
                     transform: [{ translateX: progressTransform }],
                   },
                 ]}
@@ -268,7 +326,6 @@ const FinalSetupScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -280,20 +337,17 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 17,
-    color: '#8B5CF6',
     fontWeight: '600',
     marginBottom: 8,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 8,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    color: '#6B7280',
     lineHeight: 20,
   },
   preferencesContainer: {
@@ -302,13 +356,11 @@ const styles = StyleSheet.create({
   preferenceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     ...Platform.select({
       ios: {
-        shadowColor: '#8B5CF6',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 12,
@@ -322,7 +374,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F5F3FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -332,12 +383,10 @@ const styles = StyleSheet.create({
   },
   preferenceTitle: {
     fontSize: 13,
-    color: '#6B7280',
     marginBottom: 4,
   },
   preferenceValue: {
     fontSize: 17,
-    color: '#1F2937',
     fontWeight: '600',
   },
   preparingContainer: {
@@ -347,7 +396,6 @@ const styles = StyleSheet.create({
     right: 20,
   },
   preparingCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
@@ -358,14 +406,12 @@ const styles = StyleSheet.create({
   },
   preparingText: {
     fontSize: 15,
-    color: '#1F2937',
     fontWeight: '600',
     marginBottom: 16,
   },
   progressBarContainer: {
     width: '100%',
     height: 4,
-    backgroundColor: '#F3F4F6',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -374,24 +420,21 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: '#8B5CF6',
     width: '100%',
   },
   errorText: {
     fontSize: 17,
-    color: '#8B5CF6',
     fontWeight: '600',
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#8B5CF6',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
   retryButtonText: {
-    fontSize: 17,
     color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

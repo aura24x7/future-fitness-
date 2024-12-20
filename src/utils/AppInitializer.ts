@@ -9,6 +9,7 @@ const AUTH_CREDENTIALS_KEY = '@auth_credentials';
 const AUTH_REFRESH_KEY = '@auth_refresh';
 const INITIALIZATION_TIMEOUT = 10000; // 10 seconds
 const TOKEN_REFRESH_INTERVAL = 1000 * 60 * 50; // 50 minutes
+const MINIMUM_SPLASH_DURATION = 3000; // 3 seconds minimum display time
 
 // Track initialization state
 let isInitialized = false;
@@ -26,6 +27,9 @@ export const initializeApp = async () => {
       setTimeout(() => reject(new Error('Initialization timeout')), INITIALIZATION_TIMEOUT);
     });
 
+    // Record start time
+    const startTime = Date.now();
+
     // Prevent splash screen from auto-hiding
     await SplashScreen.preventAutoHideAsync();
     
@@ -33,11 +37,19 @@ export const initializeApp = async () => {
     await Promise.race([
       Promise.all([
         // Add other initialization tasks here
-        new Promise(resolve => setTimeout(resolve, 500)), // Minimum display time
         setupAppStateListener(),
       ]),
       timeoutPromise
     ]);
+
+    // Calculate remaining time to meet minimum duration
+    const elapsedTime = Date.now() - startTime;
+    const remainingTime = Math.max(0, MINIMUM_SPLASH_DURATION - elapsedTime);
+
+    // Wait for remaining time if needed
+    if (remainingTime > 0) {
+      await new Promise(resolve => setTimeout(resolve, remainingTime));
+    }
 
     isInitialized = true;
   } catch (error) {

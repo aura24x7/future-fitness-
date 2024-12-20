@@ -13,6 +13,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../theme/ThemeProvider';
+import { colors } from '../../theme/colors';
+import { StatusBar } from 'expo-status-bar';
 
 type Lifestyle = 'SEDENTARY' | 'LIGHTLY_ACTIVE' | 'MODERATELY_ACTIVE' | 'VERY_ACTIVE' | 'SUPER_ACTIVE';
 
@@ -65,6 +68,7 @@ const LifestyleScreen = ({ navigation }) => {
   const { updateOnboardingData } = useOnboarding();
   const insets = useSafeAreaInsets();
   const [scaleAnim] = useState(() => new Animated.Value(1));
+  const { isDarkMode } = useTheme();
 
   const handleOptionPress = (lifestyle: Lifestyle) => {
     Animated.sequence([
@@ -90,20 +94,39 @@ const LifestyleScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[
+      styles.container,
+      { 
+        paddingTop: insets.top,
+        backgroundColor: isDarkMode ? colors.background.dark : colors.background.light 
+      }
+    ]}>
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
       <LinearGradient
-        colors={['#EDE9FE', '#DDD6FE']}
+        colors={isDarkMode ? 
+          [colors.background.dark, colors.background.dark] : 
+          [colors.background.light, '#F5F3FF']
+        }
         style={StyleSheet.absoluteFill}
       />
       <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 100 }
+        ]}
       >
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.title}>What's your lifestyle like?</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[
+              styles.title,
+              { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+            ]}>What's your lifestyle like?</Text>
+            <Text style={[
+              styles.subtitle,
+              { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+            ]}>
               This helps me calculate your daily energy needs accurately
             </Text>
           </View>
@@ -119,6 +142,12 @@ const LifestyleScreen = ({ navigation }) => {
                 <TouchableOpacity
                   style={[
                     styles.optionCard,
+                    {
+                      backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF',
+                      borderColor: selectedLifestyle === option.id ? 
+                        (isDarkMode ? colors.primaryLight : colors.primary) : 
+                        'transparent',
+                    },
                     selectedLifestyle === option.id && styles.selectedOption,
                   ]}
                   onPress={() => handleOptionPress(option.id)}
@@ -127,30 +156,45 @@ const LifestyleScreen = ({ navigation }) => {
                   <View style={styles.optionHeader}>
                     <View style={[
                       styles.iconContainer,
-                      selectedLifestyle === option.id && styles.selectedIconContainer
+                      {
+                        backgroundColor: isDarkMode ? '#2A2A2A' : '#F3F4F6',
+                      },
+                      selectedLifestyle === option.id && {
+                        backgroundColor: isDarkMode ? colors.primaryLight : colors.primary,
+                      }
                     ]}>
                       <Ionicons
                         name={option.icon}
                         size={24}
-                        color={selectedLifestyle === option.id ? '#FFFFFF' : '#6B7280'}
+                        color={selectedLifestyle === option.id ? '#FFFFFF' : 
+                          (isDarkMode ? colors.text.primary.dark : '#6B7280')}
                       />
                     </View>
                     <Text style={[
                       styles.optionTitle,
-                      selectedLifestyle === option.id && styles.selectedOptionTitle
+                      { color: isDarkMode ? colors.text.primary.dark : '#1F2937' },
+                      selectedLifestyle === option.id && {
+                        color: isDarkMode ? colors.primaryLight : colors.primary,
+                      }
                     ]}>
                       {option.title}
                     </Text>
                   </View>
                   <Text style={[
                     styles.optionDescription,
-                    selectedLifestyle === option.id && styles.selectedOptionDescription
+                    { color: isDarkMode ? colors.text.secondary.dark : '#4B5563' },
+                    selectedLifestyle === option.id && {
+                      color: isDarkMode ? colors.text.primary.dark : '#6D28D9',
+                    }
                   ]}>
                     {option.description}
                   </Text>
                   <Text style={[
                     styles.optionExamples,
-                    selectedLifestyle === option.id && styles.selectedOptionExamples
+                    { color: isDarkMode ? colors.text.secondary.dark : '#6B7280' },
+                    selectedLifestyle === option.id && {
+                      color: isDarkMode ? colors.text.secondary.dark : '#8B5CF6',
+                    }
                   ]}>
                     {option.examples}
                   </Text>
@@ -161,11 +205,22 @@ const LifestyleScreen = ({ navigation }) => {
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[
+        styles.footer,
+        { 
+          paddingBottom: insets.bottom + 16,
+          backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+        }
+      ]}>
         <TouchableOpacity
           style={[
             styles.continueButton,
             selectedLifestyle ? styles.continueButtonActive : styles.continueButtonInactive,
+            {
+              backgroundColor: selectedLifestyle ? 
+                (isDarkMode ? colors.primaryLight : colors.primary) : 
+                (isDarkMode ? '#2A2A2A' : '#F3F4F6'),
+            }
           ]}
           onPress={handleContinue}
           disabled={!selectedLifestyle}
@@ -174,6 +229,11 @@ const LifestyleScreen = ({ navigation }) => {
           <Text style={[
             styles.continueButtonText,
             selectedLifestyle ? styles.continueButtonTextActive : styles.continueButtonTextInactive,
+            {
+              color: selectedLifestyle ? 
+                '#FFFFFF' : 
+                (isDarkMode ? colors.text.secondary.dark : '#9CA3AF'),
+            }
           ]}>
             Continue
           </Text>
@@ -186,7 +246,6 @@ const LifestyleScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -203,13 +262,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 12,
     letterSpacing: 0.37,
   },
   subtitle: {
     fontSize: 17,
-    color: '#6B7280',
     lineHeight: 22,
     letterSpacing: -0.41,
   },
@@ -217,9 +274,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   optionCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
+    borderWidth: 1,
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -233,9 +290,7 @@ const styles = StyleSheet.create({
     }),
   },
   selectedOption: {
-    backgroundColor: '#F5F3FF',
     borderWidth: 1,
-    borderColor: '#8B5CF6',
     ...Platform.select({
       ios: {
         shadowColor: '#8B5CF6',
@@ -258,48 +313,31 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  selectedIconContainer: {
-    backgroundColor: '#8B5CF6',
   },
   optionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1F2937',
     letterSpacing: 0.38,
-  },
-  selectedOptionTitle: {
-    color: '#8B5CF6',
   },
   optionDescription: {
     fontSize: 17,
-    color: '#4B5563',
     marginBottom: 8,
     letterSpacing: -0.41,
     lineHeight: 22,
   },
-  selectedOptionDescription: {
-    color: '#6D28D9',
-  },
   optionExamples: {
     fontSize: 15,
-    color: '#6B7280',
     fontStyle: 'italic',
     letterSpacing: -0.24,
     lineHeight: 20,
-  },
-  selectedOptionExamples: {
-    color: '#8B5CF6',
   },
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     paddingHorizontal: 24,
     paddingTop: 16,
     backdropFilter: 'blur(20px)',
@@ -309,23 +347,15 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
   },
-  continueButtonActive: {
-    backgroundColor: '#8B5CF6',
-  },
-  continueButtonInactive: {
-    backgroundColor: '#F3F4F6',
-  },
+  continueButtonActive: {},
+  continueButtonInactive: {},
   continueButtonText: {
     fontSize: 17,
     fontWeight: '600',
     letterSpacing: -0.41,
   },
-  continueButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  continueButtonTextInactive: {
-    color: '#9CA3AF',
-  },
+  continueButtonTextActive: {},
+  continueButtonTextInactive: {},
 });
 
 export default LifestyleScreen;

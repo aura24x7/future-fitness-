@@ -4,54 +4,85 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { TargetIcon, AIIcon, ProgressIcon } from '../../assets/icons/icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTheme } from '../../theme/ThemeProvider';
+import { colors } from '../../theme/colors';
 
 type WelcomeScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
+  const { isDarkMode } = useTheme();
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+    <SafeAreaView style={[
+      styles.container,
+      { backgroundColor: isDarkMode ? colors.background.dark : colors.background.light }
+    ]}>
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <LinearGradient
+        colors={isDarkMode ? 
+          [colors.background.dark, colors.background.dark] : 
+          [colors.background.light, '#F5F3FF']
+        }
+        style={StyleSheet.absoluteFill}
+      />
       <View style={styles.content}>
         <View style={styles.logoContainer}>
-          <View style={styles.logoBackground}>
-            <AIIcon size={48} />
+          <View style={[
+            styles.logoBackground,
+            {
+              backgroundColor: isDarkMode ? '#1A1A1A' : '#F5F3FF',
+              shadowColor: isDarkMode ? '#000000' : '#6D28D9'
+            }
+          ]}>
+            <AIIcon size={48} color={isDarkMode ? colors.text.primary.dark : colors.primary} />
           </View>
         </View>
 
         <View style={styles.textContainer}>
-          <Text style={styles.welcomeText}>Welcome to</Text>
-          <Text style={styles.title}>AI Powered Fitness</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[
+            styles.welcomeText,
+            { color: isDarkMode ? colors.primaryLight : colors.primary }
+          ]}>Welcome to</Text>
+          <Text style={[
+            styles.title,
+            { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+          ]}>AI Powered Fitness</Text>
+          <Text style={[
+            styles.subtitle,
+            { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+          ]}>
             Your journey to a healthier lifestyle begins with personalized, AI-driven guidance
           </Text>
         </View>
 
         <View style={styles.summaryContainer}>
-          <View style={styles.summaryItem}>
-            <View style={styles.iconContainer}>
-              <TargetIcon size={24} />
+          {[
+            { icon: <TargetIcon size={24} color={isDarkMode ? colors.primaryLight : colors.primary} />, title: 'Set Your Goals', text: 'Personalized fitness targets' },
+            { icon: <AIIcon size={24} color={isDarkMode ? colors.primaryLight : colors.primary} />, title: 'AI Guidance', text: 'Smart workout planning' },
+            { icon: <ProgressIcon size={24} color={isDarkMode ? colors.primaryLight : colors.primary} />, title: 'Track Progress', text: 'Monitor your journey' }
+          ].map((item, index) => (
+            <View key={index} style={styles.summaryItem}>
+              <View style={[
+                styles.iconContainer,
+                {
+                  backgroundColor: isDarkMode ? '#1A1A1A' : '#F5F3FF',
+                  shadowColor: isDarkMode ? '#000000' : '#6D28D9'
+                }
+              ]}>
+                {item.icon}
+              </View>
+              <Text style={[
+                styles.summaryTitle,
+                { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+              ]}>{item.title}</Text>
+              <Text style={[
+                styles.summaryText,
+                { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+              ]}>{item.text}</Text>
             </View>
-            <Text style={styles.summaryTitle}>Set Your Goals</Text>
-            <Text style={styles.summaryText}>Personalized fitness targets</Text>
-          </View>
-
-          <View style={styles.summaryItem}>
-            <View style={styles.iconContainer}>
-              <AIIcon size={24} />
-            </View>
-            <Text style={styles.summaryTitle}>AI Guidance</Text>
-            <Text style={styles.summaryText}>Smart workout planning</Text>
-          </View>
-
-          <View style={styles.summaryItem}>
-            <View style={styles.iconContainer}>
-              <ProgressIcon size={24} />
-            </View>
-            <Text style={styles.summaryTitle}>Track Progress</Text>
-            <Text style={styles.summaryText}>Monitor your journey</Text>
-          </View>
+          ))}
         </View>
 
         <TouchableOpacity
@@ -60,7 +91,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={['#A78BFA', '#8B5CF6']}
+            colors={isDarkMode ? 
+              [colors.primaryLight, colors.primary] :
+              [colors.primaryLight, colors.primary]
+            }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.button}
@@ -70,10 +104,19 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
         </TouchableOpacity>
 
         <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progress, { width: '14%' }]} />
+          <View style={[
+            styles.progressBar,
+            { backgroundColor: isDarkMode ? '#1A1A1A' : '#F3F4F6' }
+          ]}>
+            <View style={[
+              styles.progress,
+              { backgroundColor: isDarkMode ? colors.primaryLight : colors.primary }
+            ]} />
           </View>
-          <Text style={styles.progressText}>Step 1 of 7</Text>
+          <Text style={[
+            styles.progressText,
+            { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+          ]}>Step 1 of 7</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -83,7 +126,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -100,10 +142,8 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#F5F3FF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#6D28D9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -115,21 +155,18 @@ const styles = StyleSheet.create({
   },
   welcomeText: {
     fontSize: 20,
-    color: '#6D28D9',
     fontWeight: '500',
     marginBottom: 8,
   },
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 16,
     textAlign: 'center',
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 17,
-    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 24,
     letterSpacing: -0.2,
@@ -152,11 +189,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F5F3FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#6D28D9',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -165,13 +200,11 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 4,
     textAlign: 'center',
   },
   summaryText: {
     fontSize: 13,
-    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -205,19 +238,17 @@ const styles = StyleSheet.create({
   progressBar: {
     width: '100%',
     height: 4,
-    backgroundColor: '#F3F4F6',
     borderRadius: 2,
     marginBottom: 8,
     overflow: 'hidden',
   },
   progress: {
     height: '100%',
-    backgroundColor: '#8B5CF6',
+    width: '14%',
     borderRadius: 2,
   },
   progressText: {
     fontSize: 13,
-    color: '#6B7280',
     fontWeight: '500',
   },
 });

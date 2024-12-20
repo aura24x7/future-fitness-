@@ -14,6 +14,19 @@ export type TabParamList = {
 };
 
 export type RootStackParamList = {
+  // Onboarding screens
+  Welcome: undefined;
+  NameInput: undefined;
+  Birthday: undefined;
+  Gender: undefined;
+  HeightWeight: undefined;
+  DietaryPreference: undefined;
+  WeightGoal: undefined;
+  Location: undefined;
+  WorkoutPreference: undefined;
+  ActivityLevel: undefined;
+  FinalSetup: undefined;
+
   // Main screens
   Dashboard: undefined;
   ProfileGroups: undefined;

@@ -12,6 +12,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
 import CustomDatePicker from '../../components/CustomDatePicker';
+import { useTheme } from '../../theme/ThemeProvider';
+import { colors } from '../../theme/colors';
+import { StatusBar } from 'expo-status-bar';
 
 const BirthdayScreen = ({ navigation, route }) => {
   const [date, setDate] = useState(new Date(2000, 0, 1));
@@ -20,6 +23,7 @@ const BirthdayScreen = ({ navigation, route }) => {
   const { updateOnboardingData } = useOnboarding();
   const { name } = route.params;
   const { height } = Dimensions.get('window');
+  const { isDarkMode } = useTheme();
 
   const handleDateChange = (selectedDate: Date) => {
     setDate(selectedDate);
@@ -67,25 +71,57 @@ const BirthdayScreen = ({ navigation, route }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container,
+      { backgroundColor: isDarkMode ? colors.background.dark : colors.background.light }
+    ]}>
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <LinearGradient
+        colors={isDarkMode ? 
+          [colors.background.dark, colors.background.dark] : 
+          [colors.background.light, '#F5F3FF']
+        }
+        style={StyleSheet.absoluteFill}
+      />
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>When's your birthday?</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[
+            styles.title,
+            { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+          ]}>When's your birthday?</Text>
+          <Text style={[
+            styles.subtitle,
+            { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+          ]}>
             Hi {name}, this helps me personalize your fitness journey
           </Text>
         </View>
 
         <View style={styles.dateContainer}>
           <TouchableOpacity
-            style={styles.dateButton}
+            style={[
+              styles.dateButton,
+              {
+                backgroundColor: isDarkMode ? '#1A1A1A' : '#F5F5F5',
+                shadowColor: isDarkMode ? '#000000' : '#000000',
+              }
+            ]}
             onPress={showDatePicker}
             activeOpacity={0.8}
           >
             <View>
-              <Text style={styles.dateLabel}>Selected Date</Text>
-              <Text style={styles.dateButtonText}>{formatDate(date)}</Text>
-              <Text style={styles.ageText}>Age: {calculateAge(date)} years</Text>
+              <Text style={[
+                styles.dateLabel,
+                { color: isDarkMode ? colors.text.secondary.dark : '#666666' }
+              ]}>Selected Date</Text>
+              <Text style={[
+                styles.dateButtonText,
+                { color: isDarkMode ? colors.text.primary.dark : '#1A1A1A' }
+              ]}>{formatDate(date)}</Text>
+              <Text style={[
+                styles.ageText,
+                { color: isDarkMode ? colors.text.secondary.dark : '#666666' }
+              ]}>Age: {calculateAge(date)} years</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -93,7 +129,10 @@ const BirthdayScreen = ({ navigation, route }) => {
         <View style={styles.footer}>
           <TouchableOpacity onPress={handleContinue}>
             <LinearGradient
-              colors={['#B794F6', '#9F7AEA']}
+              colors={isDarkMode ? 
+                [colors.primaryLight, colors.primary] :
+                [colors.primaryLight, colors.primary]
+              }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.button}
@@ -103,8 +142,17 @@ const BirthdayScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: '40%' }]} />
+        <View style={[
+          styles.progressBar,
+          { backgroundColor: isDarkMode ? '#1A1A1A' : '#F2F2F2' }
+        ]}>
+          <View style={[
+            styles.progress,
+            { 
+              width: '40%',
+              backgroundColor: isDarkMode ? colors.primaryLight : colors.primary 
+            }
+          ]} />
         </View>
       </View>
 
@@ -113,11 +161,15 @@ const BirthdayScreen = ({ navigation, route }) => {
         transparent
         animationType="none"
       >
-        <View style={styles.modalOverlay}>
+        <View style={[
+          styles.modalOverlay,
+          { backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.4)' }
+        ]}>
           <Animated.View
             style={[
               styles.modalContent,
               {
+                backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF',
                 transform: [
                   {
                     translateY: animation.interpolate({
@@ -148,7 +200,6 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -162,7 +213,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 34,
     fontWeight: '700',
-    color: '#1A1A1A',
     marginTop: 24,
     marginBottom: 8,
     textAlign: 'center',
@@ -170,7 +220,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 17,
-    color: '#666666',
     textAlign: 'center',
     letterSpacing: 0.2,
   },
@@ -179,11 +228,9 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   dateButton: {
-    backgroundColor: '#F5F5F5',
     padding: 20,
     borderRadius: 16,
     width: width - 48,
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -191,18 +238,15 @@ const styles = StyleSheet.create({
   },
   dateLabel: {
     fontSize: 14,
-    color: '#666666',
     marginBottom: 4,
   },
   dateButtonText: {
     fontSize: 20,
-    color: '#1A1A1A',
     fontWeight: '600',
     textAlign: 'center',
   },
   ageText: {
     fontSize: 15,
-    color: '#666666',
     textAlign: 'center',
     marginTop: 4,
   },
@@ -230,23 +274,19 @@ const styles = StyleSheet.create({
   progressBar: {
     width: '100%',
     height: 4,
-    backgroundColor: '#F2F2F2',
     borderRadius: 2,
     marginTop: 48,
   },
   progress: {
     height: '100%',
-    backgroundColor: '#9F7AEA',
     borderRadius: 2,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: {

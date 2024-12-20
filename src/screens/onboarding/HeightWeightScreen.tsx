@@ -12,9 +12,12 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useOnboarding } from '../../context/OnboardingContext';
-import { BlurView } from 'expo-blur';
+import { BlurView, BlurTint } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTheme } from '../../theme/ThemeProvider';
+import { colors } from '../../theme/colors';
+import { StatusBar } from 'expo-status-bar';
 
 type RootStackParamList = {
   Welcome: undefined;
@@ -35,6 +38,7 @@ type HeightWeightScreenProps = {
 
 const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) => {
   const { updateOnboardingData } = useOnboarding();
+  const { isDarkMode } = useTheme();
   const [heightFeet, setHeightFeet] = useState('5');
   const [heightInches, setHeightInches] = useState('0');
   const [heightCm, setHeightCm] = useState('170');
@@ -107,21 +111,36 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
   const renderHeightPicker = () => {
     const GlassContainer = Platform.OS === 'ios' ? BlurView : View;
     const containerProps = Platform.OS === 'ios' ? {
-      tint: "light" as const,
-      intensity: 50,
+      tint: (isDarkMode ? "dark" : "light") as BlurTint,
+      intensity: isDarkMode ? 80 : 50,
     } : {};
 
     if (heightUnit === 'cm') {
       return (
-        <GlassContainer {...containerProps} style={styles.pickerContainer}>
+        <GlassContainer {...containerProps} style={[
+          styles.pickerContainer,
+          { 
+            backgroundColor: isDarkMode ? '#1A1A1A' : '#f5f5f5',
+            borderColor: isDarkMode ? '#2A2A2A' : '#E5E7EB',
+            borderWidth: 1,
+          }
+        ]}>
           <Picker
             selectedValue={heightCm}
             style={styles.picker}
-            itemStyle={styles.pickerItem}
+            itemStyle={[
+              styles.pickerItem,
+              { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+            ]}
             onValueChange={(itemValue: string) => setHeightCm(itemValue)}
           >
             {Array.from({ length: 171 }, (_, i) => i + 130).map((cm) => (
-              <Picker.Item key={cm} label={`${cm} cm`} value={cm.toString()} />
+              <Picker.Item 
+                key={cm} 
+                label={`${cm} cm`} 
+                value={cm.toString()}
+                color={isDarkMode ? colors.text.primary.dark : colors.text.primary.light}
+              />
             ))}
           </Picker>
         </GlassContainer>
@@ -129,27 +148,59 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
     } else {
       return (
         <View style={styles.feetInchesContainer}>
-          <GlassContainer {...containerProps} style={[styles.pickerContainer, styles.feetPicker]}>
+          <GlassContainer {...containerProps} style={[
+            styles.pickerContainer,
+            styles.feetPicker,
+            { 
+              backgroundColor: isDarkMode ? '#1A1A1A' : '#f5f5f5',
+              borderColor: isDarkMode ? '#2A2A2A' : '#E5E7EB',
+              borderWidth: 1,
+            }
+          ]}>
             <Picker
               selectedValue={heightFeet}
               style={styles.picker}
-              itemStyle={styles.pickerItem}
+              itemStyle={[
+                styles.pickerItem,
+                { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+              ]}
               onValueChange={(itemValue: string) => setHeightFeet(itemValue)}
             >
               {Array.from({ length: 5 }, (_, i) => i + 4).map((feet) => (
-                <Picker.Item key={feet} label={`${feet} ft`} value={feet.toString()} />
+                <Picker.Item 
+                  key={feet} 
+                  label={`${feet} ft`} 
+                  value={feet.toString()}
+                  color={isDarkMode ? colors.text.primary.dark : colors.text.primary.light}
+                />
               ))}
             </Picker>
           </GlassContainer>
-          <GlassContainer {...containerProps} style={[styles.pickerContainer, styles.inchesPicker]}>
+          <GlassContainer {...containerProps} style={[
+            styles.pickerContainer,
+            styles.inchesPicker,
+            { 
+              backgroundColor: isDarkMode ? '#1A1A1A' : '#f5f5f5',
+              borderColor: isDarkMode ? '#2A2A2A' : '#E5E7EB',
+              borderWidth: 1,
+            }
+          ]}>
             <Picker
               selectedValue={heightInches}
               style={styles.picker}
-              itemStyle={styles.pickerItem}
+              itemStyle={[
+                styles.pickerItem,
+                { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+              ]}
               onValueChange={(itemValue: string) => setHeightInches(itemValue)}
             >
               {Array.from({ length: 12 }, (_, i) => i).map((inch) => (
-                <Picker.Item key={inch} label={`${inch} in`} value={inch.toString()} />
+                <Picker.Item 
+                  key={inch} 
+                  label={`${inch} in`} 
+                  value={inch.toString()}
+                  color={isDarkMode ? colors.text.primary.dark : colors.text.primary.light}
+                />
               ))}
             </Picker>
           </GlassContainer>
@@ -159,8 +210,18 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.background} />
+    <View style={[
+      styles.container,
+      { backgroundColor: isDarkMode ? colors.background.dark : colors.background.light }
+    ]}>
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <LinearGradient
+        colors={isDarkMode ? 
+          [colors.background.dark, colors.background.dark] : 
+          [colors.background.light, '#F5F3FF']
+        }
+        style={StyleSheet.absoluteFill}
+      />
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -183,16 +244,34 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
           ]}
         >
           <View style={styles.header}>
-            <Text style={styles.title}>What's your height and weight?</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[
+              styles.title,
+              { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+            ]}>What's your height and weight?</Text>
+            <Text style={[
+              styles.subtitle,
+              { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+            ]}>
               This helps me calculate your fitness metrics accurately
             </Text>
           </View>
 
-          <View style={styles.card}>
+          <View style={[
+            styles.card,
+            {
+              backgroundColor: isDarkMode ? '#1A1A1A' : '#fff',
+              shadowColor: isDarkMode ? '#000' : '#000',
+              shadowOpacity: isDarkMode ? 0.3 : 0.1,
+              borderColor: isDarkMode ? '#2A2A2A' : 'transparent',
+              borderWidth: 1,
+            }
+          ]}>
             <View style={styles.inputsContainer}>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Height</Text>
+                <Text style={[
+                  styles.label,
+                  { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+                ]}>Height</Text>
                 <View style={styles.heightContainer}>
                   {renderHeightPicker()}
                   <TouchableOpacity
@@ -200,7 +279,10 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
                     onPress={toggleHeightUnit}
                   >
                     <LinearGradient
-                      colors={['#B794F6', '#9F7AEA']}
+                      colors={isDarkMode ? 
+                        [colors.primaryLight, colors.primary] :
+                        ['#B794F6', '#9F7AEA']
+                      }
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[StyleSheet.absoluteFill, styles.unitButtonGradient]}
@@ -211,14 +293,23 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Weight</Text>
+                <Text style={[
+                  styles.label,
+                  { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+                ]}>Weight</Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
-                    style={styles.input}
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDarkMode ? '#2A2A2A' : '#f5f5f5',
+                        color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light,
+                      }
+                    ]}
                     value={weight}
                     onChangeText={setWeight}
                     placeholder={`Enter your weight`}
-                    placeholderTextColor="rgba(0,0,0,0.4)"
+                    placeholderTextColor={isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'}
                     keyboardType="numeric"
                   />
                   <TouchableOpacity
@@ -226,7 +317,10 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
                     onPress={toggleWeightUnit}
                   >
                     <LinearGradient
-                      colors={['#B794F6', '#9F7AEA']}
+                      colors={isDarkMode ? 
+                        [colors.primaryLight, colors.primary] :
+                        ['#B794F6', '#9F7AEA']
+                      }
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[StyleSheet.absoluteFill, styles.unitButtonGradient]}
@@ -248,7 +342,10 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
               disabled={!weight || (heightUnit === 'cm' ? !heightCm : !heightFeet)}
             >
               <LinearGradient
-                colors={['#B794F6', '#9F7AEA']}
+                colors={isDarkMode ? 
+                  [colors.primaryLight, colors.primary] :
+                  ['#B794F6', '#9F7AEA']
+                }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[StyleSheet.absoluteFill, styles.buttonGradient]}
@@ -257,8 +354,14 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
             </TouchableOpacity>
           </View>
 
-          <View style={styles.progressBar}>
-            <View style={[styles.progress, { width: '70%' }]} />
+          <View style={[
+            styles.progressBar,
+            { backgroundColor: isDarkMode ? '#1A1A1A' : 'rgba(99, 102, 241, 0.2)' }
+          ]}>
+            <View style={[
+              styles.progress,
+              { backgroundColor: isDarkMode ? colors.primaryLight : '#6366f1' }
+            ]} />
           </View>
         </Animated.View>
       </ScrollView>
@@ -271,7 +374,6 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   background: {
     position: 'absolute',
@@ -279,7 +381,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '100%',
-    backgroundColor: '#fff',
   },
   scrollView: {
     flex: 1,
@@ -301,27 +402,22 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1a1a1a',
     textAlign: 'center',
     marginTop: 20,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
     textAlign: 'center',
     marginBottom: 20,
   },
   card: {
-    backgroundColor: '#fff',
     borderRadius: 20,
     padding: 20,
     width: '100%',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
         shadowRadius: 8,
       },
       android: {
@@ -339,7 +435,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1a1a1a',
     marginBottom: 8,
   },
   heightContainer: {
@@ -351,7 +446,6 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: Platform.OS === 'ios' ? '#f5f5f5' : '#f5f5f5',
   },
   picker: {
     height: 50,
@@ -379,11 +473,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 50,
-    backgroundColor: '#f5f5f5',
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: '#1a1a1a',
   },
   unitButton: {
     paddingHorizontal: 16,
@@ -415,9 +507,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
         shadowRadius: 8,
       },
       android: {
@@ -440,14 +530,12 @@ const styles = StyleSheet.create({
   progressBar: {
     width: '100%',
     height: 4,
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
     borderRadius: 2,
     marginTop: 40,
     overflow: 'hidden',
   },
   progress: {
     height: '100%',
-    backgroundColor: '#6366f1',
     borderRadius: 2,
   },
 });

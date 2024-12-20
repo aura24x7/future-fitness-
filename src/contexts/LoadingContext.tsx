@@ -161,7 +161,7 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       try {
         await Promise.all([
           // Add any required assets here
-          new Promise(resolve => setTimeout(resolve, 200)), // Minimum display time
+          new Promise(resolve => setTimeout(resolve, 3000)), // Minimum display time of 3 seconds
         ]);
         setLoadingState({ assets: false });
       } catch (error) {

@@ -9,6 +9,9 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
+import { useTheme } from '../../theme/ThemeProvider';
+import { colors } from '../../theme/colors';
+import { StatusBar } from 'expo-status-bar';
 
 type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 
@@ -33,6 +36,7 @@ const genderOptions: { id: Gender; title: string; emoji: string }[] = [
 const GenderScreen = ({ navigation }) => {
   const [selectedGender, setSelectedGender] = useState<Gender | null>(null);
   const { updateOnboardingData } = useOnboarding();
+  const { isDarkMode } = useTheme();
 
   const handleContinue = () => {
     if (selectedGender) {
@@ -42,11 +46,28 @@ const GenderScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[
+      styles.container,
+      { backgroundColor: isDarkMode ? colors.background.dark : colors.background.light }
+    ]}>
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <LinearGradient
+        colors={isDarkMode ? 
+          [colors.background.dark, colors.background.dark] : 
+          [colors.background.light, '#F5F3FF']
+        }
+        style={StyleSheet.absoluteFill}
+      />
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>What's your gender?</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[
+            styles.title,
+            { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+          ]}>What's your gender?</Text>
+          <Text style={[
+            styles.subtitle,
+            { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+          ]}>
             This helps me provide more personalized recommendations
           </Text>
         </View>
@@ -57,6 +78,12 @@ const GenderScreen = ({ navigation }) => {
               key={option.id}
               style={[
                 styles.optionCard,
+                {
+                  backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF',
+                  borderColor: selectedGender === option.id ? 
+                    (isDarkMode ? colors.primaryLight : colors.primary) : 
+                    (isDarkMode ? '#2A2A2A' : '#F2F2F2'),
+                },
                 selectedGender === option.id && styles.selectedOption,
               ]}
               onPress={() => setSelectedGender(option.id)}
@@ -69,7 +96,11 @@ const GenderScreen = ({ navigation }) => {
               </Text>
               <Text style={[
                 styles.optionTitle,
-                selectedGender === option.id && styles.selectedOptionTitle,
+                { color: isDarkMode ? colors.text.secondary.dark : '#666666' },
+                selectedGender === option.id && {
+                  color: isDarkMode ? colors.primaryLight : colors.primary,
+                  fontWeight: '600',
+                },
               ]}>
                 {option.title}
               </Text>
@@ -79,12 +110,18 @@ const GenderScreen = ({ navigation }) => {
 
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.button, !selectedGender && styles.buttonDisabled]}
+            style={[
+              styles.button,
+              { opacity: !selectedGender ? 0.5 : 1 }
+            ]}
             onPress={handleContinue}
             disabled={!selectedGender}
           >
             <LinearGradient
-              colors={['#B794F6', '#9F7AEA']}
+              colors={isDarkMode ? 
+                [colors.primaryLight, colors.primary] :
+                [colors.primaryLight, colors.primary]
+              }
               style={[
                 styles.gradientButton,
                 !selectedGender && styles.gradientButtonDisabled,
@@ -102,8 +139,17 @@ const GenderScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.progressBar}>
-          <View style={[styles.progress]} />
+        <View style={[
+          styles.progressBar,
+          { backgroundColor: isDarkMode ? '#1A1A1A' : '#F2F2F2' }
+        ]}>
+          <View style={[
+            styles.progress,
+            { 
+              width: '50%',
+              backgroundColor: isDarkMode ? colors.primaryLight : colors.primary 
+            }
+          ]} />
         </View>
       </View>
     </SafeAreaView>
@@ -115,7 +161,6 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -129,14 +174,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#1A1A1A',
     marginTop: 24,
     textAlign: 'center',
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
     marginTop: 8,
     textAlign: 'center',
     lineHeight: 22,
@@ -148,7 +191,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   optionCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
@@ -162,10 +204,8 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     borderWidth: 1,
-    borderColor: '#F2F2F2',
   },
   selectedOption: {
-    borderColor: '#9F7AEA',
     borderWidth: 2,
     transform: [{ scale: 1.02 }],
   },
@@ -179,13 +219,8 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.1 }],
   },
   optionTitle: {
-    color: '#666666',
     fontSize: 15,
     fontWeight: '500',
-  },
-  selectedOptionTitle: {
-    color: '#9F7AEA',
-    fontWeight: '600',
   },
   footer: {
     marginBottom: 40,
@@ -195,9 +230,6 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     overflow: 'hidden',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
   },
   gradientButton: {
     width: '100%',
@@ -220,14 +252,11 @@ const styles = StyleSheet.create({
   progressBar: {
     width: '100%',
     height: 4,
-    backgroundColor: '#F2F2F2',
     borderRadius: 2,
     marginTop: 20,
   },
   progress: {
-    width: '50%',
     height: '100%',
-    backgroundColor: '#9F7AEA',
     borderRadius: 2,
   },
 });

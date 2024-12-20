@@ -3,6 +3,7 @@ import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TamaguiProvider } from 'tamagui';
 import config from '../tamagui.config';
+import { colors } from './colors';
 
 interface ThemeColors {
   primary: string;
@@ -15,23 +16,23 @@ interface ThemeColors {
 }
 
 const lightColors: ThemeColors = {
-  primary: '#6366F1',
-  secondary: '#818CF8',
-  background: '#F9FAFB',
-  cardBackground: '#FFFFFF',
-  text: '#1F2937',
-  textSecondary: '#6B7280',
-  border: '#E5E7EB',
+  primary: colors.primary,
+  secondary: colors.primaryLight,
+  background: colors.background.light,
+  cardBackground: colors.background.card.light,
+  text: colors.text.primary.light,
+  textSecondary: colors.text.secondary.light,
+  border: colors.border.light,
 };
 
 const darkColors: ThemeColors = {
-  primary: '#818CF8',
-  secondary: '#6366F1',
-  background: '#000000',
-  cardBackground: '#000000',
-  text: '#FFFFFF',
-  textSecondary: '#94A3B8',
-  border: '#374151',
+  primary: colors.primaryLight,
+  secondary: colors.primary,
+  background: colors.background.dark,
+  cardBackground: colors.background.card.dark,
+  text: colors.text.primary.dark,
+  textSecondary: colors.text.secondary.dark,
+  border: colors.border.dark,
 };
 
 type ThemeContextType = {

@@ -12,15 +12,15 @@ export const colors = {
     dark: '#000000',            // AMOLED black
     card: {
       light: '#FFFFFF',
-      dark: '#000000'           // Updated to AMOLED black
+      dark: '#000000'           // AMOLED black
     },
     secondary: {
       light: '#F3F4F6',
-      dark: '#000000'           // Updated to AMOLED black
+      dark: '#000000'           // AMOLED black
     },
     input: {
       light: '#F3F4F6',
-      dark: '#000000'           // Updated to AMOLED black
+      dark: '#000000'           // AMOLED black
     }
   },
 
@@ -28,15 +28,15 @@ export const colors = {
   text: {
     primary: {
       light: '#111827',
-      dark: '#FFFFFF'           // Updated for better contrast
+      dark: '#FFFFFF'           // Maximum contrast for AMOLED
     },
     secondary: {
       light: '#6B7280',
-      dark: '#94A3B8'           // Updated for better contrast
+      dark: '#94A3B8'           // Adjusted for AMOLED contrast
     },
     accent: {
       light: '#8B5CF6',
-      dark: '#818CF8'           // Updated for better contrast
+      dark: '#818CF8'           // Adjusted for AMOLED visibility
     }
   },
 
@@ -45,7 +45,7 @@ export const colors = {
     indicator: '#FF6B6B',
     background: {
       light: '#E5E7EB',
-      dark: '#374151'
+      dark: '#1A1A1A'           // Subtle dark for progress background
     },
     success: {
       light: '#10B981',
@@ -68,7 +68,7 @@ export const colors = {
   // Border Colors
   border: {
     light: '#E5E7EB',
-    dark: '#374151',
+    dark: '#1A1A1A',            // Subtle border for AMOLED
     focus: {
       light: '#8B5CF6',
       dark: '#A78BFA'
@@ -79,13 +79,14 @@ export const colors = {
   gradient: {
     primary: ['#6366F1', '#818CF8'],    // Indigo gradient
     secondary: ['#3B82F6', '#60A5FA'],   // Blue gradient
+    dark: ['#000000', '#000000'],        // AMOLED black gradient
   },
 
   // Input Colors
   input: {
     background: {
       light: '#FFFFFF',
-      dark: '#000000'           // Updated to AMOLED black
+      dark: '#000000'           // AMOLED black
     },
     placeholder: {
       light: '#9CA3AF',
@@ -93,7 +94,7 @@ export const colors = {
     },
     border: {
       light: '#E5E7EB',
-      dark: '#374151',
+      dark: '#1A1A1A',          // Subtle border for AMOLED
       focus: {
         light: '#8B5CF6',
         dark: '#A78BFA'
@@ -105,11 +106,11 @@ export const colors = {
   chart: {
     grid: {
       light: '#E5E7EB',
-      dark: '#374151'
+      dark: '#1A1A1A'           // Subtle grid for AMOLED
     },
     label: {
       light: '#6B7280',
-      dark: '#9CA3AF'
+      dark: '#94A3B8'
     }
   }
 } as const;
