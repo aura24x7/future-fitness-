@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Platform,
   Dimensions,
   Animated,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
@@ -67,31 +68,92 @@ const LifestyleScreen = ({ navigation }) => {
   const [selectedLifestyle, setSelectedLifestyle] = useState<Lifestyle | null>(null);
   const { updateOnboardingData } = useOnboarding();
   const insets = useSafeAreaInsets();
-  const [scaleAnim] = useState(() => new Animated.Value(1));
   const { isDarkMode } = useTheme();
 
-  const handleOptionPress = (lifestyle: Lifestyle) => {
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 0.95,
-        duration: 100,
+  // Animation values
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+  const buttonScaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Initial animation
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 100,
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
     ]).start();
-    setSelectedLifestyle(lifestyle);
-  };
+  }, []);
 
-  const handleContinue = async () => {
+  const handleOptionPress = useCallback((lifestyle: Lifestyle) => {
+    // Card press animation
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.97,
+        duration: 100,
+        easing: Easing.inOut(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 5,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    setSelectedLifestyle(lifestyle);
+  }, []);
+
+  const handleContinuePress = useCallback(() => {
+    // Button press animation
+    Animated.sequence([
+      Animated.timing(buttonScaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        easing: Easing.inOut(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(buttonScaleAnim, {
+        toValue: 1,
+        friction: 4,
+        tension: 50,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handleContinue = useCallback(async () => {
     if (selectedLifestyle) {
-      await updateOnboardingData({ lifestyle: selectedLifestyle });
-      navigation.navigate('FinalSetup');
+      handleContinuePress();
+      // Add slight delay for animation
+      setTimeout(async () => {
+        await updateOnboardingData({ lifestyle: selectedLifestyle });
+        navigation.navigate('FinalSetup');
+      }, 150);
     }
-  };
+  }, [selectedLifestyle, navigation, updateOnboardingData]);
+
+  const getOptionAnimationStyle = useCallback((index: number) => {
+    return {
+      opacity: fadeAnim,
+      transform: [
+        { translateY: slideAnim },
+        { 
+          scale: selectedLifestyle ? scaleAnim : 1
+        }
+      ],
+    };
+  }, [fadeAnim, slideAnim, scaleAnim, selectedLifestyle]);
 
   return (
     <View style={[
@@ -105,7 +167,7 @@ const LifestyleScreen = ({ navigation }) => {
       <LinearGradient
         colors={isDarkMode ? 
           [colors.background.dark, colors.background.dark] : 
-          [colors.background.light, '#F5F3FF']
+          ['#FFFFFF', '#F5F3FF']
         }
         style={StyleSheet.absoluteFill}
       />
@@ -114,10 +176,18 @@ const LifestyleScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 100 }
+          { paddingBottom: insets.bottom + 120 }
         ]}
       >
-        <View style={styles.content}>
+        <Animated.View 
+          style={[
+            styles.content,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }]
+            }
+          ]}
+        >
           <View style={styles.header}>
             <Text style={[
               styles.title,
@@ -132,113 +202,132 @@ const LifestyleScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.optionsContainer}>
-            {lifestyleOptions.map((option) => (
+            {lifestyleOptions.map((option, index) => (
               <Animated.View
                 key={option.id}
-                style={[
-                  { transform: [{ scale: selectedLifestyle === option.id ? scaleAnim : 1 }] }
-                ]}
+                style={[getOptionAnimationStyle(index)]}
               >
                 <TouchableOpacity
-                  style={[
-                    styles.optionCard,
-                    {
-                      backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF',
-                      borderColor: selectedLifestyle === option.id ? 
-                        (isDarkMode ? colors.primaryLight : colors.primary) : 
-                        'transparent',
-                    },
-                    selectedLifestyle === option.id && styles.selectedOption,
-                  ]}
                   onPress={() => handleOptionPress(option.id)}
-                  activeOpacity={0.9}
+                  activeOpacity={0.85}
                 >
-                  <View style={styles.optionHeader}>
-                    <View style={[
-                      styles.iconContainer,
+                  <LinearGradient
+                    colors={isDarkMode ?
+                      [selectedLifestyle === option.id ? '#2A2A2A' : '#1A1A1A', 
+                       selectedLifestyle === option.id ? '#252525' : '#151515']
+                      : 
+                      [selectedLifestyle === option.id ? '#FFFFFF' : '#FAFAFA',
+                       selectedLifestyle === option.id ? '#F8F8F8' : '#F5F5F5']
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0.8 }}
+                    style={[
+                      styles.optionCard,
                       {
-                        backgroundColor: isDarkMode ? '#2A2A2A' : '#F3F4F6',
+                        borderColor: selectedLifestyle === option.id ? 
+                          (isDarkMode ? colors.primaryLight : colors.primary) : 
+                          (isDarkMode ? '#2A2A2A' : 'rgba(0,0,0,0.06)'),
                       },
-                      selectedLifestyle === option.id && {
-                        backgroundColor: isDarkMode ? colors.primaryLight : colors.primary,
-                      }
-                    ]}>
-                      <Ionicons
-                        name={option.icon}
-                        size={24}
-                        color={selectedLifestyle === option.id ? '#FFFFFF' : 
-                          (isDarkMode ? colors.text.primary.dark : '#6B7280')}
-                      />
+                      selectedLifestyle === option.id && styles.selectedOption,
+                    ]}
+                  >
+                    <View style={styles.optionHeader}>
+                      <LinearGradient
+                        colors={selectedLifestyle === option.id ?
+                          isDarkMode ? 
+                            [colors.primaryLight, colors.primary] :
+                            [colors.primary, colors.primaryLight]
+                          :
+                          isDarkMode ?
+                            ['#2A2A2A', '#252525'] :
+                            ['#F3F4F6', '#E5E7EB']
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.iconContainer}
+                      >
+                        <Ionicons
+                          name={option.icon}
+                          size={22}
+                          color={selectedLifestyle === option.id ? '#FFFFFF' : 
+                            (isDarkMode ? colors.text.primary.dark : '#6B7280')}
+                        />
+                      </LinearGradient>
+                      <Text style={[
+                        styles.optionTitle,
+                        { 
+                          color: isDarkMode ? 
+                            (selectedLifestyle === option.id ? colors.primaryLight : colors.text.primary.dark) : 
+                            (selectedLifestyle === option.id ? colors.primary : '#1F2937')
+                        }
+                      ]}>
+                        {option.title}
+                      </Text>
                     </View>
                     <Text style={[
-                      styles.optionTitle,
-                      { color: isDarkMode ? colors.text.primary.dark : '#1F2937' },
-                      selectedLifestyle === option.id && {
-                        color: isDarkMode ? colors.primaryLight : colors.primary,
+                      styles.optionDescription,
+                      { 
+                        color: isDarkMode ? 
+                          (selectedLifestyle === option.id ? '#E5E7EB' : colors.text.secondary.dark) : 
+                          (selectedLifestyle === option.id ? '#4C1D95' : '#4B5563')
                       }
                     ]}>
-                      {option.title}
+                      {option.description}
                     </Text>
-                  </View>
-                  <Text style={[
-                    styles.optionDescription,
-                    { color: isDarkMode ? colors.text.secondary.dark : '#4B5563' },
-                    selectedLifestyle === option.id && {
-                      color: isDarkMode ? colors.text.primary.dark : '#6D28D9',
-                    }
-                  ]}>
-                    {option.description}
-                  </Text>
-                  <Text style={[
-                    styles.optionExamples,
-                    { color: isDarkMode ? colors.text.secondary.dark : '#6B7280' },
-                    selectedLifestyle === option.id && {
-                      color: isDarkMode ? colors.text.secondary.dark : '#8B5CF6',
-                    }
-                  ]}>
-                    {option.examples}
-                  </Text>
+                    <Text style={[
+                      styles.optionExamples,
+                      { 
+                        color: isDarkMode ? 
+                          (selectedLifestyle === option.id ? '#D1D5DB' : colors.text.secondary.dark) : 
+                          (selectedLifestyle === option.id ? '#7C3AED' : '#6B7280')
+                      }
+                    ]}>
+                      {option.examples}
+                    </Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               </Animated.View>
             ))}
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
 
-      <View style={[
-        styles.footer,
-        { 
-          paddingBottom: insets.bottom + 16,
-          backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-        }
-      ]}>
+      <Animated.View 
+        style={[
+          styles.footer,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: Animated.multiply(slideAnim, -1) }]
+          }
+        ]}
+      >
         <TouchableOpacity
-          style={[
-            styles.continueButton,
-            selectedLifestyle ? styles.continueButtonActive : styles.continueButtonInactive,
-            {
-              backgroundColor: selectedLifestyle ? 
-                (isDarkMode ? colors.primaryLight : colors.primary) : 
-                (isDarkMode ? '#2A2A2A' : '#F3F4F6'),
-            }
-          ]}
           onPress={handleContinue}
           disabled={!selectedLifestyle}
-          activeOpacity={0.8}
         >
-          <Text style={[
-            styles.continueButtonText,
-            selectedLifestyle ? styles.continueButtonTextActive : styles.continueButtonTextInactive,
-            {
-              color: selectedLifestyle ? 
-                '#FFFFFF' : 
-                (isDarkMode ? colors.text.secondary.dark : '#9CA3AF'),
-            }
-          ]}>
-            Continue
-          </Text>
+          <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
+            <LinearGradient
+              colors={isDarkMode ? 
+                [colors.primaryLight, colors.primary] :
+                [colors.primary, colors.primaryLight]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[
+                styles.continueButton,
+                !selectedLifestyle && { opacity: 0.5 }
+              ]}
+            >
+              <Text style={[
+                styles.continueButtonText,
+                { color: '#FFFFFF' }
+              ]}>
+                Continue
+              </Text>
+            </LinearGradient>
+          </Animated.View>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </View>
   );
 };
@@ -254,29 +343,32 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   content: {
-    padding: 24,
+    padding: 20,
   },
   header: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 12,
-    letterSpacing: 0.37,
+    fontWeight: '800',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+    lineHeight: 34,
   },
   subtitle: {
-    fontSize: 17,
+    fontSize: 16,
+    fontWeight: '400',
     lineHeight: 22,
-    letterSpacing: -0.41,
+    letterSpacing: -0.2,
+    opacity: 0.85,
   },
   optionsContainer: {
-    gap: 16,
+    gap: 12,
   },
   optionCard: {
     borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
+    padding: 16,
+    borderWidth: 1.5,
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -285,12 +377,12 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
       },
       android: {
-        elevation: 3,
+        elevation: 2,
       },
     }),
   },
   selectedOption: {
-    borderWidth: 1,
+    borderWidth: 2,
     ...Platform.select({
       ios: {
         shadowColor: '#8B5CF6',
@@ -299,7 +391,7 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
       },
       android: {
-        elevation: 6,
+        elevation: 4,
       },
     }),
   },
@@ -307,7 +399,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    gap: 16,
+    gap: 14,
   },
   iconContainer: {
     width: 44,
@@ -315,47 +407,59 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   optionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    letterSpacing: 0.38,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    lineHeight: 24,
   },
   optionDescription: {
-    fontSize: 17,
+    fontSize: 15,
+    fontWeight: '400',
     marginBottom: 8,
-    letterSpacing: -0.41,
-    lineHeight: 22,
+    letterSpacing: -0.3,
+    lineHeight: 20,
   },
   optionExamples: {
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: '400',
     fontStyle: 'italic',
-    letterSpacing: -0.24,
-    lineHeight: 20,
+    letterSpacing: -0.2,
+    lineHeight: 18,
+    opacity: 0.75,
   },
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 16,
-    backdropFilter: 'blur(20px)',
+    paddingBottom: 24,
+    backgroundColor: 'transparent',
   },
   continueButton: {
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',
   },
-  continueButtonActive: {},
-  continueButtonInactive: {},
   continueButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
-    letterSpacing: -0.41,
+    letterSpacing: 0.1,
   },
-  continueButtonTextActive: {},
-  continueButtonTextInactive: {},
 });
 
 export default LifestyleScreen;

@@ -328,6 +328,11 @@ const DashboardScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
+          {/* Simple Food Log Section */}
+          <SimpleFoodLogSection 
+            onScanFood={handleScanFood}
+          />
+
           {/* Shortcut Buttons */}
           <View style={styles.shortcutContainer}>
             <ShortcutButton
@@ -383,11 +388,6 @@ const DashboardScreen = ({ navigation }) => {
               }}
             />
           </View>
-
-          {/* Simple Food Log Section */}
-          <SimpleFoodLogSection 
-            onScanFood={handleScanFood}
-          />
         </View>
       </ScrollView>
       <BottomTaskbar />

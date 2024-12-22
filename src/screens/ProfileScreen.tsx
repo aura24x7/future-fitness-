@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, Dimensions, Platform, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Dimensions, Platform, Switch, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native';
@@ -16,6 +16,38 @@ import { calculateBMI, calculateBMR, calculateTDEE, calculateRecommendedCalories
 import { userProfileService } from '../services/userProfileService';
 
 const { width } = Dimensions.get('window');
+
+type Gender = 'MALE' | 'FEMALE' | 'OTHER';
+type ValidGender = 'MALE' | 'FEMALE';
+
+const getValidGender = (gender: Gender | undefined): ValidGender => {
+  if (!gender || gender === 'OTHER') return 'MALE';
+  return gender;
+};
+
+interface ProfileStats {
+  totalWorkouts: number;
+  totalCaloriesBurned: number;
+  totalHours: number;
+}
+
+interface UserStats {
+  workouts: number;
+  calories: number;
+  hours: number;
+}
+
+interface UserProfile {
+  email?: string;
+  stats?: ProfileStats;
+  joinedDate?: string;
+  state?: string;
+}
+
+interface GlassBackgroundProps {
+  children: React.ReactNode;
+  style?: ViewStyle;
+}
 
 type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Profile'>;
 
@@ -49,6 +81,19 @@ const getCalorieAdjustmentDescription = (
       };
   }
 };
+
+interface OnboardingData {
+  name?: string;
+  height?: { value: number; unit: string };
+  weight?: { value: number; unit: string };
+  targetWeight?: { value: number; unit: string };
+  birthday?: string;
+  gender?: Gender;
+  lifestyle?: string;
+  workoutPreference?: string;
+  dietaryPreference?: string;
+  weightGoal?: string;
+}
 
 const ProfileScreen = () => {
   const { onboardingData, resetOnboarding } = useOnboarding();
@@ -86,7 +131,7 @@ const ProfileScreen = () => {
     syncProfileWithOnboarding();
   }, [onboardingData]);
 
-  const formatLifestyle = (lifestyle: string) => {
+  const formatLifestyle = (lifestyle?: string) => {
     if (!lifestyle) return '--';
     return lifestyle
       .split('_')
@@ -94,7 +139,7 @@ const ProfileScreen = () => {
       .join(' ');
   };
 
-  const formatWorkoutType = (workoutType: string) => {
+  const formatWorkoutType = (workoutType?: string) => {
     if (!workoutType) return '--';
     return workoutType
       .split('_')
@@ -102,7 +147,7 @@ const ProfileScreen = () => {
       .join(' ');
   };
 
-  const formatDietType = (dietType: string) => {
+  const formatDietType = (dietType?: string) => {
     if (!dietType) return '--';
     return dietType
       .split('_')
@@ -258,10 +303,10 @@ const ProfileScreen = () => {
     return null;
   }, [onboardingData.birthday]);
 
-  const userStats = {
-    workouts: profile?.stats?.totalWorkouts || 0,
-    calories: profile?.stats?.totalCaloriesBurned || 0,
-    hours: profile?.stats?.totalHours || 0,
+  const userStats: UserStats = {
+    workouts: profile?.stats?.totalWorkouts ?? 0,
+    calories: profile?.stats?.totalCaloriesBurned ?? 0,
+    hours: profile?.stats?.totalHours ?? 0,
   };
 
   const handleSettingsPress = () => {
@@ -284,25 +329,16 @@ const ProfileScreen = () => {
       age--;
     }
 
-    console.log('Calculated age:', age);
-
     const bmr = calculateBMR(
       onboardingData.weight.value,
       onboardingData.height.value,
       age,
-      onboardingData.gender,
+      (onboardingData.gender as Gender) || 'MALE',
       onboardingData.weight.unit === 'kg' ? 'metric' : 'imperial'
     );
 
-    console.log('BMR calculated:', bmr);
-    console.log('Lifestyle:', onboardingData.lifestyle);
-
-    const tdee = calculateTDEE(bmr, onboardingData.lifestyle);
-    console.log('TDEE calculated:', tdee);
-    console.log('Weight Goal:', onboardingData.weightGoal);
-
-    const calories = calculateRecommendedCalories(tdee, onboardingData.weightGoal);
-    console.log('Final calories calculated:', calories);
+    const tdee = calculateTDEE(bmr, onboardingData.lifestyle || '');
+    const calories = calculateRecommendedCalories(tdee, onboardingData.weightGoal || '');
     
     return calories;
   }, [onboardingData]);
@@ -316,26 +352,30 @@ const ProfileScreen = () => {
     }
   };
 
-  const GlassBackground = ({ children, style }) => {
-    return Platform.OS === 'ios' ? (
-      <BlurView
-        tint={isDarkMode ? "dark" : "light"}
-        intensity={isDarkMode ? 50 : 30}
-        style={[styles.glassBackground, style]}
+  const GlassBackground: React.FC<GlassBackgroundProps> = ({ children, style }) => {
+    if (Platform.OS === 'ios') {
+      return (
+        <BlurView
+          tint={isDarkMode ? "dark" : "light"}
+          intensity={isDarkMode ? 50 : 30}
+          style={[styles.glassBackground, style]}
+        >
+          {children}
+        </BlurView>
+      );
+    }
+
+    return (
+      <View 
+        style={[
+          styles.glassBackground,
+          {
+            backgroundColor: isDarkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)',
+          },
+          style
+        ]}
       >
-        <View style={[styles.glassContent, { backgroundColor: 'transparent' }]}>
-          {children}
-        </View>
-      </BlurView>
-    ) : (
-      <View style={[
-        styles.glassBackgroundAndroid,
-        { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)' },
-        style
-      ]}>
-        <View style={[styles.glassContent, { backgroundColor: 'transparent' }]}>
-          {children}
-        </View>
+        {children}
       </View>
     );
   };
@@ -419,7 +459,9 @@ const ProfileScreen = () => {
                 color={colors.textSecondary} 
               />
               <Text style={[styles.joinedText, { color: colors.textSecondary }]}>
-                {profile?.joinedDate ? `Joined ${new Date(profile.joinedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` : 'New Member'}
+                {profile?.joinedDate 
+                  ? `Joined ${new Date(profile.joinedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` 
+                  : 'New Member'}
               </Text>
             </View>
           </View>
@@ -432,15 +474,19 @@ const ProfileScreen = () => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        <LinearGradient
-          colors={isDarkMode ? 
-            ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)'] :
-            ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']
-          }
-          style={[styles.section, styles.glassEffect]}
+        <View
+          style={[
+            styles.section,
+            styles.glassEffect,
+            {
+              backgroundColor: isDarkMode ? colors.cardBackground : colors.background,
+              borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              borderWidth: 1,
+            }
+          ]}
         >
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            <Ionicons name="body-outline" size={20} color={colors.primary} /> Basic Information
+            <Ionicons name="person-outline" size={20} color={colors.primary} /> Basic Information
           </Text>
           <View style={styles.infoGrid}>
             <View style={styles.infoItem}>
@@ -514,13 +560,20 @@ const ProfileScreen = () => {
               </Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Daily Calories</Text>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Daily Calories</Text>
               <View>
-                <Text style={styles.infoValue}>
+                <Text style={[styles.infoValue, { 
+                  color: colors.text,
+                  fontSize: 18,
+                  fontWeight: '700'
+                }]}>
                   {calculatedCalories ? `${calculatedCalories.toLocaleString()} kcal` : '--'}
                 </Text>
                 {calculatedCalories && (
-                  <Text style={[styles.calorieDescription, { color: colors.primary }]}>
+                  <Text style={[styles.calorieDescription, { 
+                    color: isDarkMode ? colors.primary : '#6366F1',
+                    fontWeight: '600'
+                  }]}>
                     {onboardingData?.weightGoal === 'LOSE_WEIGHT' ? '20% calorie deficit' :
                      onboardingData?.weightGoal === 'GAIN_WEIGHT' ? '10% calorie surplus' :
                      'Maintenance calories'}
@@ -529,58 +582,18 @@ const ProfileScreen = () => {
               </View>
             </View>
           </View>
-        </LinearGradient>
-
-        <View style={styles.statsContainer}>
-          <LinearGradient
-            colors={isDarkMode ? 
-              ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)'] :
-              ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']
-            }
-            style={[styles.statCard, styles.glassEffect]}
-          >
-            <View style={[styles.statIconContainer, { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
-              <Ionicons name="body-outline" size={24} color={colors.primary} />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{userData.lifestyle}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Lifestyle</Text>
-          </LinearGradient>
-          
-          <LinearGradient
-            colors={isDarkMode ? 
-              ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)'] :
-              ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']
-            }
-            style={[styles.statCard, styles.glassEffect]}
-          >
-            <View style={[styles.statIconContainer, { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
-              <Ionicons name="barbell-outline" size={24} color={colors.primary} />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{userData.workoutType}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Workout Type</Text>
-          </LinearGradient>
-          
-          <LinearGradient
-            colors={isDarkMode ? 
-              ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)'] :
-              ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']
-            }
-            style={[styles.statCard, styles.glassEffect]}
-          >
-            <View style={[styles.statIconContainer, { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
-              <Ionicons name="time-outline" size={24} color={colors.primary} />
-            </View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{userStats.hours}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Hours</Text>
-          </LinearGradient>
         </View>
 
-        <LinearGradient
-          colors={isDarkMode ? 
-            ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)'] :
-            ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']
-          }
-          style={[styles.section, styles.glassEffect]}
+        <View
+          style={[
+            styles.section,
+            styles.glassEffect,
+            {
+              backgroundColor: isDarkMode ? colors.cardBackground : colors.background,
+              borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              borderWidth: 1,
+            }
+          ]}
         >
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             <Ionicons name="settings-outline" size={20} color={colors.primary} /> Settings
@@ -633,11 +646,23 @@ const ProfileScreen = () => {
             </View>
             <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
-        </LinearGradient>
+        </View>
 
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity 
+          style={[
+            styles.logoutButton,
+            {
+              backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+              borderWidth: 1,
+              borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)',
+            }
+          ]}
+        >
           <Ionicons name="log-out-outline" size={24} color="#ef4444" />
-          <Text style={[styles.logoutButtonText, { color: colors.text }]}>Log Out</Text>
+          <Text style={[styles.logoutButtonText, { 
+            color: '#ef4444',
+            fontWeight: '600'
+          }]}>Log Out</Text>
         </TouchableOpacity>
       </AnimatedScrollView>
     </View>
@@ -766,17 +791,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   glassEffect: {
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    overflow: 'hidden',
   },
   sectionTitle: {
     fontSize: 18,
@@ -817,37 +845,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     maxWidth: width * 0.35,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  statCard: {
-    flex: 1,
-    marginHorizontal: 5,
-    padding: 15,
-    borderRadius: 15,
-    alignItems: 'center',
-  },
-  statIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 4,
-  },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -869,16 +866,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    padding: 15,
-    borderRadius: 15,
+    padding: 16,
+    borderRadius: 16,
     marginBottom: 30,
   },
   logoutButtonText: {
-    color: '#ef4444',
     fontSize: 16,
-    fontWeight: '600',
     marginLeft: 10,
+  },
+  glassBackground: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        backgroundColor: 'transparent',
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  glassContent: {
+    padding: 20,
   },
 });
 

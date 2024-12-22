@@ -12,7 +12,7 @@ const { width } = Dimensions.get('window');
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const BottomTaskbar = () => {
-  const { colors } = useTheme();
+  const { colors, isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
 
@@ -32,12 +32,21 @@ const BottomTaskbar = () => {
         onPress={() => navigation.navigate('ProfileGroups')}
       >
         <View style={styles.iconContainer}>
-          <Ionicons
-            name="people"
-            size={24}
-            color={colors.primary}
-          />
-          <Text style={[styles.label, { color: colors.text }]}>Groups</Text>
+          <View style={[styles.iconWrapper, {
+            backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : '#22C55E20',
+          }]}>
+            <Ionicons
+              name="people"
+              size={24}
+              color="#22C55E"
+            />
+          </View>
+          <Text style={[styles.label, { 
+            color: colors.text,
+            fontSize: 13,
+            fontWeight: '600',
+            marginTop: 4
+          }]}>Social</Text>
         </View>
       </TouchableOpacity>
 
@@ -46,12 +55,21 @@ const BottomTaskbar = () => {
         onPress={() => navigation.navigate('FoodTextInput')}
       >
         <View style={styles.iconContainer}>
-          <Ionicons
-            name="text"
-            size={24}
-            color={colors.primary}
-          />
-          <Text style={[styles.label, { color: colors.text }]}>Text Log</Text>
+          <View style={[styles.iconWrapper, {
+            backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.2)' : '#6366F120',
+          }]}>
+            <Ionicons
+              name="search-outline"
+              size={24}
+              color="#6366F1"
+            />
+          </View>
+          <Text style={[styles.label, { 
+            color: colors.text,
+            fontSize: 13,
+            fontWeight: '600',
+            marginTop: 4
+          }]}>Text Log</Text>
         </View>
       </TouchableOpacity>
 
@@ -60,20 +78,21 @@ const BottomTaskbar = () => {
         onPress={() => navigation.navigate('FoodScanner')}
       >
         <View style={[styles.iconContainer, styles.scanContainer]}>
-          <View style={styles.scanIconWrapper}>
+          <View style={[styles.scanIconWrapper, {
+            backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#EF444420',
+          }]}>
             <Ionicons
               name="scan-outline"
-              size={22}
-              color={colors.primary}
-            />
-            <Ionicons
-              name="star"
-              size={12}
-              color={colors.primary}
-              style={styles.starIcon}
+              size={24}
+              color="#EF4444"
             />
           </View>
-          <Text style={[styles.label, { color: colors.text }]}>AI Scan</Text>
+          <Text style={[styles.label, { 
+            color: colors.text,
+            fontSize: 13,
+            fontWeight: '600',
+            marginTop: 4
+          }]}>Scan Food</Text>
         </View>
       </TouchableOpacity>
     </View>
@@ -121,22 +140,26 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   scanIconWrapper: {
-    position: 'relative',
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  starIcon: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
+    marginBottom: 4,
   },
   label: {
     fontSize: 12,
     marginTop: 2,
-    fontWeight: '600',
+    fontWeight: '500',
     letterSpacing: -0.2,
+  },
+  iconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
 });
 

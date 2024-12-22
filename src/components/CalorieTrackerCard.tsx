@@ -33,9 +33,30 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
   const circumference = radius * 2 * Math.PI;
 
   const macroNutrients = [
-    { name: 'Carbs', value: macros.carbs || 0, color: colors.macros.carbs, icon: 'nutrition', unit: 'g' },
-    { name: 'Protein', value: macros.protein || 0, color: colors.macros.protein, icon: 'fish', unit: 'g' },
-    { name: 'Fats', value: macros.fat || 0, color: colors.macros.fats, icon: 'water', unit: 'g' },
+    { 
+      name: 'Carbs', 
+      value: macros.carbs || 0, 
+      color: colors.macros.carbs, 
+      icon: 'nutrition', 
+      unit: 'g',
+      target: Math.round((targetCalories * 0.45) / 4) // 45% of calories, 4 cal/g for carbs
+    },
+    { 
+      name: 'Protein', 
+      value: macros.protein || 0, 
+      color: colors.macros.protein, 
+      icon: 'fish', 
+      unit: 'g',
+      target: Math.round((targetCalories * 0.30) / 4) // 30% of calories, 4 cal/g for protein
+    },
+    { 
+      name: 'Fats', 
+      value: macros.fat || 0, 
+      color: colors.macros.fats, 
+      icon: 'water', 
+      unit: 'g',
+      target: Math.round((targetCalories * 0.25) / 9) // 25% of calories, 9 cal/g for fats
+    },
   ];
 
   const progress = React.useMemo(() => 
@@ -181,6 +202,24 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
               ]}>
                 {Math.round(macro.value)}{macro.unit}
               </Text>
+              <Text style={[
+                styles.macroTarget,
+                { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
+              ]}>
+                of {macro.target}{macro.unit}
+              </Text>
+              <View style={[
+                styles.progressBarContainer,
+                { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+              ]}>
+                <View style={[
+                  styles.progressBar,
+                  {
+                    width: `${Math.min((macro.value / macro.target) * 100, 100)}%`,
+                    backgroundColor: macro.color,
+                  }
+                ]} />
+              </View>
             </View>
           </View>
         ))}
@@ -275,6 +314,23 @@ const styles = StyleSheet.create({
   macroValue: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  macroTarget: {
+    fontSize: 12,
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  progressBarContainer: {
+    height: 6,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 3,
+    width: '100%',
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 3,
   },
 });
 
