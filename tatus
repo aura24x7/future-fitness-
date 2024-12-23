@@ -1,0 +1,5 @@
+[33md1a4c4e4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mbackup/phase1-cleanup[m[33m)[m Update UI components and add documentation files
+[33m7e734263[m Update onboarding screens and implement dark mode support
+[33me8c66bfe[m feat: Implement food logging system with Gemini AI integration
+[33mc1064971[m refactor: update project structure and dependencies
+[33me7af926d[m test: add test directory and initial test setup

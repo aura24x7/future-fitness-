@@ -14,9 +14,6 @@ import ManageInvitesScreen from '../screens/ManageInvitesScreen';
 import AddIndividualScreen from '../screens/AddIndividualScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
-import FoodLogScreen from '../screens/FoodLogScreen';
-import ProgressScreen from '../screens/ProgressScreen';
-import WorkoutScreen from '../screens/WorkoutScreen';
 import FoodTextInputScreen from '../screens/FoodTextInputScreen';
 
 // Import custom bottom taskbar
@@ -41,13 +38,13 @@ const MainNavigator = () => {
         }}
       />
 
-      {/* Profile Screen */}
+      {/* Food Scanner Screen */}
       <Stack.Screen
-        name="Profile"
-        component={ProfileScreen}
+        name="FoodScanner"
+        component={FoodScannerScreen}
         options={{
           headerShown: true,
-          title: 'Profile',
+          title: 'Scan Food',
           headerStyle: {
             backgroundColor: 'transparent',
           },
@@ -59,13 +56,13 @@ const MainNavigator = () => {
         }}
       />
 
-      {/* Food Log Screen */}
+      {/* Food Text Input Screen */}
       <Stack.Screen
-        name="FoodLog"
-        component={FoodLogScreen}
+        name="FoodTextInput"
+        component={FoodTextInputScreen}
         options={{
           headerShown: true,
-          title: 'Food Log',
+          title: 'Enter Food',
           headerStyle: {
             backgroundColor: 'transparent',
           },
@@ -77,31 +74,13 @@ const MainNavigator = () => {
         }}
       />
 
-      {/* Progress Screen */}
+      {/* Scanned Food Details Screen */}
       <Stack.Screen
-        name="Progress"
-        component={ProgressScreen}
+        name="ScannedFoodDetails"
+        component={ScannedFoodDetailsScreen}
         options={{
           headerShown: true,
-          title: 'Progress',
-          headerStyle: {
-            backgroundColor: 'transparent',
-          },
-          headerTransparent: true,
-          headerTintColor: '#6366f1',
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
-        }}
-      />
-
-      {/* Workout Screen */}
-      <Stack.Screen
-        name="Workouts"
-        component={WorkoutScreen}
-        options={{
-          headerShown: true,
-          title: 'Workouts',
+          title: 'Food Details',
           headerStyle: {
             backgroundColor: 'transparent',
           },
@@ -163,32 +142,23 @@ const MainNavigator = () => {
         }}
       />
 
-      {/* Food Related Screens */}
+      {/* Profile & Settings */}
       <Stack.Screen
-        name="FoodScanner"
-        component={FoodScannerScreen}
+        name="Profile"
+        component={ProfileScreen}
         options={{
           headerShown: true,
-          title: 'Scan Food'
+          title: 'Profile',
+          headerStyle: {
+            backgroundColor: 'transparent',
+          },
+          headerTransparent: true,
+          headerTintColor: '#6366f1',
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
         }}
       />
-      <Stack.Screen
-        name="FoodTextInput"
-        component={FoodTextInputScreen}
-        options={{
-          headerShown: false
-        }}
-      />
-      <Stack.Screen
-        name="ScannedFoodDetails"
-        component={ScannedFoodDetailsScreen}
-        options={{
-          headerShown: true,
-          title: 'Food Details'
-        }}
-      />
-
-      {/* Settings */}
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}

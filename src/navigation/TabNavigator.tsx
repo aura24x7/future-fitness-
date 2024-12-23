@@ -7,6 +7,8 @@ import { TabParamList } from '../types/navigation';
 import ProfileGroupsScreen from '../screens/ProfileGroupsScreen';
 import FoodScannerScreen from '../screens/FoodScannerScreen';
 import FoodTextInputScreen from '../screens/FoodTextInputScreen';
+import DashboardScreen from '../screens/DashboardScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import BottomTaskbar from '../components/BottomTaskbar';
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -24,6 +26,14 @@ export const TabNavigator = () => {
         tabBarShowLabel: false,
       }}
     >
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{
+          headerShown: false,
+          title: 'Dashboard'
+        }}
+      />
       <Tab.Screen
         name="ProfileGroups"
         component={ProfileGroupsScreen}
@@ -46,6 +56,14 @@ export const TabNavigator = () => {
         options={{
           headerShown: true,
           title: 'Scan Food'
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          headerShown: true,
+          title: 'Profile'
         }}
       />
     </Tab.Navigator>

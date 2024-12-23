@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -23,19 +23,21 @@ import Animated, {
   useSharedValue,
   interpolate,
 } from 'react-native-reanimated';
+import { auth } from '../config/firebase';
+import { useTheme } from '../theme/ThemeProvider';
+import { useMeals } from '../contexts/MealContext';
+import { useTabBarScroll } from '../hooks/useTabBarScroll';
+import { formatDate, getStartOfDay, getGreeting } from '../utils/dateUtils';
+import { dataMigrationService } from '../utils/dataMigration';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import CalorieTrackerCard from '../components/CalorieTrackerCard';
-import { mockAuth, mockWaterService, mockWorkoutService } from '../services/mockData';
-import { workoutTrackingService } from '../services/workoutTrackingService';
-import { useTheme } from '../theme/ThemeProvider';
-import { getStartOfDay } from '../utils/dateUtils';
-import { useMeals } from '../contexts/MealContext';
-import { useTabBarScroll } from '../hooks/useTabBarScroll';
-import { formatDate } from '../utils/dateUtils';
-import { getGreeting } from '../utils/dateUtils';
 import BottomTaskbar from '../components/BottomTaskbar';
 import SimpleFoodLogSection from '../components/SimpleFoodLogSection';
+import { waterService } from '../services/waterService';
+import { workoutService } from '../services/workoutService';
+import MigrationStatusModal from '../components/MigrationStatusModal';
+import { logger } from '../utils/logger';
 
 interface TodayStats {
   burned: number;
@@ -156,6 +158,21 @@ const DashboardScreen = ({ navigation }) => {
     waterIntake: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [migrationStatus, setMigrationStatus] = useState<{
+    visible: boolean;
+    status: {
+      phase: 'backup' | 'water' | 'workout' | 'complete' | 'error';
+      message: string;
+      error?: string;
+      progress?: number;
+    };
+  }>({
+    visible: false,
+    status: {
+      phase: 'backup',
+      message: 'Preparing migration...',
+    },
+  });
   const { selectedDate, setSelectedDate, meals, totalCalories, totalMacros } = useMeals();
   const { scrollViewRef, handleScroll } = useTabBarScroll();
   const lastFocusTime = useRef(0);
@@ -166,32 +183,83 @@ const DashboardScreen = ({ navigation }) => {
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const user = await mockAuth.getCurrentUser();
-        setUserData(user);
+        const user = auth.currentUser;
+        if (user) {
+          setUserData({
+            id: user.uid,
+            name: user.displayName || 'User',
+            email: user.email || '',
+          });
+        }
       } catch (error) {
         console.error('Error loading user data:', error);
       }
     };
+
     loadUserData();
   }, []);
+
+  // Run data migration when component mounts
+  useEffect(() => {
+    const runMigration = async () => {
+      try {
+        dataMigrationService.setStatusCallback((status) => {
+          if (status.phase) {
+            setMigrationStatus({
+              visible: true,
+              status: {
+                phase: status.phase,
+                message: status.message || '',
+                error: status.error,
+                progress: status.progress,
+              },
+            });
+          }
+        });
+
+        const result = await dataMigrationService.migrateData();
+        logger.info('Migration result:', result);
+
+        // Hide modal after 2 seconds if successful
+        if (result.success) {
+          setTimeout(() => {
+            setMigrationStatus(prev => ({ ...prev, visible: false }));
+          }, 2000);
+        }
+      } catch (error) {
+        logger.error('Error during migration:', error);
+      }
+    };
+
+    if (userData?.id) {
+      runMigration();
+    }
+  }, [userData?.id]);
 
   // Load workout and water stats
   const loadTodayStats = useCallback(async () => {
     try {
       setLoading(true);
-      const workoutStats = await workoutTrackingService.getTodayWorkoutStats();
-      const waterIntake = await mockWaterService.getTodayWaterIntake();
+      const [waterIntake, workoutStats] = await Promise.all([
+        waterService.getTodayWater(),
+        workoutService.getTodayWorkoutStats()
+      ]);
       
       setTodayStats({
         burned: workoutStats.totalCaloriesBurned,
-        waterIntake
+        consumed: totalCalories || 0,
+        remaining: 2000 - (totalCalories || 0),
+        steps: 0, // Will be implemented with step tracking
+        water: waterIntake,
+        waterIntake,
       });
     } catch (error) {
-      console.error('Error loading today stats:', error);
+      console.error('Error loading stats:', error);
+      Alert.alert('Error', 'Failed to load today\'s stats');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [totalCalories]);
 
   // Update stats and refresh meal data when screen comes into focus
   useFocusEffect(
@@ -390,6 +458,10 @@ const DashboardScreen = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
+      <MigrationStatusModal
+        visible={migrationStatus.visible}
+        status={migrationStatus.status}
+      />
       <BottomTaskbar />
     </View>
   );

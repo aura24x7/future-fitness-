@@ -13,7 +13,6 @@ import NameInputScreen from '../screens/onboarding/NameInputScreen';
 import BirthdayScreen from '../screens/onboarding/BirthdayScreen';
 import GenderScreen from '../screens/onboarding/GenderScreen';
 import HeightWeightScreen from '../screens/onboarding/HeightWeightScreen';
-import FitnessGoalScreen from '../screens/onboarding/FitnessGoalScreen';
 import ActivityLevelScreen from '../screens/onboarding/ActivityLevelScreen';
 import DietaryPreferenceScreen from '../screens/onboarding/DietaryPreferenceScreen';
 import WeightGoalScreen from '../screens/onboarding/WeightGoalScreen';

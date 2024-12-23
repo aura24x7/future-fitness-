@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { mockWaterService } from '../services/mockData';
+import { waterService } from '../services/waterService';
 
 const WATER_AMOUNTS = [100, 200, 300, 500];
 
@@ -16,7 +16,7 @@ const TrackWaterScreen = ({ navigation }) => {
 
   const fetchTodayWater = async () => {
     try {
-      const total = await mockWaterService.getTodayWater();
+      const total = await waterService.getTodayWater();
       setTodayTotal(total);
     } catch (error) {
       console.error('Error fetching water data:', error);
@@ -28,7 +28,7 @@ const TrackWaterScreen = ({ navigation }) => {
   const handleAddWater = async (amount) => {
     try {
       setLoading(true);
-      const newTotal = await mockWaterService.trackWater(amount);
+      const newTotal = await waterService.trackWater(amount);
       setTodayTotal(newTotal);
       Alert.alert('Success', 'Water intake tracked successfully!');
     } catch (error) {

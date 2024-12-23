@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { GEMINI_API_KEY, GEMINI_MODELS } from '../../../config/api.config';
+import { GEMINI_API_KEY, GEMINI_MODELS, GENERATION_CONFIG } from '../../../config/api.config';
 
 // Type definitions
 interface WorkoutPreferences {
@@ -72,17 +72,31 @@ export class GeminiService {
     private retryDelay = 1000;
 
     private constructor() {
-        this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        this.model = this.genAI.getGenerativeModel({ 
-            model: GEMINI_MODELS.TEXT,
-            generationConfig: {
-                temperature: 0.7,
-                topK: 40,
-                topP: 0.8,
-                maxOutputTokens: 8192, // Increased token limit
-            }
-        });
-        console.log('✅ Gemini service initialized');
+        if (!GEMINI_API_KEY) {
+            console.error('❌ Gemini API key is not configured in .env file');
+            console.error('Expected format in .env: EXPO_PUBLIC_GEMINI_API_KEY=AIzaSy...');
+            throw new Error('Gemini API key is required for AI features');
+        }
+
+        try {
+            // Initialize with explicit API key exactly as shown in documentation
+            this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY.trim());
+            
+            // Initialize model exactly as shown in documentation
+            this.model = this.genAI.getGenerativeModel({
+                model: GEMINI_MODELS.TEXT,  // Using model constant
+                generationConfig: GENERATION_CONFIG
+            });
+
+            const keyPreview = GEMINI_API_KEY.substring(0, 8) + '...';
+            console.log('✅ Gemini service initialized successfully');
+            console.log('🔑 Using API key:', keyPreview);
+            console.log('🤖 Using model:', GEMINI_MODELS.TEXT);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error during Gemini service initialization';
+            console.error('❌ Failed to initialize Gemini service:', errorMessage);
+            throw new Error(`Failed to initialize Gemini service: ${errorMessage}`);
+        }
     }
 
     public static getInstance(): GeminiService {
@@ -94,7 +108,27 @@ export class GeminiService {
 
     public async generateContent(prompt: string | any[], config?: any) {
         try {
-            const result = await this.model.generateContent(prompt);
+            if (!this.model) {
+                throw new Error('Gemini model not initialized');
+            }
+
+            // Format content exactly as shown in documentation
+            let content;
+            if (typeof prompt === 'string') {
+                content = prompt;  // For simple text prompts
+            } else if (Array.isArray(prompt)) {
+                content = prompt;  // For multimodal content
+            } else {
+                throw new Error('Invalid prompt format');
+            }
+
+            // Make the API call with exact format from documentation
+            const result = await this.model.generateContent(content);
+            
+            if (!result) {
+                throw new Error('No result from Gemini API');
+            }
+
             const response = await result.response;
             
             if (!response) {
@@ -110,9 +144,26 @@ export class GeminiService {
                     }
                 }
             };
-        } catch (error) {
-            console.error('Error generating content:', error);
-            throw error;
+        } catch (error: unknown) {
+            // Enhanced error logging
+            console.error('Full error details:', error);
+            
+            if (error instanceof Error) {
+                // Log specific error information
+                console.error('Error type:', error.constructor.name);
+                console.error('Error message:', error.message);
+                if ('stack' in error) {
+                    console.error('Stack trace:', error.stack);
+                }
+                
+                if (error.message.includes('API_KEY_INVALID')) {
+                    throw new Error('Invalid API key. Please check your API key configuration.');
+                } else if (error.message.includes('model')) {
+                    throw new Error('Model error. Please check the model configuration.');
+                }
+                throw error;
+            }
+            throw new Error('Unknown error during content generation');
         }
     }
 
@@ -120,7 +171,7 @@ export class GeminiService {
         try {
             const result = await this.generateContent(prompt);
             return result.response.text();
-        } catch (error) {
+        } catch (error: unknown) {
             if (retryCount < this.maxRetries) {
                 console.log(`Retrying... Attempt ${retryCount + 1} of ${this.maxRetries}`);
                 await new Promise(resolve => setTimeout(resolve, this.retryDelay));
@@ -148,8 +199,8 @@ export class GeminiService {
                 const parsed = JSON.parse(cleanedText);
                 console.log('Successfully parsed JSON structure');
                 return parsed as T;
-            } catch (parseError) {
-                console.error('JSON Parse Error:', parseError);
+            } catch (parseError: unknown) {
+                console.error('JSON Parse Error:', parseError instanceof Error ? parseError.message : 'Unknown error');
                 console.error('Failed JSON text:', cleanedText.substring(0, 200) + '...');
                 
                 if (retryCount < this.maxRetries) {
@@ -160,7 +211,7 @@ export class GeminiService {
                 
                 throw parseError;
             }
-        } catch (error) {
+        } catch (error: unknown) {
             if (retryCount < this.maxRetries) {
                 console.log(`Retrying... (${retryCount + 1}/${this.maxRetries})`);
                 await new Promise(resolve => setTimeout(resolve, this.retryDelay * Math.pow(2, retryCount)));
@@ -196,8 +247,8 @@ export class GeminiService {
                 completed: Boolean(data.completed),
                 notes: String(data.notes || '')
             };
-        } catch (error) {
-            console.error('Error generating workout plan:', error);
+        } catch (error: unknown) {
+            console.error('Error generating workout plan:', error instanceof Error ? error.message : 'Unknown error');
             throw new Error('Failed to generate workout plan. Please try again.');
         }
     }
@@ -265,8 +316,8 @@ IMPORTANT:
             }
             
             return { weeklyPlan };
-        } catch (error) {
-            console.error('Error generating weekly workout plan:', error);
+        } catch (error: unknown) {
+            console.error('Error generating weekly workout plan:', error instanceof Error ? error.message : 'Unknown error');
             throw error;
         }
     }
@@ -321,9 +372,14 @@ IMPORTANT:
 
     private validateJsonStructure(jsonStr: string): boolean {
         try {
-            const obj = JSON.parse(jsonStr);
+            JSON.parse(jsonStr);
             return true;
-        } catch (e) {
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error('JSON validation error:', error.message);
+            } else {
+                console.error('Unknown JSON validation error');
+            }
             return false;
         }
     }
@@ -341,8 +397,12 @@ IMPORTANT:
             this.validateJsonValues(parsed);
 
             return parsed;
-        } catch (error) {
-            throw new Error(`JSON validation failed: ${error.message}\nJSON string: ${jsonString}`);
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                throw new Error(`JSON validation failed: ${error.message}\nJSON string: ${jsonString}`);
+            } else {
+                throw new Error(`JSON validation failed: Unknown error\nJSON string: ${jsonString}`);
+            }
         }
     }
 

@@ -3,9 +3,6 @@ import { FoodAnalysisResult } from './food';
 
 export type TabParamList = {
   Dashboard: undefined;
-  Workout: undefined;
-  FoodLog: undefined;
-  Progress: undefined;
   Groups: undefined;
   Profile: undefined;
   ProfileGroups: undefined;
@@ -32,8 +29,6 @@ export type RootStackParamList = {
   ProfileGroups: undefined;
   FoodScanner: undefined;
   Profile: undefined;
-  FoodLog: undefined;
-  Progress: undefined;
   
   // Group-related screens
   GroupDetails: { groupId: string };
@@ -50,7 +45,7 @@ export type RootStackParamList = {
     result?: FoodAnalysisResult;
     source?: 'camera' | 'text';
   };
-  
+
   // Settings
   Settings: undefined;
 };
