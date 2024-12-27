@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useOnboarding } from './useOnboarding';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { calculateMacroDistribution } from '../utils/profileCalculations';
 
 interface MacroData {
   carbs: number;
@@ -23,12 +24,12 @@ export const useCalorieTracking = () => {
   const [calorieData, setCalorieData] = useState<CalorieData>({
     date: new Date(),
     totalCalories: 0,
-    targetCalories: 2000, // Default value
+    targetCalories: 2000,
     macros: {
-      carbs: 45,
-      protein: 25,
-      fats: 20,
-      other: 10,
+      carbs: 0,
+      protein: 0,
+      fats: 0,
+      other: 0,
     },
   });
 
@@ -97,18 +98,17 @@ export const useCalorieTracking = () => {
 
       const tdee = bmr * (activityMultipliers[onboardingData.lifestyle || 'SEDENTARY']);
 
-      // Apply goal multiplier
-      const goalMultipliers = {
-        LOSE_WEIGHT: 0.8, // 20% deficit
-        MAINTAIN_WEIGHT: 1,
-        GAIN_WEIGHT: 1.1, // 10% surplus
-      };
-
-      const targetCalories = Math.round(tdee * (goalMultipliers[onboardingData.weightGoal || 'MAINTAIN_WEIGHT']));
+      // Calculate recommended calories based on weight goal using fixed calorie adjustments
+      let targetCalories = tdee;
+      if (onboardingData.weightGoal === 'LOSE_WEIGHT') {
+        targetCalories = Math.max(1200, tdee - 500); // 500 calorie deficit for weight loss
+      } else if (onboardingData.weightGoal === 'GAIN_WEIGHT') {
+        targetCalories = tdee + 500; // 500 calorie surplus for weight gain
+      }
 
       setCalorieData(prev => ({
         ...prev,
-        targetCalories,
+        targetCalories: Math.round(targetCalories),
       }));
     }
   }, [onboardingData]);
@@ -127,18 +127,22 @@ export const useCalorieTracking = () => {
   }, []);
 
   const setDate = useCallback((newDate: Date) => {
+    const defaultMacros = onboardingData?.weightGoal 
+      ? calculateMacroDistribution(calorieData.targetCalories, onboardingData.weightGoal)
+      : { proteins: 0, carbs: 0, fats: 0 };
+
     setCalorieData(prev => ({
       ...prev,
       date: newDate,
       totalCalories: 0, // Reset calories for new date
       macros: {
-        carbs: 45,
-        protein: 25,
-        fats: 20,
-        other: 10,
+        carbs: defaultMacros.carbs,
+        protein: defaultMacros.proteins,
+        fats: defaultMacros.fats,
+        other: 0,
       },
     }));
-  }, []);
+  }, [calorieData.targetCalories, onboardingData?.weightGoal]);
 
   return {
     calorieData,

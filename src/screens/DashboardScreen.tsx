@@ -38,6 +38,8 @@ import { waterService } from '../services/waterService';
 import { workoutService } from '../services/workoutService';
 import MigrationStatusModal from '../components/MigrationStatusModal';
 import { logger } from '../utils/logger';
+import { useProfile } from '../context/ProfileContext';
+import { calculateMacroDistribution } from '../utils/profileCalculations';
 
 interface TodayStats {
   burned: number;
@@ -60,11 +62,11 @@ interface ShortcutButtonProps {
   isDarkMode: boolean;
 }
 
-const ShortcutButton: React.FC<ShortcutButtonProps> = ({ 
-  icon, 
-  label, 
-  onPress, 
-  delay = 0, 
+const ShortcutButton: React.FC<ShortcutButtonProps> = ({
+  icon,
+  label,
+  onPress,
+  delay = 0,
   isLocked = true,
   style,
   isDarkMode
@@ -103,7 +105,7 @@ const ShortcutButton: React.FC<ShortcutButtonProps> = ({
 
   const iconStyle = useAnimatedStyle(() => ({
     transform: [
-      { 
+      {
         scale: interpolate(
           pressed.value,
           [0.95, 1],
@@ -120,9 +122,9 @@ const ShortcutButton: React.FC<ShortcutButtonProps> = ({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
     >
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.shortcutIcon, 
+          styles.shortcutIcon,
           { backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#6366F110' },
           iconStyle
         ]}
@@ -131,11 +133,11 @@ const ShortcutButton: React.FC<ShortcutButtonProps> = ({
           <Ionicons name={icon} size={24} color="#6366F1" />
           {isLocked && (
             <Animated.View style={[styles.lockIconContainer, iconStyle]}>
-              <Ionicons 
-                name="lock-closed" 
-                size={14} 
-                color="#6366F1" 
-                style={styles.lockIcon} 
+              <Ionicons
+                name="lock-closed"
+                size={14}
+                color="#6366F1"
+                style={styles.lockIcon}
               />
             </Animated.View>
           )}
@@ -148,6 +150,7 @@ const ShortcutButton: React.FC<ShortcutButtonProps> = ({
 
 const DashboardScreen = ({ navigation }) => {
   const { colors, isDarkMode } = useTheme();
+  const { profile } = useProfile();
   const [userData, setUserData] = useState(null);
   const [todayStats, setTodayStats] = useState<TodayStats>({
     burned: 0,
@@ -244,12 +247,14 @@ const DashboardScreen = ({ navigation }) => {
         waterService.getTodayWater(),
         workoutService.getTodayWorkoutStats()
       ]);
-      
+
+      const recommendedCalories = profile?.metrics?.recommendedCalories || 2000;
+
       setTodayStats({
         burned: workoutStats.totalCaloriesBurned,
         consumed: totalCalories || 0,
-        remaining: 2000 - (totalCalories || 0),
-        steps: 0, // Will be implemented with step tracking
+        remaining: recommendedCalories - (totalCalories || 0),
+        steps: 0,
         water: waterIntake,
         waterIntake,
       });
@@ -259,7 +264,7 @@ const DashboardScreen = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
-  }, [totalCalories]);
+  }, [totalCalories, profile?.metrics?.recommendedCalories]);
 
   // Update stats and refresh meal data when screen comes into focus
   useFocusEffect(
@@ -300,6 +305,21 @@ const DashboardScreen = ({ navigation }) => {
     return weight / (heightInMeters * heightInMeters);
   };
 
+  // Calculate recommended macros based on profile data
+  const recommendedMacros = React.useMemo(() => {
+    if (profile?.metrics?.recommendedCalories) {
+      return calculateMacroDistribution(
+        profile.metrics.recommendedCalories,
+        profile?.weightGoal || 'MAINTAIN_WEIGHT'
+      );
+    }
+    return {
+      proteins: 0,
+      carbs: 0,
+      fats: 0
+    };
+  }, [profile?.metrics?.recommendedCalories, profile?.weightGoal]);
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -315,10 +335,10 @@ const DashboardScreen = ({ navigation }) => {
         backgroundColor="transparent"
         translucent
       />
-      
+
       <Header />
 
-      <ScrollView 
+      <ScrollView
         ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -329,22 +349,23 @@ const DashboardScreen = ({ navigation }) => {
         <View style={styles.content}>
           {/* Calorie Tracker Card */}
           <CalorieTrackerCard
-            targetCalories={userData?.calorieGoal || 2500}
+            targetCalories={profile?.metrics?.recommendedCalories || 0}
             date={selectedDate}
             onDateChange={handleDateChange}
             currentCalories={totalCalories}
             macros={totalMacros}
+            recommendedMacros={recommendedMacros}
           />
-          
+
           {/* Quick Stats */}
           <View style={styles.quickStats}>
-            <View style={[styles.statCard, { 
+            <View style={[styles.statCard, {
               backgroundColor: colors.cardBackground,
               borderColor: colors.border,
               borderWidth: 1,
             }]}>
-              <View style={[styles.iconContainer, { 
-                backgroundColor: isDarkMode ? 'rgba(78, 205, 196, 0.2)' : '#4ECDC420' 
+              <View style={[styles.iconContainer, {
+                backgroundColor: isDarkMode ? 'rgba(78, 205, 196, 0.2)' : '#4ECDC420'
               }]}>
                 <Ionicons name="water-outline" size={24} color="#4ECDC4" />
               </View>
@@ -356,7 +377,7 @@ const DashboardScreen = ({ navigation }) => {
               </Text>
             </View>
 
-            <View style={[styles.statCard, { 
+            <View style={[styles.statCard, {
               backgroundColor: colors.cardBackground,
               borderColor: colors.border,
               borderWidth: 1,
@@ -374,8 +395,8 @@ const DashboardScreen = ({ navigation }) => {
               </Text>
             </View>
 
-            <TouchableOpacity 
-              style={[styles.statCard, { 
+            <TouchableOpacity
+              style={[styles.statCard, {
                 backgroundColor: colors.cardBackground,
                 borderColor: colors.border,
                 borderWidth: 1,
@@ -397,7 +418,7 @@ const DashboardScreen = ({ navigation }) => {
           </View>
 
           {/* Simple Food Log Section */}
-          <SimpleFoodLogSection 
+          <SimpleFoodLogSection
             onScanFood={handleScanFood}
           />
 
@@ -409,7 +430,7 @@ const DashboardScreen = ({ navigation }) => {
               onPress={() => Alert.alert("Coming Soon!", "Something is cooking! This feature will be available in future updates.")}
               delay={100}
               isDarkMode={isDarkMode}
-              style={{ 
+              style={{
                 backgroundColor: colors.cardBackground,
                 borderColor: colors.border,
                 borderWidth: 1,
@@ -422,7 +443,7 @@ const DashboardScreen = ({ navigation }) => {
               onPress={() => Alert.alert("Coming Soon!", "Something is cooking! This feature will be available in future updates.")}
               delay={200}
               isDarkMode={isDarkMode}
-              style={{ 
+              style={{
                 backgroundColor: colors.cardBackground,
                 borderColor: colors.border,
                 borderWidth: 1,
@@ -435,7 +456,7 @@ const DashboardScreen = ({ navigation }) => {
               onPress={() => Alert.alert("Coming Soon!", "Something is cooking! This feature will be available in future updates.")}
               delay={300}
               isDarkMode={isDarkMode}
-              style={{ 
+              style={{
                 backgroundColor: colors.cardBackground,
                 borderColor: colors.border,
                 borderWidth: 1,
@@ -449,7 +470,7 @@ const DashboardScreen = ({ navigation }) => {
               delay={400}
               isLocked={false}
               isDarkMode={isDarkMode}
-              style={{ 
+              style={{
                 backgroundColor: colors.cardBackground,
                 borderColor: colors.border,
                 borderWidth: 1,

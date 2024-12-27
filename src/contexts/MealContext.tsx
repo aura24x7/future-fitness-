@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStorageKeyForDate, isSameDay, getStartOfDay, MEALS_STORAGE_KEY } from '../utils/dateUtils';
 import { debounce } from '../utils/debounce';
+import { useProfile } from '../context/ProfileContext';
+import { calculateMacroDistribution } from '../utils/profileCalculations';
 
 const CALORIE_TOTALS_KEY = '@calorie_totals';
 
@@ -39,6 +41,7 @@ interface MealContextType {
 const MealContext = createContext<MealContextType | undefined>(undefined);
 
 export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { profile } = useProfile();
   const [meals, setMeals] = useState<{ [key: string]: MealDetails[] }>({});
   const [selectedDate, setSelectedDate] = useState<Date>(getStartOfDay(new Date()));
   const [totalCalories, setTotalCalories] = useState<number>(0);
@@ -47,6 +50,26 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
     carbs: 0,
     fat: 0,
   });
+
+  // Calculate recommended macros based on profile
+  const recommendedMacros = React.useMemo(() => {
+    if (profile?.metrics?.recommendedCalories) {
+      const macros = calculateMacroDistribution(
+        profile.metrics.recommendedCalories,
+        profile.weightGoal || 'MAINTAIN_WEIGHT'
+      );
+      return {
+        protein: macros.proteins,
+        carbs: macros.carbs,
+        fat: macros.fats
+      };
+    }
+    return {
+      protein: 0,
+      carbs: 0,
+      fat: 0
+    };
+  }, [profile?.metrics?.recommendedCalories, profile?.weightGoal]);
 
   const calculateTotals = useCallback((mealsToCalculate: { [key: string]: MealDetails[] }) => {
     let calories = 0;

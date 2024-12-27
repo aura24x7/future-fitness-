@@ -30,7 +30,10 @@ export const calculateBMR = (
     : Math.round((10 * weight) + (6.25 * height) - (5 * age) - 161);
 };
 
-export const calculateTDEE = (bmr: number, lifestyle: string): number => {
+export const calculateTDEE = (
+  bmr: number,
+  lifestyle: 'SEDENTARY' | 'LIGHTLY_ACTIVE' | 'MODERATELY_ACTIVE' | 'VERY_ACTIVE' | 'SUPER_ACTIVE'
+): number => {
   const activityMultipliers = {
     SEDENTARY: 1.2,      // Sedentary
     LIGHTLY_ACTIVE: 1.375, // Lightly active
@@ -39,7 +42,7 @@ export const calculateTDEE = (bmr: number, lifestyle: string): number => {
     SUPER_ACTIVE: 1.9     // Super active
   };
 
-  const multiplier = lifestyle ? activityMultipliers[lifestyle] || 1.2 : 1.2;
+  const multiplier = lifestyle ? activityMultipliers[lifestyle] : activityMultipliers.SEDENTARY;
   return Math.round(bmr * multiplier);
 };
 
@@ -47,14 +50,14 @@ export const calculateRecommendedCalories = (
   tdee: number,
   weightGoal: string
 ): number => {
-  const goalMultipliers = {
-    LOSE_WEIGHT: 0.8,      // 20% deficit
-    GAIN_WEIGHT: 1.1,     // 10% surplus
-    MAINTAIN_WEIGHT: 1,     // Maintenance
-  };
-
-  const multiplier = weightGoal ? goalMultipliers[weightGoal] || 1 : 1;
-  return Math.round(tdee * multiplier);
+  switch (weightGoal) {
+    case 'LOSE_WEIGHT':
+      return Math.max(1200, Math.round(tdee - 500)); // 500 calorie deficit for weight loss
+    case 'GAIN_WEIGHT':
+      return Math.round(tdee + 500); // 500 calorie surplus for weight gain
+    default:
+      return Math.round(tdee); // Maintenance
+  }
 };
 
 export const calculateMacroDistribution = (

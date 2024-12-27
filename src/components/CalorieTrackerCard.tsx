@@ -8,11 +8,17 @@ import { spacing } from '../theme/spacing';
 import { colors } from '../theme/colors';
 import { Macros } from '../contexts/MealContext';
 import { useTheme } from '../theme/ThemeProvider';
+import { useProfile } from '../context/ProfileContext';
 
 interface CalorieTrackerCardProps {
   targetCalories: number;
   currentCalories: number;
   macros: Macros;
+  recommendedMacros: {
+    proteins: number;
+    carbs: number;
+    fats: number;
+  };
   date: Date;
   onDateChange?: (date: Date) => void;
 }
@@ -21,10 +27,15 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
   targetCalories,
   currentCalories,
   macros,
+  recommendedMacros,
   date,
   onDateChange,
 }) => {
   const { isDarkMode } = useTheme();
+  const { profile } = useProfile();
+
+  // Use recommended calories from profile if available
+  const actualTargetCalories = profile?.metrics?.recommendedCalories || targetCalories;
 
   const size = 200;
   const strokeWidth = 15;
@@ -39,7 +50,7 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
       color: colors.macros.carbs, 
       icon: 'nutrition', 
       unit: 'g',
-      target: Math.round((targetCalories * 0.45) / 4) // 45% of calories, 4 cal/g for carbs
+      target: recommendedMacros.carbs
     },
     { 
       name: 'Protein', 
@@ -47,7 +58,7 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
       color: colors.macros.protein, 
       icon: 'fish', 
       unit: 'g',
-      target: Math.round((targetCalories * 0.30) / 4) // 30% of calories, 4 cal/g for protein
+      target: recommendedMacros.proteins
     },
     { 
       name: 'Fats', 
@@ -55,19 +66,38 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
       color: colors.macros.fats, 
       icon: 'water', 
       unit: 'g',
-      target: Math.round((targetCalories * 0.25) / 9) // 25% of calories, 9 cal/g for fats
+      target: recommendedMacros.fats
     },
   ];
 
-  const progress = React.useMemo(() => 
-    Math.min((currentCalories || 0) / targetCalories, 1),
-    [currentCalories, targetCalories]
-  );
+  const progress = React.useMemo(() => {
+    if (actualTargetCalories <= 0) return 0;
+    return (currentCalories || 0) / actualTargetCalories;
+  }, [currentCalories, actualTargetCalories]);
+
+  const isExceeding = progress > 1;
+  const remainingCalories = Math.max(0, actualTargetCalories - (currentCalories || 0));
+  const exceededCalories = isExceeding ? Math.round(currentCalories - actualTargetCalories) : 0;
 
   const strokeDashoffset = React.useMemo(() => 
-    circumference * (1 - progress),
+    circumference * (1 - Math.min(progress, 1)),
     [circumference, progress]
   );
+
+  const getProgressColor = (isExceeding: boolean, isDarkMode: boolean) => {
+    if (isExceeding) {
+      return isDarkMode ? colors.progress.error.dark : colors.progress.error.light;
+    }
+    return isDarkMode ? colors.progress.success.dark : colors.progress.success.light;
+  };
+
+  const getMacroProgressColor = (current: number, target: number, baseColor: string) => {
+    const progress = current / target;
+    if (progress > 1) {
+      return colors.progress.error.light;
+    }
+    return baseColor;
+  };
 
   return (
     <View style={[
@@ -133,7 +163,7 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
               strokeWidth={strokeWidth}
             />
             <Circle
-              stroke={isDarkMode ? colors.progress.success.dark : colors.progress.success.light}
+              stroke={getProgressColor(isExceeding, isDarkMode)}
               fill="none"
               cx={center}
               cy={center}
@@ -149,7 +179,11 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
         <View style={styles.calorieTextContainer}>
           <Text style={[
             styles.calorieText,
-            { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+            { 
+              color: isExceeding 
+                ? (isDarkMode ? colors.progress.error.dark : colors.progress.error.light)
+                : (isDarkMode ? colors.text.primary.dark : colors.text.primary.light)
+            }
           ]}>
             {Math.round(currentCalories || 0)}
           </Text>
@@ -159,6 +193,14 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
           ]}>
             Total kcal
           </Text>
+          {isExceeding && (
+            <Text style={[
+              styles.warningText,
+              { color: isDarkMode ? colors.progress.error.dark : colors.progress.error.light }
+            ]}>
+              +{exceededCalories} kcal over limit
+            </Text>
+          )}
         </View>
       </View>
 
@@ -187,7 +229,7 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
                       : `${macro.color}10`
                   }
                 ]}>
-                  <Ionicons name={macro.icon as any} size={14} color={macro.color} />
+                  <Ionicons name={macro.icon as any} size={14} color={getMacroProgressColor(macro.value, macro.target, macro.color)} />
                   <Text style={[
                     styles.macroName,
                     { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
@@ -198,9 +240,18 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
               </View>
               <Text style={[
                 styles.macroValue,
-                { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
+                { 
+                  color: getMacroProgressColor(macro.value, macro.target, 
+                    isDarkMode ? colors.text.primary.dark : colors.text.primary.light
+                  )
+                }
               ]}>
-                {Math.round(macro.value)}{macro.unit}
+                {macro.value}{macro.unit}
+                {macro.value > macro.target && (
+                  <Text style={[styles.macroExcess, { color: colors.progress.error.light }]}>
+                    {" "}(+{Math.round(macro.value - macro.target)})
+                  </Text>
+                )}
               </Text>
               <Text style={[
                 styles.macroTarget,
@@ -216,7 +267,7 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
                   styles.progressBar,
                   {
                     width: `${Math.min((macro.value / macro.target) * 100, 100)}%`,
-                    backgroundColor: macro.color,
+                    backgroundColor: getMacroProgressColor(macro.value, macro.target, macro.color),
                   }
                 ]} />
               </View>
@@ -280,6 +331,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
+  warningText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+    textAlign: 'center',
+  },
   macroContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -319,6 +376,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
     marginBottom: 6,
+  },
+  macroExcess: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   progressBarContainer: {
     height: 6,
