@@ -14,6 +14,7 @@ import { Header } from '../components/Header';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -40,6 +41,13 @@ import MigrationStatusModal from '../components/MigrationStatusModal';
 import { logger } from '../utils/logger';
 import { useProfile } from '../context/ProfileContext';
 import { calculateMacroDistribution } from '../utils/profileCalculations';
+import { RootStackParamList } from '../types/navigation';
+
+type DashboardScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
+
+interface Props {
+  navigation: DashboardScreenNavigationProp;
+}
 
 interface TodayStats {
   burned: number;
@@ -50,10 +58,14 @@ interface TodayStats {
   waterIntake?: number;
 }
 
-const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+interface UserData {
+  id: string;
+  name: string;
+  email: string;
+}
 
 interface ShortcutButtonProps {
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
   delay?: number;
@@ -61,6 +73,8 @@ interface ShortcutButtonProps {
   style?: any;
   isDarkMode: boolean;
 }
+
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
 const ShortcutButton: React.FC<ShortcutButtonProps> = ({
   icon,
@@ -148,10 +162,11 @@ const ShortcutButton: React.FC<ShortcutButtonProps> = ({
   );
 };
 
-const DashboardScreen = ({ navigation }) => {
+const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { colors, isDarkMode } = useTheme();
   const { profile } = useProfile();
-  const [userData, setUserData] = useState(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [todayStats, setTodayStats] = useState<TodayStats>({
     burned: 0,
     consumed: 0,
@@ -179,68 +194,38 @@ const DashboardScreen = ({ navigation }) => {
   const { selectedDate, setSelectedDate, meals, totalCalories, totalMacros } = useMeals();
   const { scrollViewRef, handleScroll } = useTabBarScroll();
   const lastFocusTime = useRef(0);
+  const authStateUnsubscribe = useRef<(() => void) | null>(null);
 
-  const formattedDate = selectedDate ? formatDate(selectedDate) : '';
-
-  // Load user data once on mount
+  // Add auth state listener
   useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        const user = auth.currentUser;
-        if (user) {
-          setUserData({
-            id: user.uid,
-            name: user.displayName || 'User',
-            email: user.email || '',
-          });
-        }
-      } catch (error) {
-        console.error('Error loading user data:', error);
+    authStateUnsubscribe.current = auth.onAuthStateChanged((user) => {
+      setIsAuthReady(true);
+      if (user) {
+        const userData: UserData = {
+          id: user.uid,
+          name: user.displayName || 'User',
+          email: user.email || '',
+        };
+        setUserData(userData);
+      } else {
+        setUserData(null);
+      }
+    });
+
+    return () => {
+      if (authStateUnsubscribe.current) {
+        authStateUnsubscribe.current();
       }
     };
-
-    loadUserData();
   }, []);
 
-  // Run data migration when component mounts
-  useEffect(() => {
-    const runMigration = async () => {
-      try {
-        dataMigrationService.setStatusCallback((status) => {
-          if (status.phase) {
-            setMigrationStatus({
-              visible: true,
-              status: {
-                phase: status.phase,
-                message: status.message || '',
-                error: status.error,
-                progress: status.progress,
-              },
-            });
-          }
-        });
-
-        const result = await dataMigrationService.migrateData();
-        logger.info('Migration result:', result);
-
-        // Hide modal after 2 seconds if successful
-        if (result.success) {
-          setTimeout(() => {
-            setMigrationStatus(prev => ({ ...prev, visible: false }));
-          }, 2000);
-        }
-      } catch (error) {
-        logger.error('Error during migration:', error);
-      }
-    };
-
-    if (userData?.id) {
-      runMigration();
-    }
-  }, [userData?.id]);
-
-  // Load workout and water stats
+  // Modify loadTodayStats to check auth
   const loadTodayStats = useCallback(async () => {
+    if (!isAuthReady || !userData) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const [waterIntake, workoutStats] = await Promise.all([
@@ -258,32 +243,34 @@ const DashboardScreen = ({ navigation }) => {
         water: waterIntake,
         waterIntake,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading stats:', error);
-      Alert.alert('Error', 'Failed to load today\'s stats');
+      // Don't show alert for auth errors
+      if (error?.message !== 'User not authenticated') {
+        Alert.alert('Error', 'Failed to load today\'s stats');
+      }
     } finally {
       setLoading(false);
     }
-  }, [totalCalories, profile?.metrics?.recommendedCalories]);
+  }, [isAuthReady, userData, totalCalories, profile?.metrics?.recommendedCalories]);
 
-  // Update stats and refresh meal data when screen comes into focus
+  // Modify useFocusEffect to check auth
   useFocusEffect(
     useCallback(() => {
+      if (!isAuthReady) return;
+
       const now = Date.now();
-      // Prevent multiple updates within 100ms instead of 300ms for more responsive updates
       if (now - lastFocusTime.current < 100) {
         return;
       }
       lastFocusTime.current = now;
 
-      // Load today's stats
-      loadTodayStats();
-
-      // Reset to current date if no date is selected
       if (!selectedDate) {
         setSelectedDate(getStartOfDay(new Date()));
       }
-    }, [loadTodayStats, selectedDate, setSelectedDate])
+
+      loadTodayStats();
+    }, [isAuthReady, loadTodayStats, selectedDate, setSelectedDate])
   );
 
   const handleDateChange = useCallback((newDate: Date) => {
@@ -291,11 +278,15 @@ const DashboardScreen = ({ navigation }) => {
   }, [setSelectedDate]);
 
   const handleAddMeal = () => {
-    navigation.navigate('TrackMeal');
+    navigation.navigate('TrackMeal', undefined);
   };
 
   const handleScanFood = () => {
-    navigation.navigate('ScanFood');
+    navigation.navigate('ScanFood', undefined);
+  };
+
+  const handleProfileNavigation = () => {
+    navigation.navigate('Profile', undefined);
   };
 
   const calculateBMI = (weight?: number, height?: number) => {
@@ -320,10 +311,11 @@ const DashboardScreen = ({ navigation }) => {
     };
   }, [profile?.metrics?.recommendedCalories, profile?.weightGoal]);
 
-  if (loading) {
+  // Show loading state while auth is initializing
+  if (!isAuthReady) {
     return (
-      <View style={styles.container}>
-        <Text color="$gray12">Loading...</Text>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -356,66 +348,6 @@ const DashboardScreen = ({ navigation }) => {
             macros={totalMacros}
             recommendedMacros={recommendedMacros}
           />
-
-          {/* Quick Stats */}
-          <View style={styles.quickStats}>
-            <View style={[styles.statCard, {
-              backgroundColor: colors.cardBackground,
-              borderColor: colors.border,
-              borderWidth: 1,
-            }]}>
-              <View style={[styles.iconContainer, {
-                backgroundColor: isDarkMode ? 'rgba(78, 205, 196, 0.2)' : '#4ECDC420'
-              }]}>
-                <Ionicons name="water-outline" size={24} color="#4ECDC4" />
-              </View>
-              <Text color={colors.text} fontSize={18} fontWeight="bold" marginBottom={4}>
-                {todayStats.waterIntake}ml
-              </Text>
-              <Text color={colors.textSecondary} fontSize={14}>
-                Water
-              </Text>
-            </View>
-
-            <View style={[styles.statCard, {
-              backgroundColor: colors.cardBackground,
-              borderColor: colors.border,
-              borderWidth: 1,
-            }]}>
-              <View style={[styles.iconContainer, {
-                backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.2)' : '#6366F120'
-              }]}>
-                <Ionicons name="body-outline" size={24} color="#6366F1" />
-              </View>
-              <Text color={colors.text} fontSize={18} fontWeight="bold" marginBottom={4}>
-                {calculateBMI(userData?.weight, userData?.height).toFixed(1)}
-              </Text>
-              <Text color={colors.textSecondary} fontSize={14}>
-                BMI
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.statCard, {
-                backgroundColor: colors.cardBackground,
-                borderColor: colors.border,
-                borderWidth: 1,
-              }]}
-              onPress={handleAddMeal}
-            >
-              <View style={[styles.iconContainer, {
-                backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#EF444420'
-              }]}>
-                <Ionicons name="scan-outline" size={24} color="#EF4444" />
-              </View>
-              <Text color={colors.textSecondary} fontSize={14}>
-                Scan
-              </Text>
-              <Text color={colors.textSecondary} fontSize={14}>
-                Food
-              </Text>
-            </TouchableOpacity>
-          </View>
 
           {/* Simple Food Log Section */}
           <SimpleFoodLogSection
@@ -466,7 +398,7 @@ const DashboardScreen = ({ navigation }) => {
             <ShortcutButton
               icon="person-outline"
               label="Profile"
-              onPress={() => navigation.navigate('Profile')}
+              onPress={handleProfileNavigation}
               delay={400}
               isLocked={false}
               isDarkMode={isDarkMode}

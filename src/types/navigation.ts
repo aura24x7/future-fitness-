@@ -11,7 +11,7 @@ export type TabParamList = {
 };
 
 export type RootStackParamList = {
-  // Onboarding screens
+  Dashboard: undefined;
   Welcome: undefined;
   NameInput: undefined;
   Birthday: undefined;
@@ -21,33 +21,18 @@ export type RootStackParamList = {
   WeightGoal: undefined;
   Location: undefined;
   WorkoutPreference: undefined;
-  ActivityLevel: undefined;
-  FinalSetup: undefined;
-
-  // Main screens
-  Dashboard: undefined;
-  ProfileGroups: undefined;
-  FoodScanner: undefined;
   Profile: undefined;
-  
-  // Group-related screens
-  GroupDetails: { groupId: string };
-  CreateGroup: undefined;
-  InviteMembers: { groupId: string };
-  ManageInvites: { groupId: string };
-  AddIndividual: { groupId: string };
-  
-  // Food-related screens
-  FoodTextInput: undefined;
-  ScannedFoodDetails: {
-    imageUri?: string;
-    imageBase64?: string;
-    result?: FoodAnalysisResult;
-    source?: 'camera' | 'text';
-  };
-
-  // Settings
   Settings: undefined;
+  TrackMeal: undefined;
+  ScanFood: undefined;
+  AddIndividual: undefined;
+};
+
+export type RootTabParamList = {
+  Home: undefined;
+  Meals: undefined;
+  Social: undefined;
+  Profile: undefined;
 };
 
 declare global {

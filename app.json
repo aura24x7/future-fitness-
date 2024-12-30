@@ -11,6 +11,43 @@
       "resizeMode": "contain",
       "backgroundColor": "#4c669f"
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/notification-sound.wav"]
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Future Fitness to access your camera."
+        }
+      ],
+      [
+        "expo-file-system",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#4c669f",
+          "imageResizeMode": "contain",
+          "androidSplashResourceBackgroundColor": "#4c669f",
+          "dark": {
+            "image": "./assets/splash.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#4c669f"
+          }
+        }
+      ]
+    ],
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -37,29 +74,6 @@
         "RECEIVE_BOOT_COMPLETED"
       ]
     },
-    "plugins": [
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#ffffff",
-          "sounds": ["./assets/notification-sound.wav"]
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow Future Fitness to access your camera."
-        }
-      ],
-      [
-        "expo-file-system",
-        {
-          "iCloudContainerEnvironment": "Production"
-        }
-      ],
-      "expo-splash-screen"
-    ],
     "extra": {
       "eas": {
         "projectId": "your-project-id"

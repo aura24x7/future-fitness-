@@ -1,60 +1,73 @@
-import 'react-native-gesture-handler';
-import React, { useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import AppNavigator from './src/navigation/AppNavigator';
+import { StatusBar } from 'expo-status-bar';
+import { ThemeProvider } from './src/theme/ThemeProvider';
+import { ProfileProvider } from './src/context/ProfileContext';
 import { OnboardingProvider } from './src/context/OnboardingContext';
 import { TabBarProvider } from './src/context/TabBarContext';
-import { AuthProvider } from './src/context/AuthContext';
-import { ProfileGroupsProvider } from './src/contexts/ProfileGroupsContext';
-import { GymBuddyAlertProvider } from './src/contexts/GymBuddyAlertContext';
-import { ThemeProvider } from './src/theme/ThemeProvider';
-import { AlertNotificationManager } from './src/components/GymBuddyAlert/AlertNotificationManager';
-import { ProfileProvider } from './src/context/ProfileContext';
 import { MealProvider } from './src/contexts/MealContext';
 import { SimpleFoodLogProvider } from './src/contexts/SimpleFoodLogContext';
-import { LoadingProvider } from './src/contexts/LoadingContext';
+import { ProfileGroupsProvider } from './src/contexts/ProfileGroupsContext';
+import { GymBuddyAlertProvider } from './src/contexts/GymBuddyAlertContext';
+import { LoadingProvider, useLoading } from './src/contexts/LoadingContext';
+import { AuthProvider } from './src/context/AuthContext';
+import AppNavigator from './src/navigation/AppNavigator';
+import { AlertNotificationManager } from './src/components/GymBuddyAlert/AlertNotificationManager';
 import SplashScreenComponent from './src/components/SplashScreen';
 import * as SplashScreen from 'expo-splash-screen';
-import { useLoading } from './src/contexts/LoadingContext';
 import ErrorBoundary from './src/components/ErrorBoundary';
-import { initializeApp } from './src/utils/AppInitializer';
+import { initializeApp, getInitializationState } from './src/utils/AppInitializer';
 
 // Initialize app essentials
 initializeApp().catch(console.error);
 
 const AppContent = () => {
   const { isLoading, progress } = useLoading();
+  const [isAppReady, setIsAppReady] = useState(false);
 
   useEffect(() => {
-    if (!isLoading) {
-      SplashScreen.hideAsync().catch(console.error);
+    async function prepare() {
+      try {
+        while (!getInitializationState().isInitialized || !getInitializationState().authInitialized) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        setIsAppReady(true);
+        
+        if (!isLoading) {
+          await SplashScreen.hideAsync();
+        }
+      } catch (error) {
+        console.error('Error preparing app:', error);
+      }
     }
+
+    prepare();
   }, [isLoading]);
+
+  if (!isAppReady) {
+    return null;
+  }
 
   return (
     <>
-      <NavigationContainer>
-        <ProfileProvider>
-          <OnboardingProvider>
-            <TabBarProvider>
-              <MealProvider>
-                <SimpleFoodLogProvider>
-                  <ProfileGroupsProvider>
-                    <GymBuddyAlertProvider>
-                      <StatusBar barStyle="dark-content" />
-                      <AppNavigator />
-                      <AlertNotificationManager />
-                    </GymBuddyAlertProvider>
-                  </ProfileGroupsProvider>
-                </SimpleFoodLogProvider>
-              </MealProvider>
-            </TabBarProvider>
-          </OnboardingProvider>
-        </ProfileProvider>
-      </NavigationContainer>
+      <ProfileProvider>
+        <OnboardingProvider>
+          <TabBarProvider>
+            <MealProvider>
+              <SimpleFoodLogProvider>
+                <ProfileGroupsProvider>
+                  <GymBuddyAlertProvider>
+                    <StatusBar style="auto" />
+                    <AppNavigator />
+                    <AlertNotificationManager />
+                  </GymBuddyAlertProvider>
+                </ProfileGroupsProvider>
+              </SimpleFoodLogProvider>
+            </MealProvider>
+          </TabBarProvider>
+        </OnboardingProvider>
+      </ProfileProvider>
       {isLoading && <SplashScreenComponent isLoading={isLoading} progress={progress} />}
     </>
   );
@@ -62,18 +75,16 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <ThemeProvider>
-          <ErrorBoundary>
-            <AuthProvider>
-              <LoadingProvider>
-                <AppContent />
-              </LoadingProvider>
-            </AuthProvider>
-          </ErrorBoundary>
-        </ThemeProvider>
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <LoadingProvider>
+            <NavigationContainer>
+              <AppContent />
+            </NavigationContainer>
+          </LoadingProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
