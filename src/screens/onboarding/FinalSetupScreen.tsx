@@ -122,7 +122,7 @@ const FinalSetupScreen = ({ navigation }) => {
       ]).start();
 
       // Create the profile first
-      await userProfileService.createUserProfile({
+      const profile = await userProfileService.createUserProfile({
         ...onboardingData,
         weightGoal: onboardingData.weightGoal || 'MAINTAIN_WEIGHT',
         fitnessGoal: onboardingData.fitnessGoal || 'IMPROVE_FITNESS',
@@ -131,14 +131,21 @@ const FinalSetupScreen = ({ navigation }) => {
         workoutPreference: onboardingData.workoutPreference || 'HOME',
       });
 
-      // Mark onboarding as complete
+      if (!profile) {
+        throw new Error('Failed to create profile');
+      }
+
+      // Mark onboarding as complete only after profile is created
       await completeOnboarding();
 
       // Wait for animations
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Navigate to main app
-      navigation.navigate('Main');
+      // Navigate to main app with a reset to prevent going back
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
     } catch (error) {
       console.error('Error completing setup:', error);
       setError(

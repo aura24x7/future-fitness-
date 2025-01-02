@@ -3,6 +3,8 @@ import { useNavigation } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../theme/ThemeProvider'
 import { getGreeting } from '../utils/dateUtils'
+import { Platform, View, StatusBar } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 
 interface HeaderProps {
   title?: string
@@ -22,42 +24,64 @@ export const Header = ({ title, showDate = true }: HeaderProps) => {
   const greeting = getGreeting()
 
   return (
-    <Stack style={{ 
-      paddingHorizontal: 24,
-      paddingTop: 48,
-      paddingBottom: 8,
-      backgroundColor: isDarkMode ? colors.background : '#FFFFFF'
-    }}>
-      <XStack justifyContent="space-between" alignItems="center">
-        <Stack space={4}>
-          <Text 
-            fontSize={32} 
-            fontWeight="bold" 
-            color={colors.text}
-            letterSpacing={-0.5}
-            lineHeight={38}
+    <Stack>
+      <View style={{
+        paddingTop: Platform.OS === 'ios' ? StatusBar.currentHeight || 44 : StatusBar.currentHeight || 20,
+        backgroundColor: isDarkMode ? colors.background : '#FFFFFF',
+      }}>
+        <LinearGradient
+          colors={isDarkMode ? 
+            ['rgba(0,0,0,0)', 'rgba(0,0,0,0.02)'] : 
+            ['rgba(255,255,255,0)', 'rgba(255,255,255,0.05)']}
+          style={{
+            paddingHorizontal: 24,
+            paddingTop: 20,
+            paddingBottom: 16,
+          }}
+        >
+          <XStack 
+            justifyContent="space-between" 
+            alignItems="center"
             style={{
-              marginBottom: 6,
-              paddingRight: 16
+              marginBottom: 8,
             }}
           >
-            {title || `${greeting},`}
-          </Text>
-          {showDate && (
-            <Text 
-              fontSize={16} 
-              color={colors.textSecondary}
-              letterSpacing={-0.2}
-              style={{
-                marginTop: 4,
-                opacity: 0.8
-              }}
-            >
-              {formattedDate}
-            </Text>
-          )}
-        </Stack>
-      </XStack>
+            <View>
+              <Text
+                fontSize={16}
+                color={isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)'}
+                style={{
+                  marginBottom: 4,
+                  fontWeight: '500',
+                }}
+              >
+                {greeting}
+              </Text>
+              <Text
+                fontSize={24}
+                fontWeight="bold"
+                color={colors.text}
+                style={{
+                  letterSpacing: -0.5,
+                }}
+              >
+                {formattedDate}
+              </Text>
+            </View>
+            <View style={{
+              backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+              padding: 8,
+              borderRadius: 20,
+            }}>
+              <Ionicons 
+                name="notifications-outline" 
+                size={24} 
+                color={isDarkMode ? colors.text : '#1A1A1A'} 
+              />
+            </View>
+          </XStack>
+        </LinearGradient>
+      </View>
     </Stack>
   )
 }

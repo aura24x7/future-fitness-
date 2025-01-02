@@ -7,6 +7,7 @@ import {
   Dimensions,
   ScrollView,
   Platform,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
@@ -72,9 +73,19 @@ const DietaryPreferenceScreen: React.FC<DietaryPreferenceScreenProps> = ({ navig
   const { isDarkMode } = useTheme();
 
   const handleContinue = async () => {
-    if (selectedPreference) {
+    if (!selectedPreference) {
+      return;
+    }
+
+    try {
       await updateOnboardingData({ dietaryPreference: selectedPreference });
       navigation.navigate('WeightGoal');
+    } catch (error) {
+      console.error('Error updating dietary preference:', error);
+      Alert.alert(
+        'Error',
+        'Failed to save your dietary preference. Please try again.'
+      );
     }
   };
 

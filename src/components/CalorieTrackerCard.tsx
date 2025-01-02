@@ -122,34 +122,11 @@ const CalorieTrackerCard: React.FC<CalorieTrackerCardProps> = ({
           isDarkMode ? `${colors.accent}15` : `${colors.accent}08`,
           'transparent'
         ]}
-        style={styles.headerGradient}
-      >
-        <View style={styles.dateContainer}>
-          <Text style={[
-            styles.dateText,
-            { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
-          ]}>
-            {formatDate(date, 'MMMM dd')}
-          </Text>
-          <TouchableOpacity 
-            onPress={() => onDateChange?.(new Date())} 
-            style={[
-              styles.calendarButton,
-              {
-                backgroundColor: isDarkMode 
-                  ? colors.background.secondary.dark 
-                  : colors.background.secondary.light,
-              }
-            ]}
-          >
-            <Ionicons 
-              name="calendar" 
-              size={20} 
-              color={isDarkMode ? colors.text.accent.dark : colors.text.accent.light}
-            />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+        style={[
+          styles.headerGradient,
+          { paddingVertical: spacing.tiny }
+        ]}
+      />
 
       <View style={styles.circleContainer}>
         <Svg width={size} height={size}>
@@ -297,21 +274,6 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.small,
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dateText: {
-    fontSize: 24,
-    fontWeight: '600',
-    letterSpacing: -0.5,
-  },
-  calendarButton: {
-    padding: spacing.tiny,
-    borderRadius: 8,
   },
   circleContainer: {
     alignItems: 'center',

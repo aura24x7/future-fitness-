@@ -12,12 +12,11 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions, Camera } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { debounce } from 'lodash';
 
 const { width, height } = Dimensions.get('window');
 const SCAN_AREA_SIZE = width * 0.8;
@@ -26,51 +25,18 @@ const FoodScannerScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [isTakingPicture, setIsTakingPicture] = useState(false);
-  const [facing, setFacing] = useState<CameraType>('back');
+  const [facing, setFacing] = useState<'front' | 'back'>('back');
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const cameraRef = useRef<CameraView>(null);
   const isMounted = useRef(true);
   const navigation = useNavigation();
   const [permission, requestPermission] = useCameraPermissions();
 
-  // Handle camera permission request
-  const handlePermissionRequest = async () => {
-    try {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      if (status === 'denied') {
-        // If permission is denied, prompt to open settings
-        Alert.alert(
-          'Camera Permission Required',
-          'Please enable camera access in your device settings to use this feature.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Open Settings', 
-              onPress: () => Linking.openSettings() 
-            }
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('Error requesting camera permission:', error);
-    }
-  };
-
-  // Pre-load permission request when screen mounts
-  useEffect(() => {
-    const preloadPermission = async () => {
-      if (!permission?.granted) {
-        handlePermissionRequest();
-      }
-    };
-    preloadPermission();
-  }, []);
-
-  // Handle app state changes to recheck permissions
+  // Handle app state changes
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (nextAppState === 'active' && !permission?.granted) {
-        handlePermissionRequest();
+        requestPermission();
       }
     });
 
@@ -79,7 +45,7 @@ const FoodScannerScreen = () => {
     };
   }, [permission?.granted]);
 
-  // Proper cleanup and state management
+  // Cleanup on unmount
   useEffect(() => {
     isMounted.current = true;
     return () => {
@@ -88,39 +54,14 @@ const FoodScannerScreen = () => {
     };
   }, []);
 
-  // Reset camera when screen is focused
-  useFocusEffect(
-    React.useCallback(() => {
-      let timeoutId: NodeJS.Timeout;
-      
-      // Reset states when screen gains focus
-      setIsLoading(false);
-      if (isMounted.current) {
-        timeoutId = setTimeout(() => {
-          if (isMounted.current && cameraRef.current) {
-            setCameraReady(false);
-            // Force camera to reinitialize
-            setCameraReady(true);
-          }
-        }, 300);
-      }
-
-      return () => {
-        if (timeoutId) clearTimeout(timeoutId);
-      };
-    }, [])
-  );
-
   const handleCameraReady = () => {
     if (isMounted.current) {
       setCameraReady(true);
-      setIsLoading(false);
     }
   };
 
   const takePicture = async () => {
     if (!cameraRef.current || !cameraReady || isLoading) {
-      console.log('Camera not ready:', { ready: cameraReady, loading: isLoading });
       return;
     }
 
@@ -133,7 +74,8 @@ const FoodScannerScreen = () => {
         exif: false,
       });
       
-      if (isMounted.current) {
+      if (photo && isMounted.current) {
+        // @ts-ignore
         navigation.navigate('ScannedFoodDetails', {
           imageUri: photo.uri,
           imageBase64: photo.base64,
@@ -159,7 +101,7 @@ const FoodScannerScreen = () => {
 
   if (!permission) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
@@ -167,21 +109,15 @@ const FoodScannerScreen = () => {
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.permissionContainer}>
-          <Ionicons name="camera-outline" size={64} color="#007AFF" />
-          <Text style={styles.permissionTitle}>Camera Access Required</Text>
-          <Text style={styles.permissionText}>
-            We need camera access to help you scan and analyze your food.
-          </Text>
-          <TouchableOpacity 
-            style={styles.permissionButton}
-            onPress={handlePermissionRequest}
-          >
-            <Text style={styles.permissionButtonText}>Grant Permission</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.permissionText}>We need your permission to show the camera</Text>
+        <TouchableOpacity 
+          style={styles.permissionButton}
+          onPress={requestPermission}
+        >
+          <Text style={styles.permissionButtonText}>Grant Permission</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
@@ -193,18 +129,9 @@ const FoodScannerScreen = () => {
         ref={cameraRef}
         onCameraReady={handleCameraReady}
         facing={facing}
-        enableZoomGesture
-        flashMode={flash}
-        active={true}
-        onMountError={(error) => {
-          console.error('Camera mount error:', error);
-          if (isMounted.current) {
-            setCameraReady(false);
-            setIsLoading(false);
-          }
-        }}
+        ratio="16:9"
       >
-        {/* Header with Title */}
+        {/* Rest of your camera UI components */}
         <SafeAreaView style={styles.header}>
           <TouchableOpacity 
             style={styles.closeButton}
@@ -212,11 +139,9 @@ const FoodScannerScreen = () => {
           >
             <Ionicons name="close" size={24} color="white" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Scan Food</Text>
           <View style={styles.headerRight} />
         </SafeAreaView>
 
-        {/* Scan Frame */}
         <View style={styles.scanAreaContainer}>
           <View style={styles.scanArea}>
             <View style={[styles.corner, styles.cornerTL]} />
@@ -227,7 +152,6 @@ const FoodScannerScreen = () => {
           <Text style={styles.instructionText}>Position your food in the frame</Text>
         </View>
 
-        {/* New Camera Controls */}
         <View style={styles.controlsContainer}>
           <TouchableOpacity
             activeOpacity={0.7}
@@ -258,6 +182,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'black',
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   camera: {
     flex: 1,

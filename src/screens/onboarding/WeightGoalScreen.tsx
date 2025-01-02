@@ -21,7 +21,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { colors } from '../../theme/colors';
 import { StatusBar } from 'expo-status-bar';
 
-type WeightGoalScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type WeightGoalScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'WeightGoal'>;
 
 type WeightGoal = 'LOSE_WEIGHT' | 'MAINTAIN_WEIGHT' | 'GAIN_WEIGHT';
 
@@ -82,15 +82,20 @@ export const WeightGoalScreen = () => {
       return;
     }
 
-    await updateOnboardingData({
-      weightGoal: selectedGoal,
-      targetWeight: {
-        value: Number(targetWeight),
-        unit: onboardingData.weight?.unit || 'kg',
-      },
-    });
+    try {
+      await updateOnboardingData({
+        weightGoal: selectedGoal,
+        targetWeight: {
+          value: Number(targetWeight),
+          unit: onboardingData.weight?.unit || 'kg',
+        },
+      });
 
-    navigation.navigate('Location');
+      navigation.navigate('Location');
+    } catch (error) {
+      console.error('Error updating weight goal:', error);
+      setError('Failed to save your weight goal. Please try again.');
+    }
   };
 
   return (

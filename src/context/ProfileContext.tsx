@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { userProfileService, UserProfile } from '../services/userProfileService';
 import { useAuth } from './AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ProfileContextType {
   profile: UserProfile | null;
@@ -27,59 +28,106 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [error, setError] = useState<Error | null>(null);
   const { user } = useAuth();
 
-  const syncProfile = async () => {
-    if (!user) return;
+  const loadProfile = async () => {
+    if (!user) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
-      const updatedProfile = await userProfileService.syncProfileWithOnboarding({});
-      setProfile(updatedProfile);
+      setError(null);
+      const userProfile = await userProfileService.getProfile();
+      
+      if (userProfile) {
+        setProfile(userProfile);
+      } else {
+        // If no profile exists, try to create one from onboarding data
+        const onboardingData = await AsyncStorage.getItem(`@onboarding_${user.uid}`);
+        if (onboardingData) {
+          const parsedOnboardingData = JSON.parse(onboardingData);
+          const newProfile = await userProfileService.createUserProfile(parsedOnboardingData);
+          if (newProfile) {
+            setProfile(newProfile);
+          } else {
+            throw new Error('Failed to create profile from onboarding data');
+          }
+        }
+      }
     } catch (error) {
-      console.error('Error syncing profile:', error);
+      console.error('Error loading profile:', error);
+      setError(error instanceof Error ? error : new Error('Failed to load profile'));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (!user) {
-        setProfile(null);
-        setLoading(false);
+  const syncProfile = async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      const onboardingData = await AsyncStorage.getItem(`@onboarding_${user.uid}`);
+      if (!onboardingData) {
+        console.warn('No onboarding data found for sync');
         return;
       }
-
-      try {
-        setLoading(true);
-        const userProfile = await userProfileService.getProfile();
-        setProfile(userProfile);
-      } catch (error) {
-        console.error('Error loading profile:', error);
-      } finally {
-        setLoading(false);
+      
+      const parsedOnboardingData = JSON.parse(onboardingData);
+      const updatedProfile = await userProfileService.syncProfileWithOnboarding(parsedOnboardingData);
+      if (updatedProfile) {
+        setProfile(updatedProfile);
       }
-    };
+    } catch (error) {
+      console.error('Error syncing profile:', error);
+      setError(error instanceof Error ? error : new Error('Failed to sync profile'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadProfile();
+  // Load profile when user changes or when onboarding completes
+  useEffect(() => {
+    if (user) {
+      loadProfile();
+    }
   }, [user]);
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
+    if (!user) return;
+    
     try {
       setLoading(true);
       setError(null);
       const updatedProfile = await userProfileService.updateUserProfile(updates);
       setProfile(updatedProfile);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to update profile'));
+      const error = err instanceof Error ? err : new Error('Failed to update profile');
+      setError(error);
       console.error('Error updating profile:', err);
-      throw err;
+      throw error;
     } finally {
       setLoading(false);
     }
   };
 
   const refreshProfile = async () => {
-    await loadProfile();
+    try {
+      setLoading(true);
+      setError(null);
+      const userProfile = await userProfileService.getProfile();
+      if (userProfile) {
+        setProfile(userProfile);
+      } else {
+        await loadProfile(); // Try to create profile if it doesn't exist
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+      setError(error instanceof Error ? error : new Error('Failed to refresh profile'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

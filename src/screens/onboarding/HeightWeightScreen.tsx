@@ -127,11 +127,15 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
         ]}>
           <Picker
             selectedValue={heightCm}
-            style={styles.picker}
+            style={[
+              styles.picker,
+              { backgroundColor: isDarkMode ? '#1A1A1A' : '#f5f5f5' }
+            ]}
             itemStyle={[
               styles.pickerItem,
               { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
             ]}
+            dropdownIconColor={isDarkMode ? colors.text.primary.dark : colors.text.primary.light}
             onValueChange={(itemValue: string) => setHeightCm(itemValue)}
           >
             {Array.from({ length: 171 }, (_, i) => i + 130).map((cm) => (
@@ -140,6 +144,7 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
                 label={`${cm} cm`} 
                 value={cm.toString()}
                 color={isDarkMode ? colors.text.primary.dark : colors.text.primary.light}
+                style={{ backgroundColor: isDarkMode ? '#1A1A1A' : '#f5f5f5' }}
               />
             ))}
           </Picker>
@@ -159,11 +164,15 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
           ]}>
             <Picker
               selectedValue={heightFeet}
-              style={styles.picker}
+              style={[
+                styles.picker,
+                { backgroundColor: isDarkMode ? '#1A1A1A' : '#f5f5f5' }
+              ]}
               itemStyle={[
                 styles.pickerItem,
                 { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
               ]}
+              dropdownIconColor={isDarkMode ? colors.text.primary.dark : colors.text.primary.light}
               onValueChange={(itemValue: string) => setHeightFeet(itemValue)}
             >
               {Array.from({ length: 5 }, (_, i) => i + 4).map((feet) => (
@@ -172,6 +181,7 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
                   label={`${feet} ft`} 
                   value={feet.toString()}
                   color={isDarkMode ? colors.text.primary.dark : colors.text.primary.light}
+                  style={{ backgroundColor: isDarkMode ? '#1A1A1A' : '#f5f5f5' }}
                 />
               ))}
             </Picker>
@@ -187,11 +197,15 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
           ]}>
             <Picker
               selectedValue={heightInches}
-              style={styles.picker}
+              style={[
+                styles.picker,
+                { backgroundColor: isDarkMode ? '#1A1A1A' : '#f5f5f5' }
+              ]}
               itemStyle={[
                 styles.pickerItem,
                 { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
               ]}
+              dropdownIconColor={isDarkMode ? colors.text.primary.dark : colors.text.primary.light}
               onValueChange={(itemValue: string) => setHeightInches(itemValue)}
             >
               {Array.from({ length: 12 }, (_, i) => i).map((inch) => (
@@ -200,6 +214,7 @@ const HeightWeightScreen: React.FC<HeightWeightScreenProps> = ({ navigation }) =
                   label={`${inch} in`} 
                   value={inch.toString()}
                   color={isDarkMode ? colors.text.primary.dark : colors.text.primary.light}
+                  style={{ backgroundColor: isDarkMode ? '#1A1A1A' : '#f5f5f5' }}
                 />
               ))}
             </Picker>

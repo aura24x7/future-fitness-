@@ -111,7 +111,11 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           }
         }
 
+        // For new users, ensure onboarding is not marked as complete
         const isComplete = storedComplete === 'true';
+        if (!storedComplete) {
+          await AsyncStorage.setItem(`${ONBOARDING_COMPLETE_KEY}_${user.uid}`, 'false');
+        }
         setIsOnboardingComplete(isComplete);
 
         if (isComplete && currentOnboardingData) {

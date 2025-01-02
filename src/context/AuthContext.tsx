@@ -8,10 +8,10 @@ import {
   updateProfile,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { auth, firestore } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { migrationService } from '../services/migration.service';
+import { ONBOARDING_COMPLETE_KEY } from './OnboardingContext';
 
 interface AuthContextType {
   user: User | null;
@@ -79,39 +79,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (currentUser) {
         try {
-          // Update persistence
-          await AsyncStorage.setItem(AUTH_PERSISTENCE_KEY, JSON.stringify({ 
-            uid: currentUser.uid,
-            email: currentUser.email,
-            displayName: currentUser.displayName,
-            photoURL: currentUser.photoURL,
-            lastLoginAt: new Date().toISOString()
-          }));
-
-          // Update Firestore
+          // First check if user has a profile in Firestore
           const userRef = doc(firestore, 'users', currentUser.uid);
-          await setDoc(userRef, {
-            lastLoginAt: serverTimestamp()
-          }, { merge: true });
+          const userDoc = await getDoc(userRef);
+          
+          if (userDoc.exists()) {
+            console.log('Existing user profile found');
+            // User has a profile, update persistence and login
+            await AsyncStorage.setItem(AUTH_PERSISTENCE_KEY, JSON.stringify({ 
+              uid: currentUser.uid,
+              email: currentUser.email,
+              displayName: currentUser.displayName,
+              photoURL: currentUser.photoURL,
+              lastLoginAt: new Date().toISOString()
+            }));
 
-          setUser(currentUser);
-          setIsAuthenticated(true);
-        } catch (error) {
-          console.error('Error during auth state change:', error);
-        }
-      } else {
-        // Try auto-login if we have credentials
-        try {
-          const savedCredentials = await AsyncStorage.getItem(AUTH_CREDENTIALS_KEY);
-          if (savedCredentials) {
-            const { email, password } = JSON.parse(savedCredentials);
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            console.log('Auto-login successful:', userCredential.user.email);
-            return;
+            // Mark onboarding as complete since they have a profile
+            await AsyncStorage.setItem(`${ONBOARDING_COMPLETE_KEY}_${currentUser.uid}`, 'true');
+
+            // Update last login in Firestore
+            await setDoc(userRef, {
+              lastLoginAt: serverTimestamp()
+            }, { merge: true });
+
+            // Set as authenticated user
+            setUser(currentUser);
+            setIsAuthenticated(true);
+          } else {
+            console.log('No existing profile, checking onboarding status');
+            // No profile in Firestore, check if they're mid-onboarding
+            const onboardingComplete = await AsyncStorage.getItem(`${ONBOARDING_COMPLETE_KEY}_${currentUser.uid}`);
+            
+            if (onboardingComplete === 'true') {
+              // They completed onboarding but profile not in Firestore (rare case)
+              // Set as authenticated but they'll need to redo onboarding
+              setUser(currentUser);
+              setIsAuthenticated(false);
+              // Clear onboarding status since profile is missing
+              await AsyncStorage.removeItem(`${ONBOARDING_COMPLETE_KEY}_${currentUser.uid}`);
+            } else {
+              // New user or incomplete onboarding
+              setUser(currentUser);
+              setIsAuthenticated(false);
+            }
           }
         } catch (error) {
+          console.error('Error during auth state change:', error);
+          // On error, set user but not authenticated to ensure safe state
+          setUser(currentUser);
+          setIsAuthenticated(false);
+        }
+      } else {
+        // Handle logout/no user case
+        try {
+          const savedCredentials = await AsyncStorage.getItem(AUTH_CREDENTIALS_KEY);
+          const persistedAuth = await AsyncStorage.getItem(AUTH_PERSISTENCE_KEY);
+          
+          if (savedCredentials && persistedAuth) {
+            const { email, password } = JSON.parse(savedCredentials);
+            await signInWithEmailAndPassword(auth, email, password);
+            return; // Auth state change will trigger again
+          }
+          
+          setUser(null);
+          setIsAuthenticated(false);
+        } catch (error) {
           console.error('Auto-login failed:', error);
-          // Clear persistence on failed auto-login
           await AsyncStorage.multiRemove([AUTH_PERSISTENCE_KEY, AUTH_CREDENTIALS_KEY]);
           setUser(null);
           setIsAuthenticated(false);
@@ -156,9 +189,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: new Date().toISOString()
       };
 
+      // Create initial user document in Firestore
       await setDoc(doc(firestore, 'users', user.uid), userProfile);
+      
+      // Explicitly set onboarding as incomplete for new users
+      await AsyncStorage.setItem(`${ONBOARDING_COMPLETE_KEY}_${user.uid}`, 'false');
+      
       // Save credentials for auto-login
       await AsyncStorage.setItem(AUTH_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+      
+      // Set authenticated state to false to force onboarding
+      setIsAuthenticated(false);
+      
       console.log('Registration successful:', user.email);
     } catch (error) {
       console.error('Registration error:', error);
@@ -168,9 +210,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await signOut(auth);
-      // Clear all auth data
+      // Clear all auth data before signing out to prevent auto-login
       await AsyncStorage.multiRemove([AUTH_PERSISTENCE_KEY, AUTH_CREDENTIALS_KEY]);
+      await signOut(auth);
+      setUser(null);
+      setIsAuthenticated(false);
       console.log('Logout successful');
     } catch (error) {
       console.error('Logout error:', error);

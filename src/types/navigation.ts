@@ -11,21 +11,28 @@ export type TabParamList = {
 };
 
 export type RootStackParamList = {
+  Login: undefined;
+  Register: undefined;
   Dashboard: undefined;
-  Welcome: undefined;
-  NameInput: undefined;
-  Birthday: undefined;
-  Gender: undefined;
-  HeightWeight: undefined;
-  DietaryPreference: undefined;
-  WeightGoal: undefined;
-  Location: undefined;
-  WorkoutPreference: undefined;
   Profile: undefined;
+  EditProfile: undefined;
   Settings: undefined;
-  TrackMeal: undefined;
-  ScanFood: undefined;
+  Onboarding: undefined;
+  FoodScanner: undefined;
+  FoodTextInput: undefined;
+  ScannedFoodDetails: {
+    imageUri?: string;
+    imageBase64?: string;
+    result?: any;
+    source?: 'image' | 'text';
+  };
+  ProfileGroups: undefined;
+  GroupDetails: undefined;
+  CreateGroup: undefined;
+  InviteMembers: undefined;
+  ManageInvites: undefined;
   AddIndividual: undefined;
+  Main: undefined;
 };
 
 export type RootTabParamList = {

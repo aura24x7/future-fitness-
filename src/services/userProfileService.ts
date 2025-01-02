@@ -212,9 +212,17 @@ class UserProfileService {
         throw new Error('No existing profile found');
       }
 
+      // Filter out undefined values
+      const filteredUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as Record<string, any>);
+
       const updatedProfile = {
         ...currentProfile,
-        ...updates,
+        ...filteredUpdates,
         updatedAt: serverTimestamp()
       };
 
@@ -235,27 +243,39 @@ class UserProfileService {
       }
 
       const metrics = this.calculateMetrics(onboardingData);
-      const updates: Partial<UserProfile> = {
-        name: onboardingData.name,
-        displayName: onboardingData.name,
-        birthday: onboardingData.birthday,
-        gender: onboardingData.gender,
-        height: onboardingData.height,
-        weight: onboardingData.weight,
-        targetWeight: onboardingData.targetWeight,
-        fitnessGoal: onboardingData.fitnessGoal,
-        activityLevel: onboardingData.lifestyle,
-        dietaryPreference: onboardingData.dietaryPreference,
-        workoutPreference: onboardingData.workoutPreference,
-        country: onboardingData.country,
-        state: onboardingData.state,
-        weightGoal: onboardingData.weightGoal,
-        metrics: metrics,
-        preferences: {
+      
+      // Only include defined values in updates
+      const updates: Partial<UserProfile> = {};
+      
+      if (onboardingData.name) updates.name = onboardingData.name;
+      if (onboardingData.name) updates.displayName = onboardingData.name;
+      if (onboardingData.birthday) updates.birthday = onboardingData.birthday;
+      if (onboardingData.gender) updates.gender = onboardingData.gender;
+      if (onboardingData.height) updates.height = onboardingData.height;
+      if (onboardingData.weight) updates.weight = onboardingData.weight;
+      if (onboardingData.targetWeight) updates.targetWeight = onboardingData.targetWeight;
+      if (onboardingData.fitnessGoal) updates.fitnessGoal = onboardingData.fitnessGoal;
+      if (onboardingData.lifestyle) updates.activityLevel = onboardingData.lifestyle;
+      if (onboardingData.dietaryPreference) updates.dietaryPreference = onboardingData.dietaryPreference;
+      if (onboardingData.workoutPreference) updates.workoutPreference = onboardingData.workoutPreference;
+      if (onboardingData.country) updates.country = onboardingData.country;
+      if (onboardingData.state) updates.state = onboardingData.state;
+      if (onboardingData.weightGoal) updates.weightGoal = onboardingData.weightGoal;
+      
+      // Only include metrics if they were calculated successfully
+      if (metrics && Object.keys(metrics).length > 0) {
+        updates.metrics = metrics;
+      }
+
+      // Only update preferences if we have height information
+      if (onboardingData.height?.unit) {
+        updates.preferences = {
           ...currentProfile.preferences,
-          measurementSystem: onboardingData.height?.unit === 'cm' ? 'metric' : 'imperial',
-        },
-      };
+          notifications: currentProfile.preferences?.notifications ?? true,
+          language: currentProfile.preferences?.language ?? 'en',
+          measurementSystem: onboardingData.height.unit === 'cm' ? 'metric' : 'imperial',
+        };
+      }
 
       return this.updateUserProfile(updates);
     } catch (error) {

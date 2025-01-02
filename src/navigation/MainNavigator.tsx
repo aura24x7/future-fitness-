@@ -17,7 +17,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import FoodTextInputScreen from '../screens/FoodTextInputScreen';
 
 // Import custom bottom taskbar
-import { BottomTaskbar } from '../components/BottomTaskbar';
+import BottomTaskbar from '../components/BottomTaskbar';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -61,16 +61,7 @@ const MainNavigator = () => {
         name="FoodTextInput"
         component={FoodTextInputScreen}
         options={{
-          headerShown: true,
-          title: 'Enter Food',
-          headerStyle: {
-            backgroundColor: 'transparent',
-          },
-          headerTransparent: true,
-          headerTintColor: '#6366f1',
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
+          headerShown: false
         }}
       />
 
@@ -79,16 +70,7 @@ const MainNavigator = () => {
         name="ScannedFoodDetails"
         component={ScannedFoodDetailsScreen}
         options={{
-          headerShown: true,
-          title: 'Food Details',
-          headerStyle: {
-            backgroundColor: 'transparent',
-          },
-          headerTransparent: true,
-          headerTintColor: '#6366f1',
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
+          headerShown: false
         }}
       />
 
@@ -147,16 +129,7 @@ const MainNavigator = () => {
         name="Profile"
         component={ProfileScreen}
         options={{
-          headerShown: true,
-          title: 'Profile',
-          headerStyle: {
-            backgroundColor: 'transparent',
-          },
-          headerTransparent: true,
-          headerTintColor: '#6366f1',
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
+          headerShown: false
         }}
       />
       <Stack.Screen

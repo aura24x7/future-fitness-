@@ -1,10 +1,11 @@
-import React, { useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, Dimensions, Platform, Switch, ViewStyle } from 'react-native';
+import React, { useMemo, useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, Image, Dimensions, Platform, Switch, ViewStyle, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native';
 import { useOnboarding } from '../context/OnboardingContext';
 import { useProfile } from '../context/ProfileContext';
+import { useAuth } from '../context/AuthContext';
 import { BlurView } from 'expo-blur';
 import Animated from 'react-native-reanimated';
 import { useScrollToTabBar } from '../hooks/useScrollToTabBar';
@@ -14,42 +15,23 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { calculateBMI, calculateBMR, calculateTDEE, calculateRecommendedCalories } from '../utils/profileCalculations';
 import { userProfileService } from '../services/userProfileService';
+import { Timestamp } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
 type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 type ValidGender = 'MALE' | 'FEMALE';
 
-const getValidGender = (gender: Gender | undefined): ValidGender => {
+// Utility functions
+const getValidGender = (gender?: string): 'MALE' | 'FEMALE' => {
   if (!gender || gender === 'OTHER') return 'MALE';
-  return gender;
+  return gender as 'MALE' | 'FEMALE';
 };
 
-interface ProfileStats {
-  totalWorkouts: number;
-  totalCaloriesBurned: number;
-  totalHours: number;
-}
-
-interface UserStats {
-  workouts: number;
-  calories: number;
-  hours: number;
-}
-
-interface UserProfile {
-  email?: string;
-  stats?: ProfileStats;
-  joinedDate?: string;
-  state?: string;
-}
-
-interface GlassBackgroundProps {
-  children: React.ReactNode;
-  style?: ViewStyle;
-}
-
-type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Profile'>;
+const getValidActivityLevel = (level?: string): 'SEDENTARY' | 'LIGHTLY_ACTIVE' | 'MODERATELY_ACTIVE' | 'VERY_ACTIVE' | 'SUPER_ACTIVE' => {
+  if (!level) return 'SEDENTARY';
+  return level as 'SEDENTARY' | 'LIGHTLY_ACTIVE' | 'MODERATELY_ACTIVE' | 'VERY_ACTIVE' | 'SUPER_ACTIVE';
+};
 
 const getBMICategory = (bmi: number): { category: string; color: string } => {
   if (bmi < 18.5) return { category: 'Underweight', color: '#3B82F6' };
@@ -82,6 +64,71 @@ const getCalorieAdjustmentDescription = (
   }
 };
 
+const formatValue = (value?: number, unit?: string) => {
+  if (!value || !unit) return '--';
+  return `${value} ${unit}`;
+};
+
+const formatGender = (gender?: string) => {
+  if (!gender) return '--';
+  return gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+};
+
+const formatDate = (date?: string | Date) => {
+  if (!date) return 'New Member';
+  return `Joined ${new Date(date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+};
+
+const formatLifestyle = (lifestyle?: string) => {
+  if (!lifestyle) return '--';
+  return lifestyle
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+const formatWorkoutType = (workoutType?: string) => {
+  if (!workoutType) return '--';
+  return workoutType
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+const formatDietType = (dietType?: string) => {
+  if (!dietType) return '--';
+  return dietType
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+interface ProfileStats {
+  totalWorkouts: number;
+  totalCaloriesBurned: number;
+  totalHours: number;
+}
+
+interface UserStats {
+  workouts: number;
+  calories: number;
+  hours: number;
+}
+
+interface UserProfile {
+  email?: string;
+  stats?: ProfileStats;
+  joinedDate?: string;
+  state?: string;
+}
+
+interface GlassBackgroundProps {
+  children: React.ReactNode;
+  style?: ViewStyle;
+}
+
+type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Profile'>;
+
 interface OnboardingData {
   name?: string;
   height?: { value: number; unit: string };
@@ -97,97 +144,124 @@ interface OnboardingData {
 
 const ProfileScreen = () => {
   const { onboardingData, resetOnboarding } = useOnboarding();
-  const { profile, loading } = useProfile();
+  const { profile, loading, syncProfile, refreshProfile } = useProfile();
   const { handleScroll } = useScrollToTabBar();
   const { colors, isDarkMode, toggleTheme } = useTheme();
   const navigation = useNavigation<ProfileScreenNavigationProp>();
+  const { logout } = useAuth();
   const AnimatedScrollView = Animated.ScrollView;
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Initialize or update profile when onboarding data changes
+  // Initialize or update profile when component mounts or focuses
   useEffect(() => {
-    const syncProfileWithOnboarding = async () => {
-      try {
-        if (onboardingData) {
-          // Try to get existing profile
-          const existingProfile = await userProfileService.getProfile();
-          
-          if (!existingProfile) {
-            // If no profile exists, create one
-            await userProfileService.createUserProfile(onboardingData);
-          } else {
-            // If profile exists, update it
-            await userProfileService.updateProfile({
-              activityLevel: onboardingData.lifestyle,
-              workoutPreference: onboardingData.workoutPreference,
-              dietaryPreference: onboardingData.dietaryPreference,
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error syncing profile:', error);
-      }
+    const unsubscribe = navigation.addListener('focus', () => {
+      refreshProfile();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  useEffect(() => {
+    loadProfileData();
+  }, []);
+
+  const loadProfileData = async () => {
+    try {
+      await refreshProfile();
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await loadProfileData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  if (loading && !profile) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  const userData = useMemo(() => {
+    return {
+      name: profile?.name || '--',
+      lifestyle: formatLifestyle(profile?.activityLevel),
+      workoutType: formatWorkoutType(profile?.workoutPreference),
+      dietType: formatDietType(profile?.dietaryPreference),
+      dailyCalories: profile?.metrics?.recommendedCalories || '--',
     };
+  }, [profile]);
 
-    syncProfileWithOnboarding();
-  }, [onboardingData]);
+  // Calculate BMI
+  const bmiData = useMemo(() => {
+    if (profile?.height?.value && profile?.weight?.value) {
+      const heightUnit = profile.height.unit || 'cm';
+      const weightUnit = profile.weight.unit || 'kg';
+      const units = heightUnit === 'cm' ? 'metric' : 'imperial';
+      
+      const bmi = calculateBMI(
+        profile.weight.value,
+        profile.height.value,
+        units
+      );
+      return { value: bmi, ...getBMICategory(bmi) };
+    }
+    return null;
+  }, [profile?.height, profile?.weight]);
 
-  const formatLifestyle = (lifestyle?: string) => {
-    if (!lifestyle) return '--';
-    return lifestyle
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-
-  const formatWorkoutType = (workoutType?: string) => {
-    if (!workoutType) return '--';
-    return workoutType
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-
-  const formatDietType = (dietType?: string) => {
-    if (!dietType) return '--';
-    return dietType
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-
-  const calculateDailyCalories = (onboardingData: any) => {
+  // Calculate Daily Calories with target weight consideration
+  const calorieData = useMemo(() => {
     if (
-      onboardingData.height?.value &&
-      onboardingData.weight?.value &&
-      onboardingData.birthday &&
-      onboardingData.gender &&
-      onboardingData.lifestyle &&
-      onboardingData.weightGoal &&
-      onboardingData.targetWeight?.value
+      profile?.height?.value &&
+      profile?.weight?.value &&
+      profile?.birthday &&
+      profile?.gender &&
+      profile?.activityLevel &&
+      profile?.weightGoal &&
+      profile?.targetWeight?.value
     ) {
-      const heightUnit = onboardingData.height.unit || 'cm';
-      const weightUnit = onboardingData.weight.unit || 'kg';
+      const heightUnit = profile.height.unit || 'cm';
+      const weightUnit = profile.weight.unit || 'kg';
       const units = heightUnit === 'cm' ? 'metric' : 'imperial';
 
       // Calculate age from birthday
       const today = new Date();
-      const birthDate = new Date(onboardingData.birthday);
-      const age = today.getFullYear() - birthDate.getFullYear();
+      const birthDate = profile.birthday instanceof Timestamp ? 
+        profile.birthday.toDate() : 
+        new Date(profile.birthday);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
 
-      // Calculate BMR
+      // Validate gender and activity level before calculations
+      const validGender = getValidGender(profile.gender as string);
+      const validActivityLevel = getValidActivityLevel(profile.activityLevel || 'SEDENTARY');
+
+      // Calculate BMR using validated gender
       const bmr = calculateBMR(
-        onboardingData.weight.value,
-        onboardingData.height.value,
+        profile.weight.value,
+        profile.height.value,
         age,
-        onboardingData.gender,
+        validGender,
         units
       );
 
-      // Calculate TDEE
-      const tdee = calculateTDEE(bmr, onboardingData.lifestyle);
+      // Calculate TDEE with validated activity level
+      const tdee = calculateTDEE(bmr, validActivityLevel);
 
       // Calculate weight difference
-      const weightDiff = onboardingData.targetWeight.value - onboardingData.weight.value;
+      const weightDiff = profile.targetWeight.value - profile.weight.value;
       const isWeightLoss = weightDiff < 0;
       const isWeightGain = weightDiff > 0;
 
@@ -202,97 +276,16 @@ const ProfileScreen = () => {
       return recommendedCalories;
     }
     return null;
-  };
-
-  const userData = useMemo(() => {
-    return {
-      name: onboardingData?.name || '--',
-      lifestyle: formatLifestyle(onboardingData?.lifestyle),
-      workoutType: formatWorkoutType(onboardingData?.workoutPreference),
-      dietType: formatDietType(onboardingData?.dietaryPreference),
-      dailyCalories: calculateDailyCalories(onboardingData),
-    };
-  }, [onboardingData]);
-
-  // Calculate BMI
-  const bmiData = useMemo(() => {
-    if (onboardingData.height?.value && onboardingData.weight?.value) {
-      const heightUnit = onboardingData.height.unit || 'cm';
-      const weightUnit = onboardingData.weight.unit || 'kg';
-      const units = heightUnit === 'cm' ? 'metric' : 'imperial';
-      
-      const bmi = calculateBMI(
-        onboardingData.weight.value,
-        onboardingData.height.value,
-        units
-      );
-      return { value: bmi, ...getBMICategory(bmi) };
-    }
-    return null;
-  }, [onboardingData.height, onboardingData.weight]);
-
-  // Calculate Daily Calories with target weight consideration
-  const calorieData = useMemo(() => {
-    if (
-      onboardingData.height?.value &&
-      onboardingData.weight?.value &&
-      onboardingData.birthday &&
-      onboardingData.gender &&
-      onboardingData.lifestyle &&
-      onboardingData.weightGoal &&
-      onboardingData.targetWeight?.value
-    ) {
-      const heightUnit = onboardingData.height.unit || 'cm';
-      const weightUnit = onboardingData.weight.unit || 'kg';
-      const units = heightUnit === 'cm' ? 'metric' : 'imperial';
-
-      // Calculate age from birthday
-      const today = new Date();
-      const birthDate = new Date(onboardingData.birthday);
-      const age = today.getFullYear() - birthDate.getFullYear();
-
-      // Calculate BMR
-      const bmr = calculateBMR(
-        onboardingData.weight.value,
-        onboardingData.height.value,
-        age,
-        onboardingData.gender,
-        units
-      );
-
-      // Calculate TDEE
-      const tdee = calculateTDEE(bmr, onboardingData.lifestyle);
-
-      // Calculate weight difference
-      const weightDiff = onboardingData.targetWeight.value - onboardingData.weight.value;
-      const isWeightLoss = weightDiff < 0;
-      const isWeightGain = weightDiff > 0;
-
-      // Adjust calories based on weight goal
-      let recommendedCalories = tdee;
-      if (isWeightLoss) {
-        recommendedCalories = tdee - 500; // 500 calorie deficit for healthy weight loss
-      } else if (isWeightGain) {
-        recommendedCalories = tdee + 300; // 300 calorie surplus for muscle gain
-      }
-
-      const adjustment = getCalorieAdjustmentDescription(onboardingData.weightGoal);
-
-      return {
-        bmr,
-        tdee,
-        recommendedCalories,
-        ...adjustment
-      };
-    }
-    return null;
-  }, [onboardingData]);
+  }, [profile]);
 
   // Calculate user's age
   const userAge = useMemo(() => {
-    if (onboardingData.birthday) {
+    if (profile?.birthday) {
       const today = new Date();
-      const birthDate = new Date(onboardingData.birthday);
+      const birthDate = profile.birthday instanceof Timestamp ? 
+        profile.birthday.toDate() : 
+        new Date(profile.birthday);
+      
       let age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
@@ -301,18 +294,13 @@ const ProfileScreen = () => {
       return age;
     }
     return null;
-  }, [onboardingData.birthday]);
+  }, [profile?.birthday]);
 
-  const userStats: UserStats = {
-    workouts: profile?.stats?.totalWorkouts ?? 0,
-    calories: profile?.stats?.totalCaloriesBurned ?? 0,
-    hours: profile?.stats?.totalHours ?? 0,
-  };
-
-  const handleSettingsPress = () => {
-    console.log('Navigating to Settings screen...');
-    navigation.navigate('Settings');
-  };
+  const userStats = useMemo(() => ({
+    workouts: 0,
+    calories: 0,
+    hours: 0
+  }), []);
 
   const calculatedCalories = useMemo(() => {
     if (!onboardingData?.weight?.value || !onboardingData?.height?.value || !onboardingData?.gender || !onboardingData?.birthday) {
@@ -352,6 +340,29 @@ const ProfileScreen = () => {
     }
   };
 
+  const handleLogout = async () => {
+    if (isLoggingOut) return; // Prevent multiple clicks
+    
+    setIsLoggingOut(true);
+    try {
+      // Reset onboarding data first
+      await resetOnboarding();
+      
+      // Perform the logout which will clear auth data
+      await logout();
+      
+      // Navigation will be handled by AuthContext's state change
+    } catch (error) {
+      console.error('Logout error:', error);
+      Alert.alert(
+        'Logout Error',
+        'An error occurred while logging out. Please try again.'
+      );
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   const GlassBackground: React.FC<GlassBackgroundProps> = ({ children, style }) => {
     if (Platform.OS === 'ios') {
       return (
@@ -379,6 +390,25 @@ const ProfileScreen = () => {
       </View>
     );
   };
+
+  const renderUserInfo = () => (
+    <View style={styles.userInfoSection}>
+      <Text style={[styles.userName, { color: colors.text }]}>{profile?.name || 'User'}</Text>
+      <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
+        {profile?.email || '@user'}
+      </Text>
+      <View style={styles.joinedSection}>
+        <Ionicons 
+          name="calendar-outline" 
+          size={14} 
+          color={colors.textSecondary} 
+        />
+        <Text style={[styles.joinedText, { color: colors.textSecondary }]}>
+          New Member
+        </Text>
+      </View>
+    </View>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -409,61 +439,7 @@ const ProfileScreen = () => {
                 </TouchableOpacity>
               </View>
             </View>
-            <View style={styles.headerButtons}>
-              <TouchableOpacity style={styles.editProfileButton}>
-                <LinearGradient
-                  colors={isDarkMode ? 
-                    ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] :
-                    ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.15)']
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.editProfileGradient}
-                >
-                  <Text style={[styles.editProfileText, { color: colors.text }]}>
-                    Edit Profile
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={handleSettingsPress}
-              >
-                <LinearGradient
-                  colors={isDarkMode ? 
-                    ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] :
-                    ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.15)']
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.settingsGradient}
-                >
-                  <Ionicons 
-                    name="settings-outline" 
-                    size={20} 
-                    color={colors.text} 
-                  />
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.userInfoSection}>
-            <Text style={[styles.userName, { color: colors.text }]}>{onboardingData.name || 'User'}</Text>
-            <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
-              {profile?.email || '@user'}
-            </Text>
-            <View style={styles.joinedSection}>
-              <Ionicons 
-                name="calendar-outline" 
-                size={14} 
-                color={colors.textSecondary} 
-              />
-              <Text style={[styles.joinedText, { color: colors.textSecondary }]}>
-                {profile?.joinedDate 
-                  ? `Joined ${new Date(profile.joinedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` 
-                  : 'New Member'}
-              </Text>
-            </View>
+            {renderUserInfo()}
           </View>
         </View>
       </GlassBackground>
@@ -492,30 +468,30 @@ const ProfileScreen = () => {
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Height</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
-                {onboardingData.height?.value || '--'} {onboardingData.height?.unit || 'cm'}
+                {formatValue(profile?.height?.value, profile?.height?.unit)}
               </Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Weight</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
-                {onboardingData.weight?.value || '--'} {onboardingData.weight?.unit || 'kg'}
+                {formatValue(profile?.weight?.value, profile?.weight?.unit)}
               </Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Target Weight</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
-                {onboardingData.targetWeight?.value || '--'} {onboardingData.targetWeight?.unit || 'kg'}
+                {formatValue(profile?.targetWeight?.value, profile?.targetWeight?.unit)}
               </Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>BMI</Text>
               <View>
                 <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {bmiData?.value?.toFixed(1) || '--'}
+                  {profile?.metrics?.bmi?.toFixed(1) || '--'}
                 </Text>
-                {bmiData && (
-                  <Text style={[styles.bmiCategory, { color: bmiData.color }]}>
-                    {bmiData.category}
+                {profile?.metrics?.bmi && (
+                  <Text style={[styles.bmiCategory, { color: getBMICategory(profile.metrics.bmi).color }]}>
+                    {getBMICategory(profile.metrics.bmi).category}
                   </Text>
                 )}
               </View>
@@ -523,9 +499,7 @@ const ProfileScreen = () => {
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Weight Goal</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
-                {onboardingData.weightGoal?.split('_').map(word => 
-                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                ).join(' ') || '--'}
+                {formatLifestyle(profile?.weightGoal)}
               </Text>
             </View>
             <View style={styles.infoItem}>
@@ -537,46 +511,41 @@ const ProfileScreen = () => {
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Gender</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
-                {onboardingData.gender?.charAt(0).toUpperCase() + 
-                 onboardingData.gender?.slice(1).toLowerCase() || '--'}
+                {formatGender(profile?.gender)}
               </Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Lifestyle</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
-                {userData.lifestyle}
+                {formatLifestyle(profile?.activityLevel)}
               </Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Diet Type</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
-                {userData.dietType}
+                {formatDietType(profile?.dietaryPreference)}
               </Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Workout Type</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
-                {userData.workoutType}
+                {formatWorkoutType(profile?.workoutPreference)}
               </Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Daily Calories</Text>
               <View>
-                <Text style={[styles.infoValue, { 
-                  color: colors.text,
-                  fontSize: 18,
-                  fontWeight: '700'
-                }]}>
-                  {calculatedCalories ? `${calculatedCalories.toLocaleString()} kcal` : '--'}
+                <Text style={[styles.infoValue, { color: colors.text, fontSize: 18, fontWeight: '700' }]}>
+                  {profile?.metrics?.recommendedCalories ? 
+                    `${profile.metrics.recommendedCalories.toLocaleString()} kcal` : 
+                    '--'}
                 </Text>
-                {calculatedCalories && (
+                {profile?.metrics?.recommendedCalories && (
                   <Text style={[styles.calorieDescription, { 
                     color: isDarkMode ? colors.primary : '#6366F1',
                     fontWeight: '600'
                   }]}>
-                    {onboardingData?.weightGoal === 'LOSE_WEIGHT' ? '20% calorie deficit' :
-                     onboardingData?.weightGoal === 'GAIN_WEIGHT' ? '10% calorie surplus' :
-                     'Maintenance calories'}
+                    {getCalorieAdjustmentDescription(profile.weightGoal).description}
                   </Text>
                 )}
               </View>
@@ -655,14 +624,21 @@ const ProfileScreen = () => {
               backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
               borderWidth: 1,
               borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)',
+              opacity: isLoggingOut ? 0.7 : 1,
             }
           ]}
+          onPress={handleLogout}
+          disabled={isLoggingOut}
         >
-          <Ionicons name="log-out-outline" size={24} color="#ef4444" />
+          {isLoggingOut ? (
+            <ActivityIndicator size="small" color="#ef4444" style={{ marginRight: 10 }} />
+          ) : (
+            <Ionicons name="log-out-outline" size={24} color="#ef4444" />
+          )}
           <Text style={[styles.logoutButtonText, { 
             color: '#ef4444',
             fontWeight: '600'
-          }]}>Log Out</Text>
+          }]}>{isLoggingOut ? 'Logging out...' : 'Log Out'}</Text>
         </TouchableOpacity>
       </AnimatedScrollView>
     </View>
@@ -713,43 +689,11 @@ const styles = StyleSheet.create({
   },
   editAvatarButton: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    bottom: -10,
+    right: -10,
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#6366f1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  editProfileButton: {
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  editProfileGradient: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  editProfileText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  settingsButton: {
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  settingsGradient: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -802,9 +746,6 @@ const styles = StyleSheet.create({
         elevation: 3,
       },
     }),
-  },
-  glassEffect: {
-    overflow: 'hidden',
   },
   sectionTitle: {
     fontSize: 18,

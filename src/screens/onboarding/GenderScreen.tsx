@@ -12,6 +12,14 @@ import { useOnboarding } from '../../context/OnboardingContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import { colors } from '../../theme/colors';
 import { StatusBar } from 'expo-status-bar';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../types/navigation';
+
+type GenderScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Gender'>;
+
+interface GenderScreenProps {
+  navigation: GenderScreenNavigationProp;
+}
 
 type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 
@@ -33,7 +41,7 @@ const genderOptions: { id: Gender; title: string; emoji: string }[] = [
   },
 ];
 
-const GenderScreen = ({ navigation }) => {
+const GenderScreen: React.FC<GenderScreenProps> = ({ navigation }) => {
   const [selectedGender, setSelectedGender] = useState<Gender | null>(null);
   const { updateOnboardingData } = useOnboarding();
   const { isDarkMode } = useTheme();
@@ -185,16 +193,16 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   optionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginTop: 40,
     paddingHorizontal: 12,
   },
   optionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: 16,
     padding: 20,
-    alignItems: 'center',
-    width: width * 0.27,
+    marginBottom: 16,
+    width: '100%',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -210,8 +218,8 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.02 }],
   },
   optionEmoji: {
-    fontSize: 32,
-    marginBottom: 12,
+    fontSize: 24,
+    marginRight: 16,
     opacity: 0.8,
   },
   selectedOptionEmoji: {
@@ -219,7 +227,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.1 }],
   },
   optionTitle: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '500',
   },
   footer: {
