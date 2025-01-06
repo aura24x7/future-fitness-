@@ -13,38 +13,18 @@
     },
     "plugins": [
       [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#ffffff",
-          "sounds": ["./assets/notification-sound.wav"]
-        }
-      ],
-      [
         "expo-camera",
         {
           "cameraPermission": "Allow Future Fitness to access your camera."
         }
       ],
       [
-        "expo-file-system",
+        "expo-notifications",
         {
-          "iCloudContainerEnvironment": "Production"
-        }
-      ],
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/splash.png",
-          "resizeMode": "contain",
-          "backgroundColor": "#4c669f",
-          "imageResizeMode": "contain",
-          "androidSplashResourceBackgroundColor": "#4c669f",
-          "dark": {
-            "image": "./assets/splash.png",
-            "resizeMode": "contain",
-            "backgroundColor": "#4c669f"
-          }
+          "icon": "./assets/icon.png",
+          "color": "#4c669f",
+          "defaultChannel": "default",
+          "enableBackgroundRemoteNotifications": false
         }
       ]
     ],
@@ -54,12 +34,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.futurefitness.app",
-      "buildNumber": "1.0.0",
-      "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
-      }
+      "buildNumber": "1.0.0"
     },
     "android": {
       "adaptiveIcon": {
@@ -67,22 +42,35 @@
         "backgroundColor": "#4c669f"
       },
       "package": "com.futurefitness.app",
-      "versionCode": 1,
-      "permissions": [
-        "NOTIFICATIONS",
-        "VIBRATE",
-        "RECEIVE_BOOT_COMPLETED"
-      ]
+      "versionCode": 1
     },
     "extra": {
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "ad6f467a-27e7-4bb0-ba4a-757ed196f0b2"
       }
     },
     "newArchEnabled": true,
     "experiments": {
       "tsconfigPaths": true
     },
-    "scheme": "future-fitness"
+    "scheme": "future-fitness",
+    "fonts": [
+      {
+        "asset": "./assets/fonts/Inter-Regular.ttf",
+        "family": "Inter"
+      },
+      {
+        "asset": "./assets/fonts/Inter-Medium.ttf",
+        "family": "Inter-Medium"
+      },
+      {
+        "asset": "./assets/fonts/Inter-SemiBold.ttf",
+        "family": "Inter-SemiBold"
+      },
+      {
+        "asset": "./assets/fonts/Inter-Bold.ttf",
+        "family": "Inter-Bold"
+      }
+    ]
   }
 }
