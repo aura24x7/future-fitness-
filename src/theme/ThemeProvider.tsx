@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TamaguiProvider } from 'tamagui';
 import config from '../tamagui.config';
 import { colors } from './colors';
+import { typography } from './typography';
 
 interface ThemeColors {
   primary: string;
@@ -41,6 +42,7 @@ type ThemeContextType = {
   toggleTheme: () => void;
   themePreference: 'light' | 'dark' | 'system';
   setThemePreference: (theme: 'light' | 'dark' | 'system') => void;
+  typography: typeof typography;
 };
 
 const defaultThemeContext: ThemeContextType = {
@@ -49,6 +51,7 @@ const defaultThemeContext: ThemeContextType = {
   toggleTheme: () => {},
   themePreference: 'dark',
   setThemePreference: () => {},
+  typography,
 };
 
 const ThemeContext = createContext<ThemeContextType>(defaultThemeContext);
@@ -103,6 +106,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     toggleTheme,
     themePreference,
     setThemePreference,
+    typography,
   }), [colors, isDarkMode, toggleTheme, themePreference]);
 
   return (

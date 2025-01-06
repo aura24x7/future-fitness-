@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -12,107 +11,97 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { useTheme } from '../../theme/ThemeProvider';
-import { colors } from '../../theme/colors';
 import { StatusBar } from 'expo-status-bar';
+import { Text } from '../../components/themed/Text';
 
-const NameInputScreen = ({ navigation }) => {
+const NameInputScreen: React.FC = () => {
   const [name, setName] = useState('');
   const { updateOnboardingData } = useOnboarding();
-  const { isDarkMode } = useTheme();
+  const { colors, isDarkMode } = useTheme();
 
   const handleContinue = () => {
     if (name.trim()) {
       updateOnboardingData({ name: name.trim() });
-      navigation.navigate('Birthday', { name: name.trim() });
     }
   };
 
   return (
     <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
     >
-      <View style={[
-        styles.container,
-        { backgroundColor: isDarkMode ? colors.background.dark : colors.background.light }
-      ]}>
-        <StatusBar style={isDarkMode ? "light" : "dark"} />
-        <LinearGradient
-          colors={isDarkMode ? 
-            [colors.background.dark, colors.background.dark] : 
-            [colors.background.light, '#F5F3FF']
-          }
-          style={StyleSheet.absoluteFill}
-        />
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+      <LinearGradient
+        colors={isDarkMode ? ['#1a1b1e', '#2d2f34'] : ['#ffffff', '#f8f9fa']}
+        style={styles.container}
+      >
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={[
-              styles.title,
-              { color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light }
-            ]}>What's your name?</Text>
-            <Text style={[
-              styles.subtitle,
-              { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
-            ]}>Let's personalize your experience</Text>
+            <Text variant="heading1" style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}>
+              What's your name?
+            </Text>
+            <Text variant="subtitle1" style={{ color: isDarkMode ? '#94A3B8' : '#6B7280' }}>
+              We'll use this to personalize your experience
+            </Text>
           </View>
 
           <View style={styles.inputContainer}>
             <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter your name"
+              placeholderTextColor={isDarkMode ? '#94A3B8' : '#6B7280'}
               style={[
                 styles.input,
                 {
-                  backgroundColor: isDarkMode ? '#1A1A1A' : '#F5F5F5',
-                  color: isDarkMode ? colors.text.primary.dark : colors.text.primary.light,
-                  shadowColor: isDarkMode ? '#000000' : '#000000',
+                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#ffffff',
+                  color: isDarkMode ? '#FFFFFF' : '#000000',
                 }
               ]}
-              placeholder="Enter your name"
-              placeholderTextColor={isDarkMode ? '#666666' : '#999999'}
-              value={name}
-              onChangeText={setName}
               autoFocus
+              returnKeyType="done"
               onSubmitEditing={handleContinue}
             />
           </View>
 
           <View style={styles.footer}>
             <TouchableOpacity
+              style={[
+                styles.button,
+                !name.trim() && styles.buttonDisabled,
+              ]}
               onPress={handleContinue}
               disabled={!name.trim()}
             >
               <LinearGradient
-                colors={isDarkMode ? 
-                  [colors.primaryLight, colors.primary] :
-                  [colors.primaryLight, colors.primary]
-                }
+                colors={['#6366F1', '#4338CA']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={[
-                  styles.button,
-                  !name.trim() && styles.buttonDisabled
-                ]}
+                style={[styles.button, !name.trim() && styles.buttonDisabled]}
               >
-                <Text style={[
-                  styles.buttonText,
-                  !name.trim() && styles.buttonTextDisabled
-                ]}>
+                <Text
+                  variant="subtitle1"
+                  style={[
+                    styles.buttonText,
+                    !name.trim() && styles.buttonTextDisabled
+                  ]}
+                >
                   Continue
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
-          </View>
 
-          <View style={[
-            styles.progressBar,
-            { backgroundColor: isDarkMode ? '#1A1A1A' : '#F2F2F2' }
-          ]}>
-            <View style={[
-              styles.progress,
-              { backgroundColor: isDarkMode ? colors.primaryLight : colors.primary }
-            ]} />
+            <View style={styles.progressBar}>
+              <LinearGradient
+                colors={['#6366F1', '#4338CA']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.progress}
+              />
+            </View>
           </View>
         </View>
-      </View>
+      </LinearGradient>
     </KeyboardAvoidingView>
   );
 };
@@ -131,19 +120,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginTop: 60,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: '700',
-    marginTop: 24,
-    marginBottom: 8,
-    textAlign: 'center',
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    fontSize: 17,
-    textAlign: 'center',
-    letterSpacing: 0.2,
   },
   inputContainer: {
     marginTop: 32,
@@ -177,8 +153,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '600',
     textAlign: 'center',
     letterSpacing: 0.5,
   },

@@ -1,5 +1,6 @@
 import React from 'react';
-import { TextInput, View, Text, StyleSheet, TextInputProps } from 'react-native';
+import { TextInput, View, StyleSheet, TextInputProps } from 'react-native';
+import { Text } from './themed/Text';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -9,7 +10,7 @@ interface InputProps extends TextInputProps {
 const Input: React.FC<InputProps> = ({ label, error, style, ...props }) => {
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text variant="subtitle2" style={styles.label}>{label}</Text>}
       <TextInput
         style={[
           styles.input,
@@ -19,7 +20,7 @@ const Input: React.FC<InputProps> = ({ label, error, style, ...props }) => {
         placeholderTextColor="#666"
         {...props}
       />
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text variant="caption" style={styles.error}>{error}</Text>}
     </View>
   );
 };
@@ -29,7 +30,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 14,
     color: '#333',
     marginBottom: 8,
   },
@@ -47,7 +47,6 @@ const styles = StyleSheet.create({
   },
   error: {
     color: '#dc3545',
-    fontSize: 12,
     marginTop: 4,
   },
 });

@@ -4,7 +4,6 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Text,
   ActivityIndicator,
   Platform,
   Alert,
@@ -16,30 +15,29 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { naturalLanguageFoodService } from '../services/ai/naturalLanguageFood/naturalLanguageFoodService';
 import { Ionicons } from '@expo/vector-icons';
+import { Text } from '../components/themed/Text';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-export const FoodTextInputScreen = () => {
-  const { colors, isDarkMode } = useTheme();
-  const navigation = useNavigation<NavigationProp>();
+export const FoodTextInputScreen: React.FC = () => {
   const [text, setText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { colors, isDarkMode } = useTheme();
+  const navigation = useNavigation<NavigationProp>();
 
   const handleSubmit = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || isLoading) return;
     setIsLoading(true);
     try {
-      const result = await naturalLanguageFoodService.analyzeFoodText(text.trim());
-      console.log('Text analysis result:', result);
+      const result = await naturalLanguageFoodService.analyzeFoodText(text);
       navigation.navigate('ScannedFoodDetails', {
         result,
         source: 'text'
       });
     } catch (error) {
-      console.error('Error analyzing food text:', error);
       Alert.alert(
         'Error',
-        'Failed to analyze food description. Please try again.',
+        'Failed to analyze food text. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -51,13 +49,13 @@ export const FoodTextInputScreen = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
           style={styles.backButton}
+          onPress={() => navigation.goBack()}
         >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>
-          Log Food by Text
+        <Text variant="subtitle1" style={{ color: colors.text }}>
+          Add Food
         </Text>
         <View style={styles.headerRight} />
       </View>
@@ -95,7 +93,7 @@ export const FoodTextInputScreen = () => {
           {isLoading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitButtonText}>
+            <Text variant="subtitle2" style={styles.submitButtonText}>
               Analyze Food
             </Text>
           )}
@@ -115,43 +113,47 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   backButton: {
-    padding: 8,
-    marginLeft: -8,
+    padding: 4,
   },
   headerRight: {
-    width: 40,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
+    width: 32,
   },
   content: {
     flex: 1,
     padding: 16,
+    gap: 16,
   },
   input: {
-    flex: 1,
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
+    minHeight: 120,
     textAlignVertical: 'top',
-    marginBottom: 16,
   },
   submitButton: {
-    height: 56,
-    borderRadius: 28,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Platform.OS === 'ios' ? 34 : 24,
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 

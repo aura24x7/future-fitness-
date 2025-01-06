@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
 import Modal from 'react-native-modal';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeProvider';
+import { Text } from '../themed/Text';
 
 interface Props {
   isVisible: boolean;
@@ -24,14 +24,14 @@ const TextInputModal: React.FC<Props> = ({ isVisible, onClose, onSubmit }) => {
   const { colors, isDarkMode } = useTheme();
 
   const handleSubmit = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || isLoading) return;
     setIsLoading(true);
     try {
       await onSubmit(text);
       setText('');
       onClose();
     } catch (error) {
-      console.error('Error submitting food description:', error);
+      console.error('Error submitting text:', error);
     } finally {
       setIsLoading(false);
     }
@@ -42,11 +42,9 @@ const TextInputModal: React.FC<Props> = ({ isVisible, onClose, onSubmit }) => {
       isVisible={isVisible}
       onBackdropPress={onClose}
       onBackButtonPress={onClose}
-      useNativeDriver
-      hideModalContentWhileAnimating
       style={styles.modal}
+      backdropTransitionOutTiming={0}
       avoidKeyboard
-      statusBarTranslucent
     >
       <View style={[
         styles.container,
@@ -56,17 +54,13 @@ const TextInputModal: React.FC<Props> = ({ isVisible, onClose, onSubmit }) => {
       ]}>
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={onClose}
             style={styles.closeButton}
+            onPress={onClose}
           >
-            <Ionicons
-              name="close"
-              size={24}
-              color={colors.text}
-            />
+            <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text }]}>
-            Log Food
+          <Text variant="subtitle1" style={{ color: colors.text }}>
+            Add Food
           </Text>
           <View style={styles.headerRight} />
         </View>
@@ -88,8 +82,6 @@ const TextInputModal: React.FC<Props> = ({ isVisible, onClose, onSubmit }) => {
               }
             ]}
             autoFocus
-            returnKeyType="done"
-            onSubmitEditing={handleSubmit}
           />
 
           <TouchableOpacity
@@ -106,8 +98,8 @@ const TextInputModal: React.FC<Props> = ({ isVisible, onClose, onSubmit }) => {
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.submitButtonText}>
-                Analyze
+              <Text variant="subtitle2" style={styles.submitButtonText}>
+                Analyze Food
               </Text>
             )}
           </TouchableOpacity>
@@ -155,10 +147,6 @@ const styles = StyleSheet.create({
   headerRight: {
     width: 32,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
   content: {
     padding: 16,
     gap: 16,
@@ -178,8 +166,6 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 

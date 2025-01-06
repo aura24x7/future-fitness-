@@ -1,5 +1,6 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { Text } from './themed/Text';
 
 interface ButtonProps {
   title: string;
@@ -24,7 +25,10 @@ const Button: React.FC<ButtonProps> = ({
       onPress={onPress}
       disabled={disabled}
     >
-      <Text style={[styles.text, styles[`${variant}Text`], textStyle]}>
+      <Text 
+        variant="subtitle1"
+        style={[styles.text, styles[`${variant}Text`], textStyle]}
+      >
         {title}
       </Text>
     </TouchableOpacity>
@@ -51,7 +55,6 @@ const styles = StyleSheet.create({
     borderColor: '#4c669f',
   },
   text: {
-    fontSize: 16,
     fontWeight: '600',
   },
   primaryText: {

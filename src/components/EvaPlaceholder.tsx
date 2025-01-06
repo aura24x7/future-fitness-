@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Text } from './themed/Text';
 
 interface EvaPlaceholderProps {
   size?: number;
@@ -24,9 +25,9 @@ const EvaPlaceholder: React.FC<EvaPlaceholderProps> = ({
           }
         ]}
       >
-        <Text style={styles.initial}>E</Text>
+        <Text variant="heading1" style={styles.initial}>E</Text>
       </LinearGradient>
-      {showLabel && <Text style={styles.label}>Eva</Text>}
+      {showLabel && <Text variant="subtitle1" style={styles.label}>Eva</Text>}
     </View>
   );
 };
@@ -48,15 +49,12 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   initial: {
-    fontSize: 40,
     color: '#ffffff',
     fontWeight: 'bold',
   },
   label: {
     marginTop: 8,
-    fontSize: 16,
     color: '#4c669f',
-    fontWeight: '600',
   },
 });
 

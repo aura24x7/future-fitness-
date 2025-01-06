@@ -1,14 +1,23 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '../theme/ThemeProvider';
+import { Text } from '../components/themed/Text';
 
 export const HomeScreen = () => {
   const { colors } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>Welcome to Future Fitness</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+      <Text 
+        variant="heading1" 
+        style={{ color: colors.text }}
+      >
+        Welcome to Future Fitness
+      </Text>
+      <Text 
+        variant="subtitle1" 
+        style={{ color: colors.textSecondary }}
+      >
         Your journey to a healthier lifestyle starts here
       </Text>
     </View>
@@ -21,16 +30,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
   },
 }); 

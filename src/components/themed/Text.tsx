@@ -1,59 +1,48 @@
-import { styled } from 'tamagui'
-import { Text as RNText } from 'react-native'
+import React from 'react';
+import { Text as RNText, TextProps as RNTextProps, TextStyle } from 'react-native';
+import { useTypography } from '../../hooks/useTypography';
+import { mapLegacyStyle } from '../../utils/typography';
 
-export const Text = styled(RNText, {
-  name: 'Text',
-  color: '$color',
-  variants: {
-    size: {
-      xs: {
-        fontSize: 12,
-      },
-      sm: {
-        fontSize: 14,
-      },
-      md: {
-        fontSize: 16,
-      },
-      lg: {
-        fontSize: 18,
-      },
-      xl: {
-        fontSize: 20,
-      },
-      '2xl': {
-        fontSize: 24,
-      },
-    },
-    weight: {
-      normal: {
-        fontWeight: 'normal',
-      },
-      medium: {
-        fontWeight: '500',
-      },
-      bold: {
-        fontWeight: 'bold',
-      },
-    },
-    variant: {
-      default: {
-        color: '$color',
-      },
-      muted: {
-        color: '$colorMuted',
-      },
-      error: {
-        color: '$error',
-      },
-      success: {
-        color: '$success',
-      },
-    },
-  },
-  defaultVariants: {
-    size: 'md',
-    weight: 'normal',
-    variant: 'default',
-  },
-})
+type TypographyVariant = 'heading1' | 'heading2' | 'heading3' | 'subtitle1' | 'subtitle2' | 'body1' | 'body2' | 'caption' | 'overline';
+
+interface TextProps extends RNTextProps {
+  variant?: TypographyVariant;
+  children: React.ReactNode;
+}
+
+export const Text: React.FC<TextProps> = ({ 
+  variant,
+  style,
+  children,
+  ...props 
+}) => {
+  const typography = useTypography();
+  
+  // Handle legacy styles
+  if (!variant && style) {
+    const styleArray = Array.isArray(style) ? style : [style];
+    const flattenedStyle = Object.assign({}, ...styleArray) as TextStyle;
+    const { variant: mappedVariant, additionalStyle } = mapLegacyStyle(flattenedStyle);
+    
+    return (
+      <RNText
+        style={[typography[mappedVariant], additionalStyle]}
+        {...props}
+      >
+        {children}
+      </RNText>
+    );
+  }
+
+  // Handle new typography system
+  return (
+    <RNText
+      style={[typography[variant || 'body1'], style]}
+      {...props}
+    >
+      {children}
+    </RNText>
+  );
+};
+
+export default Text;

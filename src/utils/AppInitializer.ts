@@ -2,6 +2,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { auth } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
+import * as Font from 'expo-font';
 
 // Constants
 const AUTH_PERSISTENCE_KEY = '@auth_persistence';
@@ -56,6 +57,13 @@ export const initializeApp = async () => {
       Promise.all([
         initializeFirebaseAuth(),
         setupAppStateListener(),
+        // Load fonts
+        Font.loadAsync({
+          'Inter': require('../../assets/fonts/Inter-Regular.ttf'),
+          'Inter-Medium': require('../../assets/fonts/Inter-Medium.ttf'),
+          'Inter-SemiBold': require('../../assets/fonts/Inter-SemiBold.ttf'),
+          'Inter-Bold': require('../../assets/fonts/Inter-Bold.ttf'),
+        }),
         // Add other initialization tasks here
       ]),
       timeoutPromise
