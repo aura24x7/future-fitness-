@@ -51,6 +51,8 @@ export interface UserProfile {
 class UserProfileService {
   private static instance: UserProfileService;
   private currentProfile: UserProfile | null = null;
+  private maxRetries = 3;
+  private retryDelay = 1000; // 1 second
 
   private constructor() {}
 
@@ -61,22 +63,45 @@ class UserProfileService {
     return UserProfileService.instance;
   }
 
-  async getProfile(): Promise<UserProfile | null> {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      throw new Error('No authenticated user');
+  private async waitForAuth(retries = 0): Promise<void> {
+    if (auth.currentUser) return;
+    
+    if (retries >= this.maxRetries) {
+      throw new Error('No authenticated user after maximum retries');
     }
 
+    // Wait for a bit before retrying
+    await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+    
+    // Try again
+    return this.waitForAuth(retries + 1);
+  }
+
+  async getProfile(): Promise<UserProfile | null> {
     try {
-      const userDoc = await getDoc(doc(firestore, 'users', currentUser.uid));
-      if (!userDoc.exists()) {
+      await this.waitForAuth();
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No authenticated user');
+      }
+
+      try {
+        const userDoc = await getDoc(doc(firestore, 'users', currentUser.uid));
+        if (!userDoc.exists()) {
+          return null;
+        }
+        const profile = userDoc.data() as UserProfile;
+        this.currentProfile = profile;
+        return profile;
+      } catch (error) {
+        console.error('Error getting user profile:', error);
+        throw error;
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'No authenticated user after maximum retries') {
+        console.warn('Auth not initialized after retries, returning null profile');
         return null;
       }
-      const profile = userDoc.data() as UserProfile;
-      this.currentProfile = profile;
-      return profile;
-    } catch (error) {
-      console.error('Error getting user profile:', error);
       throw error;
     }
   }
@@ -150,14 +175,15 @@ class UserProfileService {
     try {
       const metrics = this.calculateMetrics(onboardingData);
       
-      const userProfile: UserProfile = {
+      // Create a sanitized version of the profile data
+      const sanitizedData = Object.entries({
         uid: currentUser.uid,
         id: currentUser.uid,
         email: currentUser.email || '',
         name: onboardingData.name || '',
         displayName: onboardingData.name || '',
-        birthday: onboardingData.birthday,
-        gender: onboardingData.gender,
+        birthday: onboardingData.birthday || null,
+        gender: onboardingData.gender || null,
         height: onboardingData.height ? {
           value: onboardingData.height.value,
           unit: onboardingData.height.unit
@@ -170,13 +196,13 @@ class UserProfileService {
           value: onboardingData.targetWeight.value,
           unit: onboardingData.targetWeight.unit
         } : null,
-        fitnessGoal: onboardingData.fitnessGoal,
-        activityLevel: onboardingData.lifestyle,
-        dietaryPreference: onboardingData.dietaryPreference,
-        workoutPreference: onboardingData.workoutPreference,
-        country: onboardingData.country,
-        state: onboardingData.state,
-        weightGoal: onboardingData.weightGoal,
+        fitnessGoal: onboardingData.fitnessGoal || null,
+        activityLevel: onboardingData.lifestyle || null,
+        dietaryPreference: onboardingData.dietaryPreference || null,
+        workoutPreference: onboardingData.workoutPreference || null,
+        country: onboardingData.country || null,
+        state: onboardingData.state || null,
+        weightGoal: onboardingData.weightGoal || null,
         metrics: metrics,
         preferences: {
           notifications: true,
@@ -185,11 +211,16 @@ class UserProfileService {
         },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      };
+      }).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as Record<string, any>) as UserProfile;
 
-      await setDoc(doc(firestore, 'users', currentUser.uid), userProfile);
-      this.currentProfile = userProfile;
-      return userProfile;
+      await setDoc(doc(firestore, 'users', currentUser.uid), sanitizedData);
+      this.currentProfile = sanitizedData;
+      return sanitizedData;
     } catch (error) {
       console.error('Error creating user profile:', error);
       throw error;

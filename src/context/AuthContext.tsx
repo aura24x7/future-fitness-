@@ -11,7 +11,7 @@ import {
 import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { auth, firestore } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ONBOARDING_COMPLETE_KEY } from './OnboardingContext';
+import { ONBOARDING_COMPLETE_KEY, ONBOARDING_STORAGE_KEY } from './OnboardingContext';
 
 interface AuthContextType {
   user: User | null;
@@ -22,6 +22,7 @@ interface AuthContextType {
   updateUserProfile: (data: { displayName?: string; photoURL?: string }) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   isAuthenticated: boolean;
+  completeOnboarding: () => Promise<void>;
 }
 
 interface UserProfile {
@@ -32,6 +33,7 @@ interface UserProfile {
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
+  onboardingComplete: boolean;
 }
 
 const AUTH_PERSISTENCE_KEY = '@auth_persistence';
@@ -84,8 +86,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userDoc = await getDoc(userRef);
           
           if (userDoc.exists()) {
-            console.log('Existing user profile found');
-            // User has a profile, update persistence and login
+            const userData = userDoc.data();
+            console.log('User profile found, checking onboarding status');
+            
+            // Check if user has completed onboarding
+            const onboardingComplete = userData.onboardingComplete === true;
+            
+            // Update persistence
             await AsyncStorage.setItem(AUTH_PERSISTENCE_KEY, JSON.stringify({ 
               uid: currentUser.uid,
               email: currentUser.email,
@@ -94,34 +101,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               lastLoginAt: new Date().toISOString()
             }));
 
-            // Mark onboarding as complete since they have a profile
-            await AsyncStorage.setItem(`${ONBOARDING_COMPLETE_KEY}_${currentUser.uid}`, 'true');
+            if (onboardingComplete) {
+              console.log('User has completed onboarding');
+              await AsyncStorage.setItem(`${ONBOARDING_COMPLETE_KEY}_${currentUser.uid}`, 'true');
+              setUser(currentUser);
+              setIsAuthenticated(true);
+            } else {
+              console.log('User needs to complete onboarding');
+              await AsyncStorage.setItem(`${ONBOARDING_COMPLETE_KEY}_${currentUser.uid}`, 'false');
+              setUser(currentUser);
+              setIsAuthenticated(false);
+            }
 
             // Update last login in Firestore
             await setDoc(userRef, {
               lastLoginAt: serverTimestamp()
             }, { merge: true });
-
-            // Set as authenticated user
-            setUser(currentUser);
-            setIsAuthenticated(true);
           } else {
-            console.log('No existing profile, checking onboarding status');
-            // No profile in Firestore, check if they're mid-onboarding
-            const onboardingComplete = await AsyncStorage.getItem(`${ONBOARDING_COMPLETE_KEY}_${currentUser.uid}`);
+            console.log('No existing profile, new user registration flow');
+            // Clear any existing onboarding data for this user
+            await AsyncStorage.removeItem(`${ONBOARDING_COMPLETE_KEY}_${currentUser.uid}`);
+            await AsyncStorage.removeItem(`${ONBOARDING_STORAGE_KEY}_${currentUser.uid}`);
             
-            if (onboardingComplete === 'true') {
-              // They completed onboarding but profile not in Firestore (rare case)
-              // Set as authenticated but they'll need to redo onboarding
-              setUser(currentUser);
-              setIsAuthenticated(false);
-              // Clear onboarding status since profile is missing
-              await AsyncStorage.removeItem(`${ONBOARDING_COMPLETE_KEY}_${currentUser.uid}`);
-            } else {
-              // New user or incomplete onboarding
-              setUser(currentUser);
-              setIsAuthenticated(false);
-            }
+            // Set user but not authenticated to trigger onboarding
+            setUser(currentUser);
+            setIsAuthenticated(false);
           }
         } catch (error) {
           console.error('Error during auth state change:', error);
@@ -167,9 +171,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      // Save credentials for auto-login
-      await AsyncStorage.setItem(AUTH_CREDENTIALS_KEY, JSON.stringify({ email, password }));
-      console.log('Login successful:', userCredential.user.email);
+      
+      // Check if user has completed onboarding
+      const userRef = doc(firestore, 'users', userCredential.user.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (!userDoc.exists()) {
+        console.error('No user profile found during login');
+        throw new Error('User profile not found');
+      }
+      
+      const userData = userDoc.data();
+      const hasRequiredData = userData.fitnessGoal && 
+                            userData.gender && 
+                            userData.height && 
+                            userData.weight && 
+                            userData.birthday;
+      
+      // Only save credentials if onboarding is complete and has required data
+      if (userData.onboardingComplete === true && hasRequiredData) {
+        await AsyncStorage.setItem(AUTH_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+        console.log('Login successful with complete profile:', userCredential.user.email);
+      } else {
+        console.log('Login successful but onboarding incomplete:', userCredential.user.email);
+      }
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -186,7 +211,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: user.email!,
         displayName: name,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        onboardingComplete: false
       };
 
       // Create initial user document in Firestore
@@ -249,6 +275,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const completeOnboarding = async () => {
+    if (!user) throw new Error('No authenticated user');
+    try {
+      const userRef = doc(firestore, 'users', user.uid);
+      
+      // Mark onboarding as complete and update timestamp
+      await setDoc(userRef, {
+        onboardingComplete: true,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      
+      // Update local storage and state
+      await AsyncStorage.setItem(`${ONBOARDING_COMPLETE_KEY}_${user.uid}`, 'true');
+      setIsAuthenticated(true);
+      console.log('Onboarding marked as complete');
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      throw error;
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -257,7 +304,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     updateUserProfile,
     resetPassword,
-    isAuthenticated
+    isAuthenticated,
+    completeOnboarding
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

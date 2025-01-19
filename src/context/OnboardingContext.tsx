@@ -24,6 +24,7 @@ export interface OnboardingData {
     unit: 'kg' | 'lbs';
   };
   weightGoal?: 'LOSE_WEIGHT' | 'MAINTAIN_WEIGHT' | 'GAIN_WEIGHT';
+  weightGoalDate?: Date;
   gender?: 'MALE' | 'FEMALE' | 'OTHER';
   dietaryPreference?: 'NONE' | 'VEGETARIAN' | 'VEGAN' | 'KETO' | 'PALEO';
   workoutPreference?: 'HOME' | 'GYM' | 'OUTDOOR' | 'HYBRID';
@@ -69,7 +70,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [onboardingData, setOnboardingData] = useState<OnboardingData>(defaultOnboardingData);
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, completeOnboarding: authCompleteOnboarding } = useAuth();
 
   useEffect(() => {
     const loadOnboardingState = async () => {
@@ -173,8 +174,16 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     try {
-      await AsyncStorage.setItem(`${ONBOARDING_COMPLETE_KEY}_${user.uid}`, 'true');
+      // First create/update the user profile with onboarding data
+      await userProfileService.createUserProfile(onboardingData);
+      
+      // Then mark onboarding as complete in auth context
+      await authCompleteOnboarding();
+      
+      // Finally update local state
       setIsOnboardingComplete(true);
+      
+      console.log('Onboarding completed successfully');
     } catch (error) {
       console.error('Error completing onboarding:', error);
       throw error;
