@@ -5,7 +5,7 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import { AppError, ErrorCodes, validateEmail } from '../utils/errorHandling';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const ForgotPasswordScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');

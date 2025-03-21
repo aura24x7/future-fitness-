@@ -11,7 +11,7 @@ import {
   Animated,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { useOnboarding } from '../../context/OnboardingContext';
+import { useOnboarding } from '../../contexts/OnboardingContext';
 import { BlurView, BlurTint } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';

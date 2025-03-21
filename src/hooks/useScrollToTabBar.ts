@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { useTabBar } from '../context/TabBarContext';
+import { useTabBar } from '../contexts/TabBarContext';
 import { NativeScrollEvent, NativeSyntheticEvent, ScrollView } from 'react-native';
 
 const TIMING_CONFIG = {

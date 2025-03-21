@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
 import { initializeApp, initializeFirebaseAuth, hasCachedCredentials } from '../utils/AppInitializer';
 import { loadProfile, isProfileLoading } from '../utils/ProfileManager';

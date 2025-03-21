@@ -10,9 +10,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useProfileGroups } from '../contexts/ProfileGroupsContext';
-import { useGymBuddyAlert } from '../contexts/GymBuddyAlertContext';
+import { useGymBuddyAlerts } from '../contexts/GymBuddyAlertContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { IndividualProfileSection } from '../components/ProfileGroups/IndividualProfileSection';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { YStack, XStack, Button } from 'tamagui';
+import { GroupsSection } from '../components/ProfileGroups/GroupsSection';
+import { SharedPlansSection } from '../components/ProfileGroups/SharedPlansSection';
 
 const { width } = Dimensions.get('window');
 
@@ -20,10 +24,13 @@ interface Props {
   navigation: any;
 }
 
+type TabType = 'groups' | 'shared-plans';
+
 const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
   const { state: { individuals }, fetchIndividuals } = useProfileGroups();
-  const { state: alertState } = useGymBuddyAlert();
+  const { sentAlerts, receivedAlerts } = useGymBuddyAlerts();
   const { colors, isDarkMode } = useTheme();
+  const [activeTab, setActiveTab] = useState<TabType>('groups');
 
   const fetchData = useCallback(async () => {
     await fetchIndividuals();
@@ -34,7 +41,7 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
   }, [fetchData]);
 
   const getSectionTitle = (title: string, items: any[]) => {
-    const pendingAlertCount = alertState.receivedAlerts.filter(
+    const pendingAlertCount = receivedAlerts.filter(
       alert => 
         alert.status === 'pending' && 
         items.some(item => item.id === alert.senderId)
@@ -46,61 +53,53 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Social</Text>
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={() => navigation.navigate('AddIndividual')}
-        >
-          <Ionicons name="search-outline" size={24} color={colors.text} />
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <YStack flex={1}>
+        <XStack padding="$4" space="$2">
+          <Button
+            flex={1}
+            backgroundColor={activeTab === 'groups' ? colors.primary : 'transparent'}
+            onPress={() => setActiveTab('groups')}
+          >
+            <Text
+              style={{
+                color: activeTab === 'groups' ? 'white' : colors.text,
+                fontWeight: '600'
+              }}
+            >
+              Groups
+            </Text>
+          </Button>
+          <Button
+            flex={1}
+            backgroundColor={activeTab === 'shared-plans' ? colors.primary : 'transparent'}
+            onPress={() => setActiveTab('shared-plans')}
+          >
+            <Text
+              style={{
+                color: activeTab === 'shared-plans' ? 'white' : colors.text,
+                fontWeight: '600'
+              }}
+            >
+              Shared Plans
+            </Text>
+          </Button>
+        </XStack>
 
-      <View style={styles.tabContainer}>
-        <View style={styles.tabButton}>
-          <Text style={[styles.tabText, { color: colors.primary }]}>
-            {getSectionTitle('Individuals', individuals.data)}
-          </Text>
-        </View>
-        <Animated.View
-          style={[
-            styles.tabIndicator,
-            {
-              backgroundColor: colors.primary,
-              width: '100%',
-            },
-          ]}
-        />
-      </View>
-
-      {/* Add User Button */}
-      <TouchableOpacity
-        style={[styles.addButton, { backgroundColor: colors.primary }]}
-        onPress={() => navigation.navigate('AddIndividual')}
-      >
-        <Ionicons name="person-add" size={20} color="#FFFFFF" />
-        <Text style={styles.addButtonText}>Add Individual</Text>
-      </TouchableOpacity>
-
-      <ScrollView style={[styles.scrollView, { backgroundColor: colors.background }]}>
-        <View style={[styles.page, { width }]}>
-          {individuals.data?.map((profile) => (
-            <IndividualProfileSection 
-              key={profile.id} 
-              profile={profile}
-              navigation={navigation}
-            />
-          ))}
-        </View>
-      </ScrollView>
-    </View>
+        {activeTab === 'groups' ? (
+          <GroupsSection />
+        ) : (
+          <SharedPlansSection />
+        )}
+      </YStack>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff',
   },
   header: {
     paddingHorizontal: 20,

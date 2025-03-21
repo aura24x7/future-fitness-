@@ -1,4 +1,4 @@
-import { OnboardingData } from '../context/OnboardingContext';
+import { OnboardingData } from '../contexts/OnboardingContext';
 
 export const calculateBMI = (weight: number, height: number, units: 'metric' | 'imperial'): number => {
   if (units === 'imperial') {

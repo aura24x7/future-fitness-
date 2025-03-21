@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, View, StyleSheet, ActivityIndicator } from 'react-native';
+import { Modal, View, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Text } from 'tamagui';
 import { useTheme } from '../theme/ThemeProvider';
 
@@ -11,91 +11,63 @@ interface MigrationStatusModalProps {
     error?: string;
     progress?: number;
   };
+  onClose: () => void;
 }
 
 const MigrationStatusModal: React.FC<MigrationStatusModalProps> = ({
   visible,
   status,
+  onClose,
 }) => {
   const { colors, isDarkMode } = useTheme();
 
-  const getStatusMessage = () => {
-    switch (status.phase) {
-      case 'backup':
-        return 'Backing up your data...';
-      case 'water':
-        return 'Migrating water tracking data...';
-      case 'workout':
-        return 'Migrating workout data...';
-      case 'complete':
-        return 'Migration completed successfully!';
-      case 'error':
-        return 'An error occurred during migration';
-      default:
-        return 'Preparing migration...';
-    }
-  };
+  if (!visible) return null;
 
   return (
     <Modal
-      transparent
       visible={visible}
+      transparent
       animationType="fade"
+      onRequestClose={onClose}
     >
-      <View style={[
-        styles.container,
-        { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }
-      ]}>
-        <View style={[
-          styles.content,
-          { backgroundColor: colors.background }
-        ]}>
-          {status.phase !== 'complete' && status.phase !== 'error' && (
-            <ActivityIndicator size="large" color={colors.primary} />
-          )}
-          
-          <Text
-            color={colors.text}
-            fontSize={18}
-            fontWeight="600"
-            textAlign="center"
-            marginTop={16}
-          >
-            {getStatusMessage()}
+      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+        <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {status.phase === 'error' ? 'Migration Error' : 'Migration in Progress'}
           </Text>
-          
-          <Text
-            color={colors.textMuted}
-            fontSize={14}
-            textAlign="center"
-            marginTop={8}
-          >
+          <Text style={[styles.message, { color: colors.textSecondary }]}>
             {status.message}
           </Text>
-
           {status.error && (
-            <Text
-              color="red"
-              fontSize={14}
-              textAlign="center"
-              marginTop={8}
-            >
+            <Text style={[styles.error, { color: isDarkMode ? '#DC2626' : '#EF4444' }]}>
               {status.error}
             </Text>
           )}
-
           {status.progress !== undefined && (
             <View style={styles.progressContainer}>
-              <View 
-                style={[
-                  styles.progressBar,
-                  { 
-                    backgroundColor: colors.primary,
-                    width: `${status.progress * 100}%`
-                  }
-                ]} 
-              />
+              <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      backgroundColor: colors.primary,
+                      width: `${status.progress * 100}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+                {Math.round(status.progress * 100)}%
+              </Text>
             </View>
+          )}
+          {status.phase === 'error' && (
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: colors.primary }]}
+              onPress={onClose}
+            >
+              <Text style={styles.buttonText}>Close</Text>
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -104,12 +76,12 @@ const MigrationStatusModal: React.FC<MigrationStatusModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
+  modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  content: {
+  modalContent: {
     padding: 24,
     borderRadius: 12,
     width: '80%',
@@ -119,6 +91,22 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  message: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  error: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
   },
   progressContainer: {
     width: '100%',
@@ -131,6 +119,26 @@ const styles = StyleSheet.create({
   progressBar: {
     height: '100%',
     borderRadius: 2,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 14,
+    marginTop: 8,
+  },
+  button: {
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#E5E7EB',
+    marginTop: 16,
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    textAlign: 'center',
   },
 });
 

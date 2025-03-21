@@ -25,9 +25,13 @@ describe('SimpleFoodLog Tests', () => {
       const mockFoodItem = {
         name: 'Test Food',
         calories: 100,
-        protein: 10,
-        carbs: 20,
-        fat: 5,
+        macros: {
+          protein: 10,
+          carbs: 20,
+          fat: 5,
+        },
+        servingSize: 1,
+        servingUnit: 'serving'
       };
 
       // Test adding a food item
@@ -58,9 +62,13 @@ describe('SimpleFoodLog Tests', () => {
         id: '123',
         name: 'Test Food',
         calories: 100,
-        protein: 10,
-        carbs: 20,
-        fat: 5,
+        macros: {
+          protein: 10,
+          carbs: 20,
+          fat: 5,
+        },
+        servingSize: 1,
+        servingUnit: 'serving',
         timestamp: new Date().toISOString(),
       };
 
@@ -97,17 +105,25 @@ describe('SimpleFoodLog Tests', () => {
       const mockItem1 = {
         name: 'Food 1',
         calories: 100,
-        protein: 10,
-        carbs: 20,
-        fat: 5,
+        macros: {
+          protein: 10,
+          carbs: 20,
+          fat: 5,
+        },
+        servingSize: 1,
+        servingUnit: 'serving'
       };
 
       const mockItem2 = {
         name: 'Food 2',
         calories: 200,
-        protein: 15,
-        carbs: 25,
-        fat: 8,
+        macros: {
+          protein: 15,
+          carbs: 25,
+          fat: 8,
+        },
+        servingSize: 1,
+        servingUnit: 'serving'
       };
 
       // Simulate concurrent additions
@@ -160,9 +176,13 @@ describe('SimpleFoodLog Integration Tests', () => {
       const savedItem = await simpleFoodLogService.addFoodItem({
         name: analysisResult.foodName,
         calories: analysisResult.nutritionInfo.calories,
-        protein: analysisResult.nutritionInfo.protein,
-        carbs: analysisResult.nutritionInfo.carbs,
-        fat: analysisResult.nutritionInfo.fat,
+        macros: {
+          protein: analysisResult.nutritionInfo.protein,
+          carbs: analysisResult.nutritionInfo.carbs,
+          fat: analysisResult.nutritionInfo.fat,
+        },
+        servingSize: 1,
+        servingUnit: 'serving'
       });
 
       // Verify saved item
@@ -170,9 +190,9 @@ describe('SimpleFoodLog Integration Tests', () => {
       expect(savedItem).toHaveProperty('timestamp');
       expect(savedItem.name).toBe(mockAnalysisResult.foodName);
       expect(savedItem.calories).toBe(mockAnalysisResult.nutritionInfo.calories);
-      expect(savedItem.protein).toBe(mockAnalysisResult.nutritionInfo.protein);
-      expect(savedItem.carbs).toBe(mockAnalysisResult.nutritionInfo.carbs);
-      expect(savedItem.fat).toBe(mockAnalysisResult.nutritionInfo.fat);
+      expect(savedItem.macros.protein).toBe(mockAnalysisResult.nutritionInfo.protein);
+      expect(savedItem.macros.carbs).toBe(mockAnalysisResult.nutritionInfo.carbs);
+      expect(savedItem.macros.fat).toBe(mockAnalysisResult.nutritionInfo.fat);
 
       // Verify storage was called with correct data
       expect(AsyncStorage.setItem).toHaveBeenCalled();
@@ -181,9 +201,13 @@ describe('SimpleFoodLog Integration Tests', () => {
       expect(savedData[0]).toMatchObject({
         name: mockAnalysisResult.foodName,
         calories: mockAnalysisResult.nutritionInfo.calories,
-        protein: mockAnalysisResult.nutritionInfo.protein,
-        carbs: mockAnalysisResult.nutritionInfo.carbs,
-        fat: mockAnalysisResult.nutritionInfo.fat,
+        macros: {
+          protein: mockAnalysisResult.nutritionInfo.protein,
+          carbs: mockAnalysisResult.nutritionInfo.carbs,
+          fat: mockAnalysisResult.nutritionInfo.fat,
+        },
+        servingSize: 1,
+        servingUnit: 'serving'
       });
     });
 
@@ -222,9 +246,13 @@ describe('SimpleFoodLog Integration Tests', () => {
         return simpleFoodLogService.addFoodItem({
           name: result.foodName,
           calories: result.nutritionInfo.calories,
-          protein: result.nutritionInfo.protein,
-          carbs: result.nutritionInfo.carbs,
-          fat: result.nutritionInfo.fat,
+          macros: {
+            protein: result.nutritionInfo.protein,
+            carbs: result.nutritionInfo.carbs,
+            fat: result.nutritionInfo.fat,
+          },
+          servingSize: 1,
+          servingUnit: 'serving'
         });
       });
 
@@ -258,17 +286,21 @@ describe('SimpleFoodLog Integration Tests', () => {
       const savedItem = await simpleFoodLogService.addFoodItem({
         name: mockAnalysisResult.foodName || 'Unknown Food',
         calories: Math.max(0, Number(mockAnalysisResult.nutritionInfo.calories) || 0),
-        protein: Math.max(0, Number(mockAnalysisResult.nutritionInfo.protein) || 0),
-        carbs: Math.max(0, Number(mockAnalysisResult.nutritionInfo.carbs) || 0),
-        fat: Math.max(0, Number(mockAnalysisResult.nutritionInfo.fat) || 0),
+        macros: {
+          protein: Math.max(0, Number(mockAnalysisResult.nutritionInfo.protein) || 0),
+          carbs: Math.max(0, Number(mockAnalysisResult.nutritionInfo.carbs) || 0),
+          fat: Math.max(0, Number(mockAnalysisResult.nutritionInfo.fat) || 0),
+        },
+        servingSize: 1,
+        servingUnit: 'serving'
       });
 
       // Verify data was sanitized
       expect(savedItem.name).toBe('Unknown Food');
       expect(savedItem.calories).toBe(0);
-      expect(savedItem.protein).toBe(0);
-      expect(savedItem.carbs).toBe(0);
-      expect(savedItem.fat).toBe(0);
+      expect(savedItem.macros.protein).toBe(0);
+      expect(savedItem.macros.carbs).toBe(0);
+      expect(savedItem.macros.fat).toBe(0);
     });
   });
 });
@@ -285,18 +317,26 @@ describe('Remove Functionality Tests', () => {
         id: '1',
         name: 'Test Food 1',
         calories: 200,
-        protein: 10,
-        carbs: 20,
-        fat: 5,
+        macros: {
+          protein: 10,
+          carbs: 20,
+          fat: 5,
+        },
+        servingSize: 1,
+        servingUnit: 'serving',
         timestamp: new Date().toISOString(),
       },
       {
         id: '2',
         name: 'Test Food 2',
         calories: 300,
-        protein: 15,
-        carbs: 25,
-        fat: 8,
+        macros: {
+          protein: 15,
+          carbs: 25,
+          fat: 8,
+        },
+        servingSize: 1,
+        servingUnit: 'serving',
         timestamp: new Date().toISOString(),
       },
     ];
@@ -332,9 +372,9 @@ describe('Remove Functionality Tests', () => {
   it('should handle concurrent remove operations', async () => {
     // Mock food log with multiple items
     const mockItems = [
-      { id: '1', name: 'Food 1', calories: 200, protein: 10, carbs: 20, fat: 5, timestamp: new Date().toISOString() },
-      { id: '2', name: 'Food 2', calories: 300, protein: 15, carbs: 25, fat: 8, timestamp: new Date().toISOString() },
-      { id: '3', name: 'Food 3', calories: 400, protein: 20, carbs: 30, fat: 10, timestamp: new Date().toISOString() },
+      { id: '1', name: 'Food 1', calories: 200, macros: { protein: 10, carbs: 20, fat: 5 }, servingSize: 1, servingUnit: 'serving', timestamp: new Date().toISOString() },
+      { id: '2', name: 'Food 2', calories: 300, macros: { protein: 15, carbs: 25, fat: 8 }, servingSize: 1, servingUnit: 'serving', timestamp: new Date().toISOString() },
+      { id: '3', name: 'Food 3', calories: 400, macros: { protein: 20, carbs: 30, fat: 10 }, servingSize: 1, servingUnit: 'serving', timestamp: new Date().toISOString() },
     ];
 
     // Setup initial state
@@ -367,8 +407,8 @@ describe('Remove Functionality Tests', () => {
   it('should maintain data consistency during removal', async () => {
     // Mock initial data
     const mockItems = [
-      { id: '1', name: 'Food 1', calories: 200, protein: 10, carbs: 20, fat: 5, timestamp: new Date().toISOString() },
-      { id: '2', name: 'Food 2', calories: 300, protein: 15, carbs: 25, fat: 8, timestamp: new Date().toISOString() },
+      { id: '1', name: 'Food 1', calories: 200, macros: { protein: 10, carbs: 20, fat: 5 }, servingSize: 1, servingUnit: 'serving', timestamp: new Date().toISOString() },
+      { id: '2', name: 'Food 2', calories: 300, macros: { protein: 15, carbs: 25, fat: 8 }, servingSize: 1, servingUnit: 'serving', timestamp: new Date().toISOString() },
     ];
 
     // Setup mock behavior
@@ -415,18 +455,26 @@ describe('Remove and Undo Functionality Tests', () => {
         id: '1',
         name: 'Test Food 1',
         calories: 200,
-        protein: 10,
-        carbs: 20,
-        fat: 5,
+        macros: {
+          protein: 10,
+          carbs: 20,
+          fat: 5,
+        },
+        servingSize: 1,
+        servingUnit: 'serving',
         timestamp: new Date().toISOString(),
       },
       {
         id: '2',
         name: 'Test Food 2',
         calories: 300,
-        protein: 15,
-        carbs: 25,
-        fat: 8,
+        macros: {
+          protein: 15,
+          carbs: 25,
+          fat: 8,
+        },
+        servingSize: 1,
+        servingUnit: 'serving',
         timestamp: new Date().toISOString(),
       },
     ];
@@ -471,9 +519,13 @@ describe('Remove and Undo Functionality Tests', () => {
       id: '1',
       name: 'Test Food',
       calories: 200,
-      protein: 10,
-      carbs: 20,
-      fat: 5,
+      macros: {
+        protein: 10,
+        carbs: 20,
+        fat: 5,
+      },
+      servingSize: 1,
+      servingUnit: 'serving',
       timestamp: new Date().toISOString(),
       removedAt: new Date().toISOString(),
     };
@@ -489,9 +541,13 @@ describe('Remove and Undo Functionality Tests', () => {
         id: '2',
         name: 'Food 2',
         calories: 300,
-        protein: 15,
-        carbs: 25,
-        fat: 8,
+        macros: {
+          protein: 15,
+          carbs: 25,
+          fat: 8,
+        },
+        servingSize: 1,
+        servingUnit: 'serving',
         timestamp: new Date().toISOString(),
       },
     ];
@@ -500,9 +556,13 @@ describe('Remove and Undo Functionality Tests', () => {
       id: '1',
       name: 'Food 1',
       calories: 200,
-      protein: 10,
-      carbs: 20,
-      fat: 5,
+      macros: {
+        protein: 10,
+        carbs: 20,
+        fat: 5,
+      },
+      servingSize: 1,
+      servingUnit: 'serving',
       timestamp: new Date().toISOString(),
       removedAt: new Date().toISOString(),
     };

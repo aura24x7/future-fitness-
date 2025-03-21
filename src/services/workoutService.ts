@@ -1,6 +1,20 @@
-import { auth, firestore } from '../config/firebase';
-import { doc, getDoc, setDoc, updateDoc, collection } from 'firebase/firestore';
-import { WorkoutLog } from '../types/workout';
+import { firestore } from '../firebase/firebaseInit';
+import { getAuth } from 'firebase/auth';
+import { collection, doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+
+// Get typed auth instance
+const auth = getAuth();
+
+// Define WorkoutLog interface if it's not exported from '../types/workout'
+interface WorkoutLog {
+  id?: string;
+  timestamp: number;
+  duration: number;
+  caloriesBurned: number;
+  type: string;
+  exercises: any[];
+  notes?: string;
+}
 
 class WorkoutService {
   private static instance: WorkoutService;
@@ -15,7 +29,7 @@ class WorkoutService {
     return WorkoutService.instance;
   }
 
-  private getUserWorkoutsRef(userId: string) {
+  private getUserWorkoutsCollection(userId: string) {
     return collection(firestore, this.COLLECTION, userId, 'logs');
   }
 
@@ -25,11 +39,11 @@ class WorkoutService {
 
     try {
       const date = new Date(workout.timestamp).toISOString().split('T')[0];
-      const workoutsRef = this.getUserWorkoutsRef(user.uid);
-      const statsDoc = doc(workoutsRef, date);
+      const logsCollection = this.getUserWorkoutsCollection(user.uid);
+      const statsDocRef = doc(logsCollection, date);
 
-      const currentStats = await getDoc(statsDoc);
-      const currentData = currentStats.exists() ? currentStats.data() : {
+      const statsDocSnap = await getDoc(statsDocRef);
+      const currentData = statsDocSnap.exists() ? statsDocSnap.data() : {
         totalCaloriesBurned: 0,
         totalWorkouts: 0,
         completedExercises: 0,
@@ -49,7 +63,7 @@ class WorkoutService {
           workouts: [...currentData.workouts, workout],
         };
 
-        await setDoc(statsDoc, updatedData);
+        await setDoc(statsDocRef, updatedData);
       }
     } catch (error) {
       console.error('Error migrating workout:', error);
@@ -67,10 +81,11 @@ class WorkoutService {
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      const workoutsRef = this.getUserWorkoutsRef(user.uid);
-      const statsDoc = await getDoc(doc(workoutsRef, today));
+      const logsCollection = this.getUserWorkoutsCollection(user.uid);
+      const statsDocRef = doc(logsCollection, today);
+      const statsDocSnap = await getDoc(statsDocRef);
 
-      if (!statsDoc.exists()) {
+      if (!statsDocSnap.exists()) {
         return {
           totalCaloriesBurned: 0,
           totalWorkouts: 0,
@@ -78,7 +93,7 @@ class WorkoutService {
         };
       }
 
-      const data = statsDoc.data();
+      const data = statsDocSnap.data();
       return {
         totalCaloriesBurned: data.totalCaloriesBurned || 0,
         totalWorkouts: data.totalWorkouts || 0,
@@ -96,11 +111,11 @@ class WorkoutService {
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      const workoutsRef = this.getUserWorkoutsRef(user.uid);
-      const statsDoc = doc(workoutsRef, today);
-
-      const currentStats = await getDoc(statsDoc);
-      const currentData = currentStats.exists() ? currentStats.data() : {
+      const logsCollection = this.getUserWorkoutsCollection(user.uid);
+      const statsDocRef = doc(logsCollection, today);
+      
+      const statsDocSnap = await getDoc(statsDocRef);
+      const currentData = statsDocSnap.exists() ? statsDocSnap.data() : {
         totalCaloriesBurned: 0,
         totalWorkouts: 0,
         completedExercises: 0,
@@ -114,7 +129,7 @@ class WorkoutService {
         workouts: [...currentData.workouts, workout],
       };
 
-      await setDoc(statsDoc, updatedData);
+      await setDoc(statsDocRef, updatedData);
     } catch (error) {
       console.error('Error logging workout:', error);
       throw new Error('Failed to log workout');

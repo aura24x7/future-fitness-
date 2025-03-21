@@ -9,7 +9,7 @@ import {
   Vibration,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useGymBuddyAlert } from '../../contexts/GymBuddyAlertContext';
+import { useGymBuddyAlerts } from '../../contexts/GymBuddyAlertContext';
 import { GymBuddyAlert } from '../../types/gymBuddyAlert';
 import { format } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +25,7 @@ export function ReceiveAlertModal({
   onClose,
   alert,
 }: ReceiveAlertModalProps) {
-  const { respondToAlert } = useGymBuddyAlert();
+  const { respondToAlert } = useGymBuddyAlerts();
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
@@ -38,7 +38,7 @@ export function ReceiveAlertModal({
   const handleResponse = async (response: 'accept' | 'decline') => {
     setLoading(true);
     try {
-      await respondToAlert(alert.id, response === 'accept');
+      await respondToAlert(alert.id, response);
       onClose();
     } catch (error) {
       console.error('Error responding to alert:', error);

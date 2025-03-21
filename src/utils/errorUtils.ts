@@ -1,4 +1,4 @@
-import { FirebaseError } from 'firebase/app';
+import { FirebaseError } from '@react-native-firebase/app';
 
 export interface AppError extends Error {
   code?: string;
@@ -90,4 +90,31 @@ export function logError(error: any, context?: string): void {
     errorCode ? `(${errorCode})` : '',
     error.originalError || error
   );
-} 
+}
+
+export const handleFirebaseError = (error: FirebaseError): string => {
+  switch (error.code) {
+    case 'auth/email-already-in-use':
+      return 'This email is already registered. Please try logging in instead.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/operation-not-allowed':
+      return 'Email/password accounts are not enabled. Please contact support.';
+    case 'auth/weak-password':
+      return 'Please choose a stronger password.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Please contact support.';
+    case 'auth/user-not-found':
+      return 'No account found with this email. Please sign up first.';
+    case 'auth/wrong-password':
+      return 'Invalid password. Please try again.';
+    case 'auth/too-many-requests':
+      return 'Too many failed attempts. Please try again later.';
+    default:
+      return error.message || 'An unexpected error occurred. Please try again.';
+  }
+};
+
+export const isFirebaseError = (error: any): error is FirebaseError => {
+  return error && typeof error === 'object' && 'code' in error;
+};

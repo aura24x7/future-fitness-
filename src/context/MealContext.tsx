@@ -10,6 +10,7 @@ import {
   calculateNutritionProgress
 } from '../types/calorie';
 import { useCalorieTracking } from '../hooks/useCalorieTracking';
+import EventEmitter from '../utils/EventEmitter';
 
 const CALORIE_TOTALS_KEY = '@calorie_totals';
 const NUTRITION_GOALS_KEY = '@nutrition_goals';
@@ -237,26 +238,26 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const calculateTotals = useCallback((mealsToCalculate: { [key: string]: MealDetails[] }) => {
     let calories = 0;
-    let proteins = 0;
+    let protein = 0;
     let carbs = 0;
-    let fats = 0;
+    let fat = 0;
 
     // Calculate totals from completed meals
     Object.values(mealsToCalculate).flat().forEach((meal: MealDetails) => {
       if (meal.completed) {
         calories += meal.calories || 0;
-        proteins += meal.protein || 0;
+        protein += meal.protein || 0;
         carbs += meal.carbs || 0;
-        fats += meal.fat || 0;
+        fat += meal.fat || 0;
       }
     });
 
     return {
       calories,
       macros: {
-        protein: proteins,
-        carbs: carbs,
-        fat: fats
+        protein,
+        carbs,
+        fat
       }
     };
   }, []);
@@ -334,29 +335,113 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [calculateTotals, debouncedSaveMeals]);
 
   // Add meal
-  const addMeal = useCallback((meal: MealDetails) => {
-    const dateKey = getStorageKeyForDate(selectedDate);
-    setMeals(prevMeals => {
+  const addMeal = useCallback(async (meal: MealDetails) => {
+    try {
+      const dateKey = getStorageKeyForDate(selectedDate);
       const updatedMeals = {
-        ...prevMeals,
-        [dateKey]: [...(prevMeals[dateKey] || []), meal]
+        ...meals,
+        [dateKey]: [...(meals[dateKey] || []), meal]
       };
-      debouncedSaveMeals(updatedMeals);
-      return updatedMeals;
-    });
+      
+      // Update state immediately
+      setMeals(updatedMeals);
+      
+      // Calculate and update totals immediately
+      const newTotals = calculateTotals(updatedMeals);
+      setTotalCalories(newTotals.calories);
+      setTotalMacros({
+        protein: newTotals.macros.protein,
+        carbs: newTotals.macros.carbs,
+        fat: newTotals.macros.fat
+      });
 
-    // Update totals if meal is for today and is completed
-    if (isSameDay(selectedDate, new Date()) && meal.completed) {
-      setTotalCalories(prev => prev + (meal.calories || 0));
-      setTotalMacros(prev => ({
-        protein: prev.protein + (meal.protein || 0),
-        carbs: prev.carbs + (meal.carbs || 0),
-        fat: prev.fat + (meal.fat || 0)
-      }));
+      // Persist to storage
+      await AsyncStorage.setItem(MEALS_STORAGE_KEY, JSON.stringify(updatedMeals));
+      
+      // Emit update event for other components
+      EventEmitter.emit('meals_updated', updatedMeals);
+    } catch (error) {
+      console.error('Error adding meal:', error);
+      throw error;
     }
-  }, [selectedDate, debouncedSaveMeals]);
+  }, [meals, selectedDate, calculateTotals]);
 
-  // Complete meal
+  // Add effect to reload meals when date changes
+  useEffect(() => {
+    const loadMealsForDate = async () => {
+      try {
+        const savedMeals = await AsyncStorage.getItem(MEALS_STORAGE_KEY);
+        if (savedMeals) {
+          const parsedMeals = JSON.parse(savedMeals);
+          setMeals(parsedMeals);
+          
+          // Recalculate totals for the selected date
+          const dateKey = getStorageKeyForDate(selectedDate);
+          const mealsForDate = { [dateKey]: parsedMeals[dateKey] || [] };
+          const newTotals = calculateTotals(mealsForDate);
+          setTotalCalories(newTotals.calories);
+          setTotalMacros({
+            protein: newTotals.macros.protein,
+            carbs: newTotals.macros.carbs,
+            fat: newTotals.macros.fat
+          });
+        }
+      } catch (error) {
+        console.error('Error loading meals for date:', error);
+      }
+    };
+
+    loadMealsForDate();
+  }, [selectedDate]);
+
+  // Add effect to handle meal deletion events
+  useEffect(() => {
+    const handleMealDeleted = async (mealId: string) => {
+      try {
+        console.log('[MealContext] Received meal deleted event:', mealId);
+        
+        // Step 1: Update meals state
+        setMeals(prevMeals => {
+          const updatedMeals = { ...prevMeals };
+          
+          // Find and remove the meal from all date entries
+          Object.keys(updatedMeals).forEach(dateKey => {
+            updatedMeals[dateKey] = updatedMeals[dateKey].filter(meal => meal.id !== mealId);
+          });
+          
+          return updatedMeals;
+        });
+        
+        // Step 2: Recalculate totals for today
+        const todayKey = getStorageKeyForDate(new Date());
+        const todayMeals = meals[todayKey]?.filter(meal => meal.id !== mealId) || [];
+        const newTotals = calculateTotals({ [todayKey]: todayMeals });
+        
+        // Step 3: Update totals
+        setTotalCalories(newTotals.calories);
+        setTotalMacros({
+          protein: newTotals.macros.protein,
+          carbs: newTotals.macros.carbs,
+          fat: newTotals.macros.fat
+        });
+        
+        console.log('[MealContext] Successfully processed meal deleted event');
+      } catch (error) {
+        console.error('[MealContext] Error handling meal deleted event:', error);
+      }
+    };
+
+    // Set up event listener with cleanup
+    console.log('[MealContext] Setting up meal deleted event listener');
+    const cleanup = EventEmitter.addListener('meal_deleted', handleMealDeleted);
+    
+    return () => {
+      console.log('[MealContext] Cleaning up meal deleted event listener');
+      cleanup();
+    };
+  }, [meals, calculateTotals]);
+
+  // Update the completeMeal function to handle deletion properly
   const completeMeal = useCallback((mealId: string, completed: boolean) => {
     const dateKey = getStorageKeyForDate(selectedDate);
     setMeals(prevMeals => {
@@ -366,24 +451,26 @@ export const MealProvider: React.FC<{ children: React.ReactNode }> = ({ children
           meal.id === mealId ? { ...meal, completed } : meal
         ) || []
       };
+      
+      // Save meals to storage
       debouncedSaveMeals(updatedMeals);
+      
+      // If the meal is being uncompleted, we need to update totals
+      if (!completed && isSameDay(selectedDate, new Date())) {
+        const meal = prevMeals[dateKey]?.find(m => m.id === mealId);
+        if (meal) {
+          setTotalCalories(prev => prev - (meal.calories || 0));
+          setTotalMacros(prev => ({
+            protein: prev.protein - (meal.protein || 0),
+            carbs: prev.carbs - (meal.carbs || 0),
+            fat: prev.fat - (meal.fat || 0)
+          }));
+        }
+      }
+      
       return updatedMeals;
     });
-
-    // Update totals if meal is for today
-    if (isSameDay(selectedDate, new Date())) {
-      const meal = meals[dateKey]?.find(m => m.id === mealId);
-      if (meal) {
-        const multiplier = completed ? 1 : -1;
-        setTotalCalories(prev => prev + (multiplier * (meal.calories || 0)));
-        setTotalMacros(prev => ({
-          protein: prev.protein + (multiplier * (meal.protein || 0)),
-          carbs: prev.carbs + (multiplier * (meal.carbs || 0)),
-          fat: prev.fat + (multiplier * (meal.fat || 0))
-        }));
-      }
-    }
-  }, [selectedDate, meals, debouncedSaveMeals]);
+  }, [selectedDate, debouncedSaveMeals]);
 
   // Update total calories
   const updateTotalCalories = useCallback((calories: number) => {

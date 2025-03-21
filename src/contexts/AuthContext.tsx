@@ -1,0 +1,378 @@
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as firebaseUtils from '../services/firebase/firebaseUtils';
+import { ONBOARDING_COMPLETE_KEY, AUTH_PERSISTENCE_KEY } from '../constants/storage';
+
+// Import from our synchronized Firebase initialization
+import { auth, firestore } from '../firebase/firebaseInit';
+import { 
+  User, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
+  signOut as firebaseSignOut
+} from 'firebase/auth';
+
+import {
+  doc,
+  getDoc,
+  updateDoc
+} from 'firebase/firestore';
+
+// Import the compatibility layer
+import * as FirebaseCompat from '../utils/firebaseCompatibility';
+
+// Import the custom storage helper
+import { saveUserToStorage, getStoredUser } from '../utils/firebase-storage-helper';
+
+// Import navigation utils
+import { NAV_ONBOARDING_KEY, lockNavigation, unlockNavigation } from '../utils/navigationUtils';
+
+// Update the interface to use the web Firebase User type
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  updateUserProfile: (data: { displayName?: string; photoURL?: string }) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  isAuthenticated: boolean;
+  completeOnboarding: () => Promise<void>;
+  isAuthReady: boolean;
+  checkOnboardingStatus: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authInitialized, setAuthInitialized] = useState(false);
+  const unsubscribeRef = useRef<(() => void) | undefined>(undefined);
+
+  // Function to check onboarding status from Firestore
+  const checkOnboardingStatus = async () => {
+    if (!user) {
+      console.log('[AuthContext] No user, cannot check onboarding status');
+      return;
+    }
+
+    try {
+      console.log('[AuthContext] Checking onboarding status for user:', user.uid);
+      
+      // Try using Firebase compatibility layer first
+      try {
+        const docSnap = await FirebaseCompat.getDoc('users', user.uid);
+        if (docSnap.exists) {
+          const userData = docSnap.data();
+          const isComplete = userData.onboardingComplete === true;
+          console.log('[AuthContext] Onboarding status from compat layer:', isComplete);
+          setIsAuthenticated(isComplete);
+          
+          // Cache the result
+          if (isComplete) {
+            await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
+          }
+          return;
+        }
+      } catch (compatError) {
+        console.error('[AuthContext] Error checking onboarding with compat layer:', compatError);
+      }
+      
+      // Try direct Firestore access
+      try {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const docSnap = await getDoc(userDocRef);
+        
+        if (docSnap.exists()) {
+          const userData = docSnap.data();
+          const isComplete = userData.onboardingComplete === true;
+          console.log('[AuthContext] Onboarding status from Firestore:', isComplete);
+          setIsAuthenticated(isComplete);
+          
+          // Cache the result
+          if (isComplete) {
+            await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
+          }
+        } else {
+          console.log('[AuthContext] No user document found, user needs onboarding');
+          setIsAuthenticated(false);
+        }
+      } catch (firestoreError) {
+        console.error('[AuthContext] Error checking onboarding with Firestore:', firestoreError);
+      }
+      
+      // Check AsyncStorage as a last resort
+      try {
+        const storedValue = await AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY);
+        if (storedValue === 'true') {
+          console.log('[AuthContext] Onboarding complete according to AsyncStorage');
+          setIsAuthenticated(true);
+        }
+      } catch (storageError) {
+        console.error('[AuthContext] Error checking onboarding in AsyncStorage:', storageError);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error checking onboarding status:', error);
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    
+    const initAuth = async () => {
+      try {
+        console.log('[AuthContext] Starting auth initialization...');
+        
+        // Check for persisted auth state using our custom helper
+        const storedUser = await getStoredUser();
+        if (storedUser) {
+          console.log('[AuthContext] Found persisted auth state');
+        }
+        
+        // Set up auth state listener using Firebase auth
+        const unsubscribe = auth.onAuthStateChanged(async (authUser) => {
+          if (mounted) {
+            setUser(authUser);
+            
+            if (authUser) {
+              // Check if onboarding is complete
+              try {
+                // Check AsyncStorage first (fastest)
+                const storedValue = await AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY);
+                if (storedValue === 'true') {
+                  console.log('[AuthContext] Onboarding complete according to AsyncStorage');
+                  setIsAuthenticated(true);
+                } else {
+                  // If not in AsyncStorage, check Firestore
+                  await checkOnboardingStatus();
+                }
+              } catch (error) {
+                console.error('[AuthContext] Error checking onboarding status:', error);
+              }
+            } else {
+              setIsAuthenticated(false);
+            }
+            
+            setLoading(false);
+            
+            // Persist auth state when it changes using our custom helper
+            saveUserToStorage(authUser);
+          }
+        });
+        
+        unsubscribeRef.current = unsubscribe;
+        if (mounted) {
+          setAuthInitialized(true);
+        }
+      } catch (error) {
+        console.error('[AuthContext] Auth initialization error:', error);
+        if (mounted) {
+          setLoading(false);
+          setAuthInitialized(true); // Set to true even if there's an error to allow retry
+        }
+      }
+    };
+    
+    initAuth();
+    
+    return () => {
+      mounted = false;
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
+  }, []);
+
+  // When the user changes, check onboarding status
+  useEffect(() => {
+    if (user) {
+      checkOnboardingStatus();
+    }
+  }, [user]);
+
+  // Implement auth methods
+  const login = async (email: string, password: string) => {
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      console.error('[AuthContext] Login error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (name: string, email: string, password: string) => {
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Update profile with display name
+      if (userCredential.user) {
+        await updateProfile(userCredential.user, {
+          displayName: name
+        });
+      }
+    } catch (error) {
+      console.error('[AuthContext] Registration error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    setLoading(true);
+    try {
+      console.log('[AuthContext] Starting logout process');
+      
+      // Reset authenticated state immediately
+      setIsAuthenticated(false);
+      
+      // Clear AsyncStorage first
+      await AsyncStorage.removeItem(AUTH_PERSISTENCE_KEY);
+      await AsyncStorage.removeItem(ONBOARDING_COMPLETE_KEY);
+      
+      // Then sign out from Firebase
+      await firebaseSignOut(auth);
+      
+      console.log('[AuthContext] Logout completed successfully');
+    } catch (error) {
+      console.error('[AuthContext] Logout error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUserProfile = async (data: { displayName?: string; photoURL?: string }) => {
+    if (!user) {
+      throw new Error('No user logged in');
+    }
+    
+    try {
+      await updateProfile(user, data);
+    } catch (error) {
+      console.error('[AuthContext] Profile update error:', error);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      console.error('[AuthContext] Password reset error:', error);
+      throw error;
+    }
+  };
+
+  const completeOnboarding = async () => {
+    if (!user) {
+      throw new Error('User must be authenticated to complete onboarding');
+    }
+    
+    // Lock navigation during onboarding completion
+    await lockNavigation(NAV_ONBOARDING_KEY, 'Auth context completing onboarding');
+
+    try {
+      console.log('[AuthContext] Marking onboarding as complete');
+      
+      // Save to AsyncStorage first as most reliable
+      try {
+        await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
+        console.log('[AuthContext] Saved onboarding complete flag to AsyncStorage');
+      } catch (storageError) {
+        console.error('[AuthContext] Error saving to AsyncStorage:', storageError);
+      }
+      
+      // Update local state immediately to help with navigation
+      setIsAuthenticated(true);
+      console.log('[AuthContext] Local authenticated state updated');
+      
+      // Try updating Firestore using all available methods
+      let firebaseSuccess = false;
+      
+      // Try compatibility layer first as it's most reliable
+      try {
+        await FirebaseCompat.updateDoc('users', user.uid, {
+          onboardingComplete: true,
+          updatedAt: new Date()
+        });
+        console.log('[AuthContext] Updated onboarding status with compatibility layer');
+        firebaseSuccess = true;
+      } catch (compatError) {
+        console.error('[AuthContext] Compatibility layer update failed:', compatError);
+      }
+      
+      // Try Firebase direct if compatibility layer fails
+      if (!firebaseSuccess) {
+        try {
+          const userDocRef = doc(firestore, 'users', user.uid);
+          await updateDoc(userDocRef, {
+            onboardingComplete: true,
+            updatedAt: new Date()
+          });
+          console.log('[AuthContext] Updated onboarding status with Firebase direct');
+          firebaseSuccess = true;
+        } catch (directError) {
+          console.error('[AuthContext] Firebase direct update failed:', directError);
+        }
+      }
+      
+      console.log('[AuthContext] Onboarding completion process finished, success:', firebaseSuccess);
+    } catch (error) {
+      console.error('[AuthContext] Error in completeOnboarding:', error);
+      
+      // Set authenticated anyway if we at least saved to AsyncStorage
+      try {
+        const storedValue = await AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY);
+        if (storedValue === 'true') {
+          setIsAuthenticated(true);
+          console.log('[AuthContext] Setting authenticated state based on AsyncStorage');
+        } else {
+          throw error;
+        }
+      } catch (asyncError) {
+        console.error('[AuthContext] Error checking AsyncStorage in error handler:', asyncError);
+        throw error;
+      }
+    } finally {
+      // Always unlock navigation
+      await unlockNavigation(NAV_ONBOARDING_KEY);
+    }
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        logout,
+        updateUserProfile,
+        resetPassword,
+        isAuthenticated,
+        completeOnboarding,
+        isAuthReady: authInitialized && !loading,
+        checkOnboardingStatus
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};

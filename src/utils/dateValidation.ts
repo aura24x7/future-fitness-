@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore';
+import firestore from '@react-native-firebase/firestore';
 
 const MIN_AGE = 13;
 const MAX_AGE = 120;
@@ -25,7 +25,7 @@ export const isValidAge = (dateString: string): boolean => {
   return age >= MIN_AGE && age <= MAX_AGE;
 };
 
-export const convertToTimestamp = (dateString: string): Timestamp => {
+export const convertToTimestamp = (dateString: string): firestore.Timestamp => {
   if (!isValidDateFormat(dateString)) {
     throw new Error('Invalid date format. Expected YYYY-MM-DD');
   }
@@ -35,7 +35,7 @@ export const convertToTimestamp = (dateString: string): Timestamp => {
     throw new Error('Invalid date');
   }
   
-  return Timestamp.fromDate(date);
+  return firestore.Timestamp.fromDate(date);
 };
 
 export const formatDateToString = (date: Date): string => {

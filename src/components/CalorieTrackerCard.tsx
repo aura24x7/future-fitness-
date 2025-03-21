@@ -8,7 +8,7 @@ import { spacing } from '../theme/spacing';
 import { colors } from '../theme/colors';
 import { Macros } from '../contexts/MealContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { useProfile } from '../context/ProfileContext';
+import { useProfile } from '../contexts/ProfileContext';
 
 interface CalorieTrackerCardProps {
   targetCalories: number;

@@ -1,58 +1,16 @@
-import { firestore } from '../config/firebase';
-import { 
-  doc, 
-  setDoc, 
-  getDoc, 
-  updateDoc, 
-  serverTimestamp,
-  DocumentReference,
-  DocumentData
-} from 'firebase/firestore';
-
-export interface UserProfile {
-  name: string;
-  email: string;
-  createdAt: Date;
-  lastLogin: Date;
-}
-
-export interface WorkoutPreferences {
-  preferredDays: string[];
-  preferredTimes: string[];
-  workoutDuration: number;
-}
-
-export interface OnboardingData {
-  fitnessGoals: string[];
-  currentFitnessLevel: string;
-  weightGoal: number;
-  dietaryPreferences: string[];
-  workoutPreferences: WorkoutPreferences;
-  completed: boolean;
-}
-
-export interface UserSettings {
-  notifications: boolean;
-  measurementUnit: string;
-  language: string;
-}
-
-export interface UserData {
-  profile: UserProfile;
-  onboarding?: OnboardingData;
-  settings?: UserSettings;
-}
+import firestore from '@react-native-firebase/firestore';
+import { UserProfile, UserData, OnboardingData, UserSettings } from '../types/profile';
 
 class FirestoreService {
-  private getUserRef(userId: string): DocumentReference<DocumentData> {
-    return doc(firestore, 'users', userId);
+  private getUserRef(userId: string) {
+    return firestore().collection('users').doc(userId);
   }
 
   async createUserProfile(userId: string, profile: Partial<UserProfile>): Promise<void> {
     const userRef = this.getUserRef(userId);
-    const timestamp = serverTimestamp();
+    const timestamp = firestore.Timestamp.now();
     
-    await setDoc(userRef, {
+    await userRef.set({
       profile: {
         ...profile,
         createdAt: timestamp,
@@ -63,19 +21,19 @@ class FirestoreService {
 
   async updateUserProfile(userId: string, profile: Partial<UserProfile>): Promise<void> {
     const userRef = this.getUserRef(userId);
-    await updateDoc(userRef, {
+    await userRef.update({
       'profile': {
         ...profile,
-        updatedAt: serverTimestamp(),
+        updatedAt: firestore.Timestamp.now(),
       }
     });
   }
 
   async getUserData(userId: string): Promise<UserData | null> {
     const userRef = this.getUserRef(userId);
-    const userDoc = await getDoc(userRef);
+    const userDoc = await userRef.get();
     
-    if (!userDoc.exists()) {
+    if (!userDoc.exists) {
       return null;
     }
     
@@ -87,10 +45,10 @@ class FirestoreService {
     onboardingData: Partial<OnboardingData>
   ): Promise<void> {
     const userRef = this.getUserRef(userId);
-    await updateDoc(userRef, {
+    await userRef.update({
       'onboarding': {
         ...onboardingData,
-        updatedAt: serverTimestamp(),
+        updatedAt: firestore.Timestamp.now(),
       }
     });
   }
@@ -100,19 +58,19 @@ class FirestoreService {
     settings: Partial<UserSettings>
   ): Promise<void> {
     const userRef = this.getUserRef(userId);
-    await updateDoc(userRef, {
+    await userRef.update({
       'settings': {
         ...settings,
-        updatedAt: serverTimestamp(),
+        updatedAt: firestore.Timestamp.now(),
       }
     });
   }
 
   async markOnboardingComplete(userId: string): Promise<void> {
     const userRef = this.getUserRef(userId);
-    await updateDoc(userRef, {
+    await userRef.update({
       'onboarding.completed': true,
-      'onboarding.completedAt': serverTimestamp(),
+      'onboarding.completedAt': firestore.Timestamp.now(),
     });
   }
 
@@ -123,4 +81,4 @@ class FirestoreService {
   }
 }
 
-export const firestoreService = new FirestoreService();
+export default new FirestoreService();

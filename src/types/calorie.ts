@@ -5,10 +5,10 @@ export interface MacroNutrients {
 }
 
 export enum MealType {
-  Breakfast = 'breakfast',
-  Lunch = 'lunch',
-  Dinner = 'dinner',
-  Snacks = 'snacks'
+  BREAKFAST = 'breakfast',
+  LUNCH = 'lunch',
+  DINNER = 'dinner',
+  SNACKS = 'snacks'
 }
 
 export interface MealLog {
@@ -54,4 +54,17 @@ export interface AddCustomMealParams {
   selectedDate?: string;
   meal?: MealLog;
   isEditing?: boolean;
+}
+
+export interface MealDetails {
+  id?: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  completed: boolean;
+  mealType: string;
+  ingredients?: string[];
+  date?: string | Date;
 }

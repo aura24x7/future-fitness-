@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { useAuth } from '../context/AuthContext';
-import { useOnboarding } from '../context/OnboardingContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useOnboarding } from '../contexts/OnboardingContext';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

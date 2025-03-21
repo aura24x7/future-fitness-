@@ -8,7 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useOnboarding } from '../../context/OnboardingContext';
+import { useOnboarding } from '../../contexts/OnboardingContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import { colors } from '../../theme/colors';
 import { StatusBar } from 'expo-status-bar';

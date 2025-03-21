@@ -9,17 +9,44 @@ import {
   Platform,
   SafeAreaView,
   TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useOnboarding } from '../../context/OnboardingContext';
+import { useOnboarding, OnboardingData } from '../../contexts/OnboardingContext';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
 import { TargetIcon, AIIcon, ProgressIcon } from '../../assets/icons/icons';
 import { Alert } from 'react-native';
 import { userProfileService } from '../../services/userProfileService';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import { colors } from '../../theme/colors';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { debugFirebase } from '../../utils/firebaseDebugger';
+import { 
+  firebaseApp, 
+  firestore as syncFirestore,
+  auth as syncAuth,
+  isFirebaseInitialized 
+} from '../../firebase/firebaseInit';
+import * as FirebaseCompat from '../../utils/firebaseCompatibility';
+import { runAllTests } from '../../utils/firebaseInitTest';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  Timestamp 
+} from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ONBOARDING_COMPLETE_KEY } from '../../constants/storage';
+import { 
+  lockNavigation, 
+  unlockNavigation, 
+  isNavigationLocked, 
+  NAV_ONBOARDING_KEY,
+  unlockAllNavigation
+} from '../../utils/navigationUtils';
 
 type PreferenceCardProps = {
   icon: React.ReactNode;
@@ -84,7 +111,15 @@ const PreferenceCard: React.FC<PreferenceCardProps> = ({ icon, title, value, del
   );
 };
 
-const FinalSetupScreen = ({ navigation }) => {
+// Add navigation type
+type RootStackParamList = {
+  Main: undefined;
+  Login: undefined;
+  // ... other screens
+};
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Main'>;
+
+const FinalSetupScreen = ({ navigation }: { navigation: NavigationProp }) => {
   const { isDarkMode } = useTheme();
   const { onboardingData, completeOnboarding } = useOnboarding();
   const { user } = useAuth();
@@ -107,6 +142,10 @@ const FinalSetupScreen = ({ navigation }) => {
         return;
       }
 
+      // Lock navigation to prevent competing navigation events
+      await lockNavigation(NAV_ONBOARDING_KEY, 'Completing onboarding process');
+      console.log('[FinalSetupScreen] Navigation locked during onboarding completion');
+
       // Start animations
       Animated.parallel([
         Animated.timing(progressAnim, {
@@ -121,39 +160,234 @@ const FinalSetupScreen = ({ navigation }) => {
         }),
       ]).start();
 
+      // Debug Firebase before creating profile
+      console.log('[FinalSetupScreen] Running Firebase tests before profile creation...');
+      await runAllTests();
+      
       // Create the profile first
-      const profile = await userProfileService.createUserProfile({
-        ...onboardingData,
-        weightGoal: onboardingData.weightGoal || 'MAINTAIN_WEIGHT',
-        fitnessGoal: onboardingData.fitnessGoal || 'IMPROVE_FITNESS',
-        lifestyle: onboardingData.lifestyle || 'SEDENTARY',
-        dietaryPreference: onboardingData.dietaryPreference || 'NONE',
-        workoutPreference: onboardingData.workoutPreference || 'HOME',
-      });
+      try {
+        // First, verify Firebase is initialized
+        console.log('[FinalSetupScreen] Checking Firebase initialization...');
+        if (!isFirebaseInitialized()) {
+          console.error('[FinalSetupScreen] Firebase not initialized, forcing re-initialization');
+          // We'll use the compatibility layer instead since it's more reliable
+          throw new Error('Firebase not initialized');
+        }
+        
+        const profile = await userProfileService.createUserProfile({
+          ...onboardingData,
+          weightGoal: onboardingData.weightGoal || 'MAINTAIN_WEIGHT',
+          fitnessGoal: onboardingData.fitnessGoal || 'IMPROVE_FITNESS',
+          lifestyle: onboardingData.lifestyle || 'SEDENTARY',
+          dietaryPreference: onboardingData.dietaryPreference || 'NONE',
+          workoutPreference: onboardingData.workoutPreference || 'HOME',
+        });
 
-      if (!profile) {
-        throw new Error('Failed to create profile');
+        if (!profile) {
+          throw new Error('Failed to create profile');
+        }
+        
+        console.log('[FinalSetupScreen] Profile created successfully:', profile.id);
+      } catch (profileError) {
+        console.error('[FinalSetupScreen] Error creating profile:', profileError);
+        
+        // Direct fallback to Firestore if the profile service fails
+        console.log('[FinalSetupScreen] Attempting direct Firestore fallback...');
+        
+        try {
+          // Create a user profile object with the onboarding data
+          const currentUser = user;
+          if (!currentUser || !currentUser.uid) {
+            throw new Error('No authenticated user available');
+          }
+          
+          const timestamp = Timestamp.now();
+          const metrics = calculateMetrics(onboardingData);
+
+          const userProfile = {
+            uid: currentUser.uid,
+            id: currentUser.uid,
+            email: currentUser.email || '',
+            name: onboardingData.name || '',
+            displayName: onboardingData.name || '',
+            birthday: onboardingData.birthday || null,
+            gender: onboardingData.gender || null,
+            height: onboardingData.height || null,
+            weight: onboardingData.weight || null,
+            targetWeight: onboardingData.targetWeight || null,
+            weightTargetDate: onboardingData.weightTargetDate || null,
+            fitnessGoal: onboardingData.fitnessGoal || 'IMPROVE_FITNESS',
+            activityLevel: onboardingData.lifestyle || 'SEDENTARY',
+            dietaryPreference: onboardingData.dietaryPreference || 'NONE',
+            workoutPreference: onboardingData.workoutPreference || 'HOME',
+            country: onboardingData.country,
+            state: onboardingData.state,
+            weightGoal: onboardingData.weightGoal || 'MAINTAIN_WEIGHT',
+            metrics,
+            preferences: {
+              notifications: true,
+              measurementSystem: 'metric',
+              language: 'en'
+            },
+            onboardingComplete: true,
+            createdAt: timestamp,
+            updatedAt: timestamp
+          };
+          
+          // Use the Firebase compatibility layer directly as the primary method
+          // since it's more stable in this context
+          try {
+            console.log('[FinalSetupScreen] Using Firebase compatibility layer for profile creation');
+            await FirebaseCompat.setDoc('users', currentUser.uid, userProfile);
+            console.log('[FinalSetupScreen] Profile created with Firebase compatibility layer');
+          } catch (compatError) {
+            console.error('[FinalSetupScreen] Compatibility layer write failed:', compatError);
+            
+            // Fall back to direct Firestore write using Firebase Web SDK
+            try {
+              console.log('[FinalSetupScreen] Attempting direct Firestore write as fallback');
+              if (isFirebaseInitialized()) {
+                const userDocRef = doc(syncFirestore, 'users', currentUser.uid);
+                await setDoc(userDocRef, userProfile);
+                console.log('[FinalSetupScreen] Profile created with synchronized Firebase');
+              } else {
+                throw new Error('Firebase still not initialized');
+              }
+            } catch (directWriteError) {
+              console.error('[FinalSetupScreen] All Firebase write methods failed:', directWriteError);
+              throw directWriteError;
+            }
+          }
+        } catch (fallbackError) {
+          console.error('[FinalSetupScreen] Fallback error:', fallbackError);
+          throw fallbackError;
+        }
       }
 
-      // Mark onboarding as complete only after profile is created
-      await completeOnboarding();
+      // Mark onboarding as complete manually in AsyncStorage first
+      try {
+        await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
+        console.log('[FinalSetupScreen] Onboarding marked as complete in AsyncStorage');
+      } catch (asyncError) {
+        console.error('[FinalSetupScreen] Error saving to AsyncStorage:', asyncError);
+      }
 
-      // Wait for animations
+      // Mark onboarding as complete through the context
+      try {
+        await completeOnboarding();
+        console.log('[FinalSetupScreen] Onboarding marked as complete through context');
+      } catch (onboardingError) {
+        console.error('[FinalSetupScreen] Error completing onboarding:', onboardingError);
+        // Continue even if this fails - we already saved the profile
+      }
+
+      // Debug Firebase after creating profile
+      console.log('[FinalSetupScreen] Running Firebase debug after profile creation...');
+      await debugFirebase();
+
+      // Wait for animations and state updates to complete
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Navigate to main app with a reset to prevent going back
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main' }],
-      });
+      // Clear all navigation locks before attempting to navigate
+      console.log('[FinalSetupScreen] Clearing all navigation locks before navigation');
+      await unlockAllNavigation();
+
+      // Navigate to Main directly with reset
+      try {
+        console.log('[FinalSetupScreen] Navigating to Main screen...');
+        
+        // Use reset for a clean navigation stack - this is the most reliable method
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
+        });
+        
+        // Prevent any pending navigation requests by adding a small delay
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Force AsyncStorage update to ensure future loads go directly to Main
+        await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
+        
+        return; // Exit early to prevent any additional navigation
+      } catch (navigationError) {
+        console.error('[FinalSetupScreen] Navigation reset error:', navigationError);
+        
+        // Try replace as fallback
+        try {
+          navigation.replace('Main');
+        } catch (replaceError) {
+          console.error('[FinalSetupScreen] Navigation replace error:', replaceError);
+          
+          // If replace fails, try navigate
+          try {
+            navigation.navigate('Main');
+          } catch (navigateError) {
+            console.error('[FinalSetupScreen] Navigation navigate error:', navigateError);
+            Alert.alert(
+              'Setup Complete',
+              'Your profile has been created successfully. Please restart the app to continue.',
+              [{ text: 'OK' }]
+            );
+          }
+        }
+      }
     } catch (error) {
-      console.error('Error completing setup:', error);
-      setError(
-        'There was a problem completing your setup. Please try again.'
-      );
-    } finally {
+      console.error('[FinalSetupScreen] Final error in handleComplete:', error);
+      setError('An error occurred while creating your profile. Please try again.');
       setIsCreatingProfile(false);
+      
+      // Make sure to unlock navigation on error
+      await unlockAllNavigation();
     }
+  };
+
+  // Helper function to calculate metrics
+  const calculateMetrics = (data: Partial<OnboardingData>) => {
+    const height = data.height?.value || 0;
+    const weight = data.weight?.value || 0;
+    const age = data.birthday ? Math.floor((new Date().getTime() - new Date(data.birthday).getTime()) / 31557600000) : 0;
+    const gender = data.gender || 'OTHER';
+    const lifestyle = data.lifestyle || 'SEDENTARY';
+
+    // Calculate BMI
+    const heightInMeters = data.height?.unit === 'cm' ? height / 100 : height * 0.3048;
+    const weightInKg = data.weight?.unit === 'kg' ? weight : weight * 0.453592;
+    const bmi = heightInMeters > 0 ? +(weightInKg / (heightInMeters * heightInMeters)).toFixed(1) : 0;
+
+    // Calculate BMR using Mifflin-St Jeor Equation
+    let bmr = 0;
+    if (gender === 'MALE') {
+      bmr = 10 * weightInKg + 6.25 * (height) - 5 * age + 5;
+    } else if (gender === 'FEMALE') {
+      bmr = 10 * weightInKg + 6.25 * (height) - 5 * age - 161;
+    } else {
+      bmr = 10 * weightInKg + 6.25 * (height) - 5 * age - 78;
+    }
+
+    // Calculate TDEE based on activity level
+    const activityMultipliers: Record<string, number> = {
+      SEDENTARY: 1.2,
+      LIGHTLY_ACTIVE: 1.375,
+      MODERATELY_ACTIVE: 1.55,
+      VERY_ACTIVE: 1.725,
+      SUPER_ACTIVE: 1.9
+    };
+    const tdee = Math.round(bmr * (activityMultipliers[lifestyle] || 1.2));
+
+    // Calculate recommended calories based on weight goal
+    let recommendedCalories = tdee;
+    if (data.weightGoal === 'LOSE_WEIGHT') {
+      recommendedCalories = Math.max(1200, tdee - 500);
+    } else if (data.weightGoal === 'GAIN_WEIGHT') {
+      recommendedCalories = tdee + 500;
+    }
+
+    return {
+      bmi: bmi,
+      bmr: Math.round(bmr),
+      tdee: tdee,
+      recommendedCalories: Math.round(recommendedCalories)
+    };
   };
 
   useEffect(() => {

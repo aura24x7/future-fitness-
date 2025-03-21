@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet, Dimensions, Animated, Platform } fr
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useTabBar } from '../context/TabBarContext';
+import { useTabBar } from '../contexts/TabBarContext';
 import { colors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 

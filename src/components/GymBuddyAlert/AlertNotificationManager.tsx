@@ -1,34 +1,37 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useGymBuddyAlert } from '../../contexts/GymBuddyAlertContext';
+import { useGymBuddyAlerts } from '../../contexts/GymBuddyAlertContext';
 import { AlertNotification } from './AlertNotification';
 import { GymBuddyAlert } from '../../types/gymBuddyAlert';
 
 export function AlertNotificationManager() {
-  const { state, respondToAlert } = useGymBuddyAlert();
+  const context = useGymBuddyAlerts();
   const [currentAlert, setCurrentAlert] = useState<GymBuddyAlert | null>(null);
 
   useEffect(() => {
-    // Find the first pending alert
-    const pendingAlert = state.receivedAlerts.find(
-      alert => alert.status === 'pending'
-    );
-    
-    if (pendingAlert && !currentAlert) {
-      setCurrentAlert(pendingAlert);
+    // Only process alerts if we have a valid context and receivedAlerts array
+    if (context?.receivedAlerts) {
+      // Find the first pending alert
+      const pendingAlert = context.receivedAlerts.find(
+        (alert: GymBuddyAlert) => alert.status === 'pending'
+      );
+      
+      if (pendingAlert && !currentAlert) {
+        setCurrentAlert(pendingAlert);
+      }
     }
-  }, [state.receivedAlerts]);
+  }, [context?.receivedAlerts, currentAlert]);
 
   const handleAccept = async () => {
-    if (currentAlert) {
-      await respondToAlert(currentAlert.id, true);
+    if (currentAlert && context?.respondToAlert) {
+      await context.respondToAlert(currentAlert.id, 'accept');
       setCurrentAlert(null);
     }
   };
 
   const handleReject = async () => {
-    if (currentAlert) {
-      await respondToAlert(currentAlert.id, false);
+    if (currentAlert && context?.respondToAlert) {
+      await context.respondToAlert(currentAlert.id, 'decline');
       setCurrentAlert(null);
     }
   };
@@ -37,7 +40,7 @@ export function AlertNotificationManager() {
     setCurrentAlert(null);
   };
 
-  if (!currentAlert) {
+  if (!currentAlert || !context) {
     return null;
   }
 

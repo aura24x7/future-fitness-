@@ -4,34 +4,21 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-  TouchableOpacity,
   StatusBar,
   Platform,
   ActivityIndicator,
 } from 'react-native';
 import { Text } from 'tamagui';
 import { Header } from '../components/Header';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withSequence,
-  withDelay,
-  useSharedValue,
-  interpolate,
-} from 'react-native-reanimated';
-import { auth } from '../config/firebase';
+import { firebaseCore } from '../services/firebase/firebaseCore';
 import { useTheme } from '../theme/ThemeProvider';
 import { useMeals } from '../contexts/MealContext';
 import { useTabBarScroll } from '../hooks/useTabBarScroll';
 import { formatDate, getStartOfDay, getGreeting } from '../utils/dateUtils';
 import { dataMigrationService } from '../utils/dataMigration';
-import Card from '../components/Card';
-import Button from '../components/Button';
 import CalorieTrackerCard from '../components/CalorieTrackerCard';
 import BottomTaskbar from '../components/BottomTaskbar';
 import SimpleFoodLogSection from '../components/SimpleFoodLogSection';
@@ -39,9 +26,10 @@ import { waterService } from '../services/waterService';
 import { workoutService } from '../services/workoutService';
 import MigrationStatusModal from '../components/MigrationStatusModal';
 import { logger } from '../utils/logger';
-import { useProfile } from '../context/ProfileContext';
+import { useProfile } from '../contexts/ProfileContext';
 import { calculateMacroDistribution } from '../utils/profileCalculations';
 import { RootStackParamList } from '../types/navigation';
+import EventEmitter from '../utils/EventEmitter';
 
 type DashboardScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
 
@@ -63,104 +51,6 @@ interface UserData {
   name: string;
   email: string;
 }
-
-interface ShortcutButtonProps {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-  delay?: number;
-  isLocked?: boolean;
-  style?: any;
-  isDarkMode: boolean;
-}
-
-const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
-
-const ShortcutButton: React.FC<ShortcutButtonProps> = ({
-  icon,
-  label,
-  onPress,
-  delay = 0,
-  isLocked = true,
-  style,
-  isDarkMode
-}) => {
-  const { colors } = useTheme();
-  const scale = useSharedValue(0.8);
-  const opacity = useSharedValue(0);
-  const pressed = useSharedValue(1);
-
-  useEffect(() => {
-    scale.value = withDelay(
-      delay,
-      withSpring(1, {
-        damping: 12,
-        stiffness: 100,
-      })
-    );
-    opacity.value = withDelay(
-      delay,
-      withTiming(1, { duration: 500 })
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value * pressed.value }],
-    opacity: opacity.value,
-  }));
-
-  const handlePressIn = () => {
-    pressed.value = withSpring(0.95);
-  };
-
-  const handlePressOut = () => {
-    pressed.value = withSpring(1);
-  };
-
-  const iconStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        scale: interpolate(
-          pressed.value,
-          [0.95, 1],
-          [0.9, 1]
-        )
-      }
-    ],
-  }));
-
-  return (
-    <AnimatedTouchableOpacity
-      style={[styles.shortcutButton, style, animatedStyle]}
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-    >
-      <Animated.View
-        style={[
-          styles.shortcutIcon,
-          { backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#6366F110' },
-          iconStyle
-        ]}
-      >
-        <View style={styles.iconWrapper}>
-          <Ionicons name={icon} size={24} color="#6366F1" />
-          {isLocked && (
-            <Animated.View style={[styles.lockIconContainer, iconStyle]}>
-              <Ionicons
-                name="lock-closed"
-                size={14}
-                color="#6366F1"
-                style={styles.lockIcon}
-              />
-            </Animated.View>
-          )}
-        </View>
-      </Animated.View>
-      <Text color={colors.text} fontSize={14} fontWeight="600">{label}</Text>
-    </AnimatedTouchableOpacity>
-  );
-};
 
 const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { colors, isDarkMode } = useTheme();
@@ -196,30 +86,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const lastFocusTime = useRef(0);
   const authStateUnsubscribe = useRef<(() => void) | null>(null);
 
-  // Add auth state listener
-  useEffect(() => {
-    authStateUnsubscribe.current = auth.onAuthStateChanged((user) => {
-      setIsAuthReady(true);
-      if (user) {
-        const userData: UserData = {
-          id: user.uid,
-          name: user.displayName || 'User',
-          email: user.email || '',
-        };
-        setUserData(userData);
-      } else {
-        setUserData(null);
-      }
-    });
-
-    return () => {
-      if (authStateUnsubscribe.current) {
-        authStateUnsubscribe.current();
-      }
-    };
-  }, []);
-
-  // Modify loadTodayStats to check auth
+  // Define loadTodayStats before using it
   const loadTodayStats = useCallback(async () => {
     if (!isAuthReady || !userData) {
       setLoading(false);
@@ -243,16 +110,49 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         water: waterIntake,
         waterIntake,
       });
+      setLoading(false);
     } catch (error: any) {
       console.error('Error loading stats:', error);
-      // Don't show alert for auth errors
       if (error?.message !== 'User not authenticated') {
         Alert.alert('Error', 'Failed to load today\'s stats');
       }
-    } finally {
       setLoading(false);
     }
   }, [isAuthReady, userData, totalCalories, profile?.metrics?.recommendedCalories]);
+
+  // Add meal update listener
+  useEffect(() => {
+    const unsubscribe = EventEmitter.addListener('meals_updated', () => {
+      loadTodayStats();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [loadTodayStats]);
+
+  // Add auth state listener
+  useEffect(() => {
+    authStateUnsubscribe.current = firebaseCore.onAuthStateChanged((user) => {
+      setIsAuthReady(true);
+      if (user) {
+        const userData: UserData = {
+          id: user.uid,
+          name: user.displayName || 'User',
+          email: user.email || '',
+        };
+        setUserData(userData);
+      } else {
+        setUserData(null);
+      }
+    });
+
+    return () => {
+      if (authStateUnsubscribe.current) {
+        authStateUnsubscribe.current();
+      }
+    };
+  }, []);
 
   // Modify useFocusEffect to check auth
   useFocusEffect(
@@ -277,23 +177,8 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     setSelectedDate(getStartOfDay(newDate));
   }, [setSelectedDate]);
 
-  const handleAddMeal = () => {
-    navigation.navigate('TrackMeal', undefined);
-  };
-
   const handleScanFood = () => {
-    navigation.navigate('ScanFood', undefined);
-  };
-
-  const handleProfileNavigation = () => {
-    navigation.navigate('Profile', undefined);
-  };
-
-  const calculateBMI = (weight?: number, height?: number) => {
-    if (!weight || !height) return 0;
-    // Convert height from cm to meters
-    const heightInMeters = height / 100;
-    return weight / (heightInMeters * heightInMeters);
+    navigation.navigate('ScanFood');
   };
 
   // Calculate recommended macros based on profile data
@@ -354,67 +239,15 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             onScanFood={handleScanFood}
           />
 
-          {/* Shortcut Buttons */}
-          <View style={styles.shortcutContainer}>
-            <ShortcutButton
-              icon="restaurant-outline"
-              label="Food Log"
-              onPress={() => Alert.alert("Coming Soon!", "Something is cooking! This feature will be available in future updates.")}
-              delay={100}
-              isDarkMode={isDarkMode}
-              style={{
-                backgroundColor: colors.cardBackground,
-                borderColor: colors.border,
-                borderWidth: 1,
-              }}
-            />
-
-            <ShortcutButton
-              icon="trending-up-outline"
-              label="Progress"
-              onPress={() => Alert.alert("Coming Soon!", "Something is cooking! This feature will be available in future updates.")}
-              delay={200}
-              isDarkMode={isDarkMode}
-              style={{
-                backgroundColor: colors.cardBackground,
-                borderColor: colors.border,
-                borderWidth: 1,
-              }}
-            />
-
-            <ShortcutButton
-              icon="fitness-outline"
-              label="Workouts"
-              onPress={() => Alert.alert("Coming Soon!", "Something is cooking! This feature will be available in future updates.")}
-              delay={300}
-              isDarkMode={isDarkMode}
-              style={{
-                backgroundColor: colors.cardBackground,
-                borderColor: colors.border,
-                borderWidth: 1,
-              }}
-            />
-
-            <ShortcutButton
-              icon="person-outline"
-              label="Profile"
-              onPress={handleProfileNavigation}
-              delay={400}
-              isLocked={false}
-              isDarkMode={isDarkMode}
-              style={{
-                backgroundColor: colors.cardBackground,
-                borderColor: colors.border,
-                borderWidth: 1,
-              }}
-            />
-          </View>
+          {/* Migration Status Modal */}
+          <MigrationStatusModal
+            visible={migrationStatus.visible}
+            status={migrationStatus.status}
+            onClose={() => setMigrationStatus(prev => ({ ...prev, visible: false }))}
+          />
         </View>
       </ScrollView>
-      <MigrationStatusModal
-        visible={migrationStatus.visible}
-        status={migrationStatus.status}
-      />
+
       <BottomTaskbar />
     </View>
   );
@@ -423,16 +256,18 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    flexGrow: 1,
+    paddingBottom: 80,
   },
   content: {
-    padding: 20,
+    flex: 1,
+    padding: 16,
+    gap: 16,
   },
   quickStats: {
     flexDirection: 'row',

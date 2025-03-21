@@ -21,6 +21,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSimpleFoodLog } from '../contexts/SimpleFoodLogContext';
 import { useTheme } from '../theme/ThemeProvider';
+import MealTypeSelector from '../components/MealTypeSelector';
+import { useMeals } from '../contexts/MealContext';
+import { MealType } from '../types/calorie';
 
 type ScannedFoodDetailsParams = {
   imageUri?: string;
@@ -52,6 +55,8 @@ const ScannedFoodDetailsScreen = () => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const [isAnimating, setIsAnimating] = useState(false);
   const animationTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [showMealTypeSelector, setShowMealTypeSelector] = useState(false);
+  const { addMeal, selectedDate } = useMeals();
 
   useEffect(() => {
     const analyzeFoodData = async () => {
@@ -208,7 +213,11 @@ const ScannedFoodDetailsScreen = () => {
     );
   };
 
-  const handleSaveToLog = async () => {
+  const handleSaveToLog = () => {
+    setShowMealTypeSelector(true);
+  };
+
+  const handleMealTypeSelect = async (mealType: MealType) => {
     if (!foodData) return;
 
     setIsSaving(true);
@@ -218,19 +227,36 @@ const ScannedFoodDetailsScreen = () => {
       const carbs = foodData.nutritionInfo.carbs || 0;
       const fat = foodData.nutritionInfo.fat || 0;
 
-      const newFoodItem = {
+      // Save to MealContext
+      const newMeal = {
         name: foodData.foodName || 'Unknown Food',
         calories,
         protein,
         carbs,
         fat,
+        completed: true,
+        mealType: mealType,
+        date: selectedDate,
       };
+      await addMeal(newMeal);
 
-      await addFoodItem(newFoodItem);
+      // Save to SimpleFoodLog
+      const simpleFoodItem = {
+        name: foodData.foodName || 'Unknown Food',
+        calories,
+        macros: {
+          protein,
+          carbs,
+          fat,
+        },
+        servingSize: 1, // Default serving size
+        servingUnit: 'serving' // Default serving unit
+      };
+      await addFoodItem(simpleFoodItem);
 
       Alert.alert(
         'Food Added Successfully',
-        `Added ${newFoodItem.name} to your log:\n` +
+        `Added ${newMeal.name} (${mealType}) to your log:\n` +
         `• ${calories} calories\n` +
         `• ${protein}g protein\n` +
         `• ${carbs}g carbs\n` +
@@ -564,6 +590,12 @@ const ScannedFoodDetailsScreen = () => {
           </Animated.View>
         )}
       </ScrollView>
+
+      <MealTypeSelector
+        isOpen={showMealTypeSelector}
+        onClose={() => setShowMealTypeSelector(false)}
+        onSelect={handleMealTypeSelect}
+      />
     </SafeAreaView>
   );
 };

@@ -81,3 +81,52 @@ export const getGreeting = (): string => {
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 };
+
+export function getWeekNumber(date: Date): number {
+  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+}
+
+export function getWeekDates(weekNumber: number): Date[] {
+  const firstDayOfYear = new Date(new Date().getFullYear(), 0, 1);
+  const firstDayOfWeek = new Date(firstDayOfYear.getTime() + (weekNumber - 1) * 604800000);
+  const weekDates = [];
+  for (let i = 0; i < 7; i++) {
+    weekDates.push(new Date(firstDayOfWeek.getTime() + i * 86400000));
+  }
+  return weekDates;
+}
+
+export function isDateInWeek(date: string, weekNumber: number): boolean {
+  const dateObject = new Date(date);
+  return getWeekNumber(dateObject) === weekNumber;
+}
+
+export function formatDateKey(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
+export function getDayName(date: Date): string {
+  return date.toLocaleDateString('en-US', { weekday: 'long' });
+}
+
+export function getMonthName(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'long' });
+}
+
+export function formatDateForDisplay(date: Date): string {
+  return `${getDayName(date)}, ${getMonthName(date)} ${date.getDate()}`;
+}
+
+export function getTimeOfDay(date: Date): string {
+  return date.toTimeString().split(' ')[0].slice(0, 5);
+}
+
+export function isSameDayNew(date1: Date, date2: Date): boolean {
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+}

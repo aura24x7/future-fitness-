@@ -3,9 +3,9 @@ import { View, Text, TouchableOpacity, Image, Dimensions, Platform, Switch, View
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native';
-import { useOnboarding } from '../context/OnboardingContext';
-import { useProfile } from '../context/ProfileContext';
-import { useAuth } from '../context/AuthContext';
+import { useOnboarding } from '../contexts/OnboardingContext';
+import { useProfile } from '../contexts/ProfileContext';
+import { useAuth } from '../contexts/AuthContext';
 import { BlurView } from 'expo-blur';
 import Animated from 'react-native-reanimated';
 import { useScrollToTabBar } from '../hooks/useScrollToTabBar';
@@ -15,7 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { calculateBMI, calculateBMR, calculateTDEE, calculateRecommendedCalories } from '../utils/profileCalculations';
 import { userProfileService } from '../services/userProfileService';
-import { Timestamp } from 'firebase/firestore';
+import firestore from '@react-native-firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
@@ -166,6 +166,22 @@ const ProfileScreen = () => {
     loadProfileData();
   }, []);
 
+  useEffect(() => {
+    // Debug birthday data
+    if (profile?.birthday) {
+      console.log('[ProfileScreen] Birthday data:', {
+        value: profile.birthday,
+        type: typeof profile.birthday,
+        isDate: profile.birthday instanceof Date,
+        hasToDate: typeof profile.birthday === 'object' && profile.birthday !== null && 
+                 'toDate' in (profile.birthday as any),
+        stringified: JSON.stringify(profile.birthday)
+      });
+    } else {
+      console.log('[ProfileScreen] No birthday data in profile');
+    }
+  }, [profile?.birthday]);
+
   const loadProfileData = async () => {
     try {
       await refreshProfile();
@@ -235,8 +251,8 @@ const ProfileScreen = () => {
 
       // Calculate age from birthday
       const today = new Date();
-      const birthDate = profile.birthday instanceof Timestamp ? 
-        profile.birthday.toDate() : 
+      const birthDate = profile.birthday instanceof Date ? 
+        profile.birthday : 
         new Date(profile.birthday);
       let age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -281,18 +297,44 @@ const ProfileScreen = () => {
   // Calculate user's age
   const userAge = useMemo(() => {
     if (profile?.birthday) {
-      const today = new Date();
-      const birthDate = profile.birthday instanceof Timestamp ? 
-        profile.birthday.toDate() : 
-        new Date(profile.birthday);
-      
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
+      try {
+        const today = new Date();
+        let birthDate: Date;
+        
+        // Handle different possible birthday formats
+        if (profile.birthday instanceof Date) {
+          birthDate = profile.birthday;
+        } else if (typeof profile.birthday === 'object' && profile.birthday.toDate) {
+          // Handle Firestore Timestamp objects
+          birthDate = profile.birthday.toDate();
+        } else if (typeof profile.birthday === 'string') {
+          birthDate = new Date(profile.birthday);
+        } else if (typeof profile.birthday === 'number') {
+          // Handle timestamp in milliseconds
+          birthDate = new Date(profile.birthday);
+        } else {
+          console.log('[ProfileScreen] Invalid birthday format:', profile.birthday);
+          return null;
+        }
+        
+        // Validate the birthDate is a valid date
+        if (isNaN(birthDate.getTime())) {
+          console.log('[ProfileScreen] Invalid date after conversion:', birthDate);
+          return null;
+        }
+        
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        return age;
+      } catch (error) {
+        console.error('[ProfileScreen] Error calculating age:', error, 'Birthday value:', profile.birthday);
+        return null;
       }
-      return age;
     }
+    console.log('[ProfileScreen] No birthday data available in profile');
     return null;
   }, [profile?.birthday]);
 
@@ -345,15 +387,30 @@ const ProfileScreen = () => {
     
     setIsLoggingOut(true);
     try {
-      // Reset onboarding data first
+      console.log('[ProfileScreen] Starting logout process');
+      
+      // Navigate to Login screen first to ensure it's in the stack
+      try {
+        // @ts-ignore - Need to access the root navigator
+        navigation.navigate('Login');
+      } catch (navError) {
+        console.log('[ProfileScreen] Navigation pre-logout warning:', navError);
+        // Continue with logout even if navigation fails
+      }
+      
+      // Reset onboarding data
       await resetOnboarding();
+      
+      // Small delay to ensure navigation has processed
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Perform the logout which will clear auth data
       await logout();
       
+      console.log('[ProfileScreen] Logout completed successfully');
       // Navigation will be handled by AuthContext's state change
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('[ProfileScreen] Logout error:', error);
       Alert.alert(
         'Logout Error',
         'An error occurred while logging out. Please try again.'

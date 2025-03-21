@@ -1,0 +1,54 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isValidMeal() {
+      let requiredFields = ['name', 'calories', 'protein', 'carbs', 'fat', 'timestamp', 'userId'];
+      let hasAllFields = requiredFields.every(field => request.resource.data[field] != null);
+      let validNumbers = request.resource.data.calories is number && 
+                        request.resource.data.protein is number && 
+                        request.resource.data.carbs is number && 
+                        request.resource.data.fat is number;
+      let validRanges = request.resource.data.calories >= 0 && 
+                        request.resource.data.protein >= 0 && 
+                        request.resource.data.carbs >= 0 && 
+                        request.resource.data.fat >= 0;
+      let validTimestamp = request.resource.data.timestamp is string && 
+                          request.resource.data.timestamp.matches('^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z$');
+      let isUserMatch = request.resource.data.userId == request.auth.uid;
+      
+      return hasAllFields && validNumbers && validRanges && validTimestamp && isUserMatch;
+    }
+
+    // User document rules
+    match /users/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && isOwner(userId);
+
+      // Meal collection rules
+      match /meals/{mealId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId) && isValidMeal();
+        allow update: if isAuthenticated() && isOwner(userId) && isValidMeal();
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+    }
+
+    match /weight_logs/{document} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    match /user_profiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+} 

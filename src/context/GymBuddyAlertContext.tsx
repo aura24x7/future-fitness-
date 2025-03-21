@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import { Vibration, Alert } from 'react-native';
+import auth from '@react-native-firebase/auth';
 import { gymBuddyAlertService } from '../services/gymBuddyAlertService';
 import { 
   GymBuddyAlert,
@@ -8,8 +9,6 @@ import {
   AlertResponse,
   BaseAlert
 } from '../types/gymBuddyAlert';
-import { auth } from '../config/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
 import { notificationService } from '../services/notificationService';
 
 // State interface
@@ -115,7 +114,7 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
                     id: data.alertId as string,
                     senderId: data.senderId as string,
                     senderName: data.senderName as string,
-                    receiverId: auth.currentUser?.uid || '',
+                    receiverId: auth().currentUser?.uid || '',
                     status: 'pending',
                     createdAt: new Date().toISOString(),
                     type: 'GYM_INVITE',
@@ -157,7 +156,7 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = auth().onAuthStateChanged(user => {
       dispatch({ type: 'SET_AUTHENTICATED', payload: !!user });
     });
 
@@ -192,7 +191,7 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
     dispatch({ type: 'SEND_ALERT_START' });
     try {
       // For testing: Allow sending to self
-      const currentUser = auth.currentUser;
+      const currentUser = auth().currentUser;
       const newAlert = await gymBuddyAlertService.sendAlert(
         recipientId,
         "Let's hit the gym!",

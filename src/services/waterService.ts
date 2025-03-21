@@ -1,5 +1,9 @@
-import { auth, firestore } from '../config/firebase';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { firestore } from '../firebase/firebaseInit';
+import { getAuth } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, collection } from 'firebase/firestore';
+
+// Get typed auth instance
+const auth = getAuth();
 
 class WaterService {
   private static instance: WaterService;

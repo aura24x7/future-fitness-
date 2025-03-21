@@ -1,12 +1,46 @@
 {
+  "cli": {
+    "version": "15.0.15",
+    "appVersionSource": "remote"
+  },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "gradleCommand": ":app:assembleDebug",
+        "buildType": "apk",
+        "env": {
+          "EXPO_DEBUG": "true"
+        },
+        "withoutCredentials": false
+      },
+      "ios": {
+        "buildConfiguration": "Debug"
+      },
+      "cache": {
+        "disabled": true
+      },
+      "env": {
+        "EAS_SKIP_AUTO_FINGERPRINT": "1"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "cache": {
+        "disabled": true
+      }
     },
-    "production": {}
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "cache": {
+        "disabled": false
+      }
+    }
   }
 }

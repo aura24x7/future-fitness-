@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRoute } from '@react-navigation/native';
-import { useGymBuddyAlert } from '../../contexts/GymBuddyAlertContext';
+import { useGymBuddyAlerts } from '../../contexts/GymBuddyAlertContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import { ReceiveAlertModal } from '../../components/GymBuddyAlert/ReceiveAlertModal';
 import { GymBuddyAlert } from '../../types/gymBuddyAlert';
@@ -43,7 +43,7 @@ export function IndividualProfileSection({
   const { colors, isDarkMode: isDark } = useTheme();
   const params = route.params as RouteParams;
   const isShareMode = params?.mode === 'share';
-  const { state, sendGymInvite } = useGymBuddyAlert();
+  const { sendGymInvite, sentAlerts, receivedAlerts } = useGymBuddyAlerts();
   const [selectedAlert, setSelectedAlert] = useState<GymBuddyAlert | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [lastClickTime, setLastClickTime] = useState(0);
@@ -53,7 +53,7 @@ export function IndividualProfileSection({
   const testRecipientId = currentUser?.uid || profile.id;
 
   // Find pending alerts for this profile
-  const pendingAlerts = state.receivedAlerts.filter(
+  const pendingAlerts = receivedAlerts.filter(
     alert => alert.senderId === profile.id && alert.status === 'pending'
   );
 

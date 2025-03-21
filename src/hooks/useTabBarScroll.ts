@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { ScrollView, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
-import { useTabBar } from '../context/TabBarContext';
+import { useTabBar } from '../contexts/TabBarContext';
 
 export const useTabBarScroll = () => {
   const scrollViewRef = useRef<ScrollView>(null);

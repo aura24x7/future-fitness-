@@ -1,15 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { userProfileService, UserProfile } from '../services/userProfileService';
+import { useAuth } from '../contexts/AuthContext';
 
 export function useUserProfile() {
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Load profile
+  // Load profile only after auth is initialized and we have a user
   useEffect(() => {
-    loadProfile();
-  }, []);
+    if (!authLoading && user) {
+      loadProfile();
+    } else if (!authLoading && !user) {
+      setProfile(null);
+      setLoading(false);
+    }
+  }, [authLoading, user]);
 
   // Load profile function
   const loadProfile = useCallback(async () => {
@@ -20,6 +27,7 @@ export function useUserProfile() {
       setProfile(userProfile);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to load profile'));
+      console.error('Profile loading error:', err);
     } finally {
       setLoading(false);
     }
@@ -59,10 +67,10 @@ export function useUserProfile() {
 
   return {
     profile,
-    loading,
+    loading: loading || authLoading,
     error,
-    loadProfile,
     updateProfile,
+    refreshProfile: loadProfile,
     getMetrics,
     getMeasurementSystem,
   };

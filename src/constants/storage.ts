@@ -81,4 +81,10 @@ export interface StorageStructureV1 {
 /**
  * Utility type to ensure storage key type safety
  */
-export type StorageKey = typeof STORAGE_KEYS; 
+export type StorageKey = typeof STORAGE_KEYS;
+
+// Storage keys for AsyncStorage
+export const ONBOARDING_STORAGE_KEY = '@aifit_onboarding_data';
+export const ONBOARDING_COMPLETE_KEY = '@aifit_onboarding_complete';
+export const AUTH_PERSISTENCE_KEY = '@auth_persistence';
+export const AUTH_CREDENTIALS_KEY = '@auth_credentials'; 

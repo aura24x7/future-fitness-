@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
-import { useOnboarding } from '../../context/OnboardingContext';
+import { useOnboarding } from '../../contexts/OnboardingContext';
 import { colors } from '../../theme/colors';
 import { COUNTRIES, STATES } from '../../data/locationData';
 import { useTheme } from '../../theme/ThemeProvider';

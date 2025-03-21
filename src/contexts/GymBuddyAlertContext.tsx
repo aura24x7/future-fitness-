@@ -1,18 +1,15 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useState, useRef } from 'react';
 import { Vibration, Alert } from 'react-native';
 import { gymBuddyAlertService } from '../services/gymBuddyAlertService';
 import { 
   GymBuddyAlert,
   CustomMessageAlert,
   GymInviteAlert,
-  AlertResponse,
-  BaseAlert
+  AlertResponse
 } from '../types/gymBuddyAlert';
-import { auth } from '../config/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { notificationService } from '../services/notificationService';
+import { firebaseCore } from '../services/firebase/firebaseCore';
+import { getNotificationService } from '../services/notificationService';
 
-// State interface
 interface AlertContextState {
   sentAlerts: GymBuddyAlert[];
   receivedAlerts: GymBuddyAlert[];
@@ -21,15 +18,11 @@ interface AlertContextState {
   isAuthenticated: boolean;
 }
 
-// Action types
-type AlertContextAction =
-  | { type: 'SEND_ALERT_START' }
-  | { type: 'SEND_ALERT_SUCCESS'; payload: GymBuddyAlert }
-  | { type: 'SEND_ALERT_ERROR'; payload: string }
-  | { type: 'RECEIVE_ALERT'; payload: GymBuddyAlert }
-  | { type: 'UPDATE_ALERT_STATUS'; payload: AlertResponse }
-  | { type: 'SET_AUTHENTICATED'; payload: boolean }
-  | { type: 'CLEAR_ERROR' };
+interface AlertContextValue extends AlertContextState {
+  sendCustomMessageAlert: (recipientId: string, message: string) => Promise<CustomMessageAlert>;
+  sendGymInvite: (recipientId: string) => Promise<GymInviteAlert>;
+  respondToAlert: (alertId: string, accept: 'accept' | 'decline') => Promise<void>;
+}
 
 const initialState: AlertContextState = {
   sentAlerts: [],
@@ -39,75 +32,69 @@ const initialState: AlertContextState = {
   isAuthenticated: false,
 };
 
-function alertReducer(
-  state: AlertContextState,
-  action: AlertContextAction
-): AlertContextState {
+type AlertAction =
+  | { type: 'SEND_ALERT_START' }
+  | { type: 'SEND_ALERT_SUCCESS'; payload: GymBuddyAlert }
+  | { type: 'SEND_ALERT_ERROR'; payload: string }
+  | { type: 'RECEIVE_ALERT'; payload: GymBuddyAlert }
+  | { type: 'SET_AUTHENTICATED'; payload: boolean };
+
+function alertReducer(state: AlertContextState, action: AlertAction): AlertContextState {
   switch (action.type) {
     case 'SEND_ALERT_START':
       return { ...state, isLoading: true, error: null };
     case 'SEND_ALERT_SUCCESS':
       return {
         ...state,
-        sentAlerts: [...state.sentAlerts, action.payload],
         isLoading: false,
+        sentAlerts: [...state.sentAlerts, action.payload],
       };
     case 'SEND_ALERT_ERROR':
       return { ...state, isLoading: false, error: action.payload };
     case 'RECEIVE_ALERT':
-      Vibration.vibrate(500);
       return {
         ...state,
         receivedAlerts: [...state.receivedAlerts, action.payload],
       };
-    case 'UPDATE_ALERT_STATUS':
-      const status = action.payload.response === 'accept' ? 'accepted' : 'declined';
-      return {
-        ...state,
-        receivedAlerts: state.receivedAlerts.map(alert =>
-          alert.id === action.payload.alertId
-            ? { ...alert, status }
-            : alert
-        ),
-        sentAlerts: state.sentAlerts.map(alert =>
-          alert.id === action.payload.alertId
-            ? { ...alert, status }
-            : alert
-        ),
-      };
     case 'SET_AUTHENTICATED':
       return { ...state, isAuthenticated: action.payload };
-    case 'CLEAR_ERROR':
-      return { ...state, error: null };
     default:
       return state;
   }
-}
-
-interface AlertContextValue {
-  state: AlertContextState;
-  sendAlert: (recipientId: string, message: string) => Promise<CustomMessageAlert>;
-  sendGymInvite: (recipientId: string) => Promise<GymInviteAlert>;
-  respondToAlert: (alertId: string, accept: boolean) => Promise<void>;
 }
 
 const GymBuddyAlertContext = createContext<AlertContextValue | undefined>(undefined);
 
 export function GymBuddyAlertProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(alertReducer, initialState);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const subscriptionsRef = useRef<any[]>([]);
 
-  // Initialize notifications
+  // Initialize services
   useEffect(() => {
-    const initializeNotifications = async () => {
+    let mounted = true;
+    
+    const initialize = async () => {
       try {
+        console.log('[GymBuddyAlertProvider] Starting initialization...');
+        
+        // Ensure Firebase is initialized
+        await firebaseCore.ensureInitialized();
+        if (!mounted) return;
+        
+        // Initialize notification service
+        console.log('[GymBuddyAlertProvider] Initializing notifications...');
+        const notificationService = await getNotificationService();
         await notificationService.initialize();
         
-        // Add notification received listener
+        // Set up notification listeners
         const subscription = notificationService.addNotificationReceivedListener(
           (notification) => {
             const data = notification.request.content.data;
             if (data?.type === 'GYM_INVITE') {
-              // For testing: Automatically add received alerts to state
+              const user = firebaseCore.getCurrentUser();
+              if (!user) return;
+
               if (data.alertId && data.senderId) {
                 dispatch({
                   type: 'RECEIVE_ALERT',
@@ -115,7 +102,7 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
                     id: data.alertId as string,
                     senderId: data.senderId as string,
                     senderName: data.senderName as string,
-                    receiverId: auth.currentUser?.uid || '',
+                    receiverId: user.uid,
                     status: 'pending',
                     createdAt: new Date().toISOString(),
                     type: 'GYM_INVITE',
@@ -127,44 +114,65 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
             }
           }
         );
+        subscriptionsRef.current.push(subscription);
 
         // Add notification response listener
         const responseSubscription = notificationService.addNotificationResponseReceivedListener(
           (response) => {
             const data = response.notification.request.content.data;
             if (data?.alertId) {
-              // Handle notification response
               const accept = response.actionIdentifier === 'accept';
-              respondToAlert(data.alertId as string, accept);
+              respondToAlert(data.alertId as string, accept ? 'accept' : 'decline');
             }
           }
         );
+        subscriptionsRef.current.push(responseSubscription);
 
-        return () => {
-          notificationService.removeSubscription(subscription);
-          notificationService.removeSubscription(responseSubscription);
-        };
+        // Set up auth state listener
+        const authUnsubscribe = firebaseCore.onAuthStateChanged((user) => {
+          if (mounted) {
+            dispatch({ type: 'SET_AUTHENTICATED', payload: !!user });
+          }
+        });
+        subscriptionsRef.current.push(authUnsubscribe);
+
+        if (mounted) {
+          console.log('[GymBuddyAlertProvider] Initialization completed successfully');
+          setIsInitialized(true);
+        }
       } catch (error) {
-        console.error('Failed to initialize notifications:', error);
-        Alert.alert(
-          'Notification Error',
-          'Failed to initialize notifications. Some features may not work properly.'
-        );
+        console.error('[GymBuddyAlertProvider] Initialization error:', error);
+        if (mounted) {
+          Alert.alert(
+            'Initialization Error',
+            'Failed to initialize some features. Some functionality may be limited.'
+          );
+        }
       }
     };
 
-    initializeNotifications();
+    initialize();
+
+    return () => {
+      mounted = false;
+      // Cleanup subscriptions
+      subscriptionsRef.current.forEach(async (sub) => {
+        try {
+          if (typeof sub === 'function') {
+            sub();
+          } else {
+            const notificationService = await getNotificationService();
+            notificationService.removeSubscription(sub);
+          }
+        } catch (error) {
+          console.error('[GymBuddyAlertProvider] Error cleaning up subscription:', error);
+        }
+      });
+      subscriptionsRef.current = [];
+    };
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      dispatch({ type: 'SET_AUTHENTICATED', payload: !!user });
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const sendAlert = useCallback(async (recipientId: string, message: string): Promise<CustomMessageAlert> => {
+  const sendCustomMessageAlert = useCallback(async (recipientId: string, message: string): Promise<CustomMessageAlert> => {
     if (!state.isAuthenticated) {
       Alert.alert('Authentication Required', 'Please sign in to send alerts');
       throw new Error('Not authenticated');
@@ -191,26 +199,7 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
 
     dispatch({ type: 'SEND_ALERT_START' });
     try {
-      // For testing: Allow sending to self
-      const currentUser = auth.currentUser;
-      const newAlert = await gymBuddyAlertService.sendAlert(
-        recipientId,
-        "Let's hit the gym!",
-        'GYM_INVITE'
-      );
-
-      // For testing: If sending to self, immediately add to received alerts
-      if (currentUser && recipientId === currentUser.uid) {
-        dispatch({
-          type: 'RECEIVE_ALERT',
-          payload: {
-            ...newAlert,
-            receiverId: currentUser.uid,
-          }
-        });
-      }
-
-      Alert.alert('Success', 'Gym invite sent successfully!');
+      const newAlert = await gymBuddyAlertService.sendAlert(recipientId, "Let's hit the gym!", 'GYM_INVITE');
       dispatch({ type: 'SEND_ALERT_SUCCESS', payload: newAlert });
       return newAlert as GymInviteAlert;
     } catch (error) {
@@ -221,54 +210,34 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
     }
   }, [state.isAuthenticated]);
 
-  const respondToAlert = useCallback(async (alertId: string, accept: boolean) => {
-    if (!state.isAuthenticated) {
-      Alert.alert('Authentication Required', 'Please sign in to respond to alerts');
-      return;
-    }
-
+  const respondToAlert = useCallback(async (alertId: string, accept: 'accept' | 'decline') => {
     try {
-      const response = accept ? 'accept' : 'decline';
-      await gymBuddyAlertService.respondToAlert(alertId, response);
-      
-      // Update local state
-      dispatch({
-        type: 'UPDATE_ALERT_STATUS',
-        payload: { 
-          alertId, 
-          response,
-          respondedAt: new Date().toISOString()
-        },
-      });
-
-      // Show response feedback
-      Alert.alert(
-        'Response Sent',
-        accept ? 'You accepted the gym invite!' : 'You declined the gym invite.'
-      );
+      await gymBuddyAlertService.respondToAlert(alertId, accept);
     } catch (error) {
-      console.error('Error responding to alert:', error);
-      Alert.alert('Error', 'Failed to respond to the alert');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to respond to alert';
+      Alert.alert('Error', errorMessage);
       throw error;
     }
-  }, [state.isAuthenticated]);
+  }, []);
+
+  const value: AlertContextValue = {
+    ...state,
+    sendCustomMessageAlert,
+    sendGymInvite,
+    respondToAlert,
+  };
 
   return (
-    <GymBuddyAlertContext.Provider value={{ 
-      state, 
-      sendAlert, 
-      sendGymInvite,
-      respondToAlert 
-    }}>
+    <GymBuddyAlertContext.Provider value={value}>
       {children}
     </GymBuddyAlertContext.Provider>
   );
 }
 
-export function useGymBuddyAlert() {
+export const useGymBuddyAlerts = () => {
   const context = useContext(GymBuddyAlertContext);
-  if (context === undefined) {
-    throw new Error('useGymBuddyAlert must be used within a GymBuddyAlertProvider');
+  if (!context) {
+    throw new Error('useGymBuddyAlerts must be used within a GymBuddyAlertProvider');
   }
   return context;
-}
+};

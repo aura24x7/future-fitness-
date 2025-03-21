@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { simpleFoodLogService, SimpleFoodItem, RemovedItem, BatchRemovedItems } from '../services/simpleFoodLogService';
 import { useMeals } from './MealContext';
 import { debounce } from 'lodash';
+import EventEmitter from '../utils/EventEmitter';
+import { getStorageKeyForDate } from '../utils/dateUtils';
 
 interface UndoConfig {
   timeout: number;
@@ -40,11 +42,13 @@ const PAGE_SIZE = 20;
 interface CacheItem<T> {
   data: T;
   timestamp: number;
+  version: number;
 }
 
 interface SimpleFoodLogCache {
   items: Map<string, CacheItem<SimpleFoodItem[]>>;
   totalItems: number;
+  version: number;
 }
 
 export const SimpleFoodLogProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -61,14 +65,38 @@ export const SimpleFoodLogProvider: React.FC<{ children: React.ReactNode }> = ({
   // Cache ref to persist between renders
   const cacheRef = useRef<SimpleFoodLogCache>({
     items: new Map(),
-    totalItems: 0
+    totalItems: 0,
+    version: 1
   });
+
+  // Function to invalidate entire cache
+  const invalidateCache = useCallback(() => {
+    console.log('[SimpleFoodLog] Invalidating cache');
+    cacheRef.current.items.clear();
+    cacheRef.current.version += 1;
+    console.log('[SimpleFoodLog] Cache invalidated, new version:', cacheRef.current.version);
+  }, []);
 
   // Function to check if cache is valid
   const isCacheValid = useCallback((key: string): boolean => {
     const cached = cacheRef.current.items.get(key);
     if (!cached) return false;
-    return Date.now() - cached.timestamp < CACHE_TTL;
+    
+    const isExpired = Date.now() - cached.timestamp >= CACHE_TTL;
+    const isVersionMatch = cached.version === cacheRef.current.version;
+    
+    if (isExpired || !isVersionMatch) {
+      console.log('[SimpleFoodLog] Cache invalid:', { 
+        key, 
+        isExpired, 
+        isVersionMatch,
+        cachedVersion: cached.version,
+        currentVersion: cacheRef.current.version
+      });
+      return false;
+    }
+    
+    return true;
   }, []);
 
   // Function to get cached data
@@ -81,7 +109,13 @@ export const SimpleFoodLogProvider: React.FC<{ children: React.ReactNode }> = ({
   const setCacheData = useCallback((key: string, data: SimpleFoodItem[]) => {
     cacheRef.current.items.set(key, {
       data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      version: cacheRef.current.version
+    });
+    console.log('[SimpleFoodLog] Cache updated:', { 
+      key, 
+      itemCount: data.length,
+      version: cacheRef.current.version
     });
   }, []);
 
@@ -131,6 +165,11 @@ export const SimpleFoodLogProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!forceRefresh) {
         const cachedData = getCachedData(cacheKey);
         if (cachedData) {
+          console.log('[SimpleFoodLog] Using cached data:', { 
+            page, 
+            itemCount: cachedData.length,
+            version: cacheRef.current.version
+          });
           setItems(prevItems => page === 1 ? cachedData : [...prevItems, ...cachedData]);
           setIsLoading(false);
           return;
@@ -140,13 +179,17 @@ export const SimpleFoodLogProvider: React.FC<{ children: React.ReactNode }> = ({
       const response = await simpleFoodLogService.getSimpleFoodLog(page, PAGE_SIZE);
       foodItems = response.items;
       setHasMore(response.hasMore);
-      setCacheData(cacheKey, foodItems);
+      
+      // Only cache if not first page to ensure fresh data for latest meals
+      if (page > 1) {
+        setCacheData(cacheKey, foodItems);
+      }
 
       setItems(prevItems => page === 1 ? foodItems : [...prevItems, ...foodItems]);
       debouncedUpdateMealTotals(foodItems);
     } catch (err) {
       setError('Failed to load food log');
-      console.error('Error loading food log:', err);
+      console.error('[SimpleFoodLog] Error loading food log:', err);
     } finally {
       setIsLoading(false);
     }
@@ -162,9 +205,11 @@ export const SimpleFoodLogProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Refresh food log
   const refreshFoodLog = useCallback(async () => {
+    console.log('[SimpleFoodLog] Refreshing food log');
+    invalidateCache();
     setCurrentPage(1);
     await loadFoodLog(1, true);
-  }, [loadFoodLog]);
+  }, [loadFoodLog, invalidateCache]);
 
   // Clear cache when unmounting
   useEffect(() => {
@@ -191,6 +236,75 @@ export const SimpleFoodLogProvider: React.FC<{ children: React.ReactNode }> = ({
     loadUndoConfig();
   }, []);
 
+  // Listen for meal updates
+  useEffect(() => {
+    const handleMealUpdate = async (updatedMeals: { [key: string]: SimpleFoodItem[] }) => {
+      try {
+        console.log('[SimpleFoodLog] Received meal update event');
+        
+        // Step 1: Invalidate cache to ensure fresh data
+        invalidateCache();
+        
+        // Step 2: Force a refresh of the food log
+        await refreshFoodLog();
+        
+        // Step 3: Update meal totals
+        const currentItems = await simpleFoodLogService.getSimpleFoodLog(1, PAGE_SIZE);
+        debouncedUpdateMealTotals(currentItems.items);
+        
+        console.log('[SimpleFoodLog] Successfully processed meal update event');
+      } catch (error) {
+        console.error('[SimpleFoodLog] Error handling meal update:', error);
+        setError('Failed to update food log');
+      }
+    };
+
+    // Set up event listener with cleanup
+    console.log('[SimpleFoodLog] Setting up meal update event listener');
+    const cleanup = EventEmitter.addListener('meals_updated', handleMealUpdate);
+    
+    return () => {
+      console.log('[SimpleFoodLog] Cleaning up meal update event listener');
+      cleanup();
+    };
+  }, [refreshFoodLog, invalidateCache, debouncedUpdateMealTotals]);
+
+  // Add new effect for handling deletion events
+  useEffect(() => {
+    const handleMealDeleted = async (mealId: string) => {
+      try {
+        console.log('[SimpleFoodLog] Received meal deleted event:', mealId);
+        
+        // Step 1: Invalidate cache
+        invalidateCache();
+        
+        // Step 2: Update local state
+        setItems(prevItems => {
+          const updatedItems = prevItems.filter(item => item.id !== mealId);
+          
+          // Step 3: Update meal totals
+          debouncedUpdateMealTotals(updatedItems);
+          
+          return updatedItems;
+        });
+        
+        console.log('[SimpleFoodLog] Successfully processed meal deleted event');
+      } catch (error) {
+        console.error('[SimpleFoodLog] Error handling meal deleted event:', error);
+        setError('Failed to process meal deletion');
+      }
+    };
+
+    // Set up event listener with cleanup
+    console.log('[SimpleFoodLog] Setting up meal deleted event listener');
+    const cleanup = EventEmitter.addListener('meal_deleted', handleMealDeleted);
+    
+    return () => {
+      console.log('[SimpleFoodLog] Cleaning up meal deleted event listener');
+      cleanup();
+    };
+  }, [invalidateCache, debouncedUpdateMealTotals]);
+
   const addFoodItem = async (item: Omit<SimpleFoodItem, 'id' | 'timestamp'>) => {
     try {
       setError(null);
@@ -209,15 +323,41 @@ export const SimpleFoodLogProvider: React.FC<{ children: React.ReactNode }> = ({
   const removeFoodItem = async (id: string) => {
     try {
       setError(null);
+      setIsLoading(true);
+
+      console.log('[SimpleFoodLog] Starting food item removal:', id);
+      
+      // Step 1: Remove from Firebase and get the removed item
       const removedItem = await simpleFoodLogService.removeFoodItem(id);
-      const updatedItems = items.filter(item => item.id !== id);
-      setItems(updatedItems);
-      debouncedUpdateMealTotals(updatedItems);
+      
+      console.log('[SimpleFoodLog] Successfully removed from Firebase:', id);
+      
+      // Step 2: Update local state
+      setItems(prevItems => {
+        const updatedItems = prevItems.filter(item => item.id !== id);
+        
+        // Step 3: Update meal totals immediately
+        debouncedUpdateMealTotals(updatedItems);
+        
+        return updatedItems;
+      });
+
+      // Step 4: Clear cache to ensure fresh data
+      invalidateCache();
+      
+      // Step 5: Emit both meal_deleted and meals_updated events
+      EventEmitter.emit('meal_deleted', id);
+      EventEmitter.emit('meals_updated', { [getStorageKeyForDate(new Date())]: [] });
+      
+      console.log('[SimpleFoodLog] Successfully completed food item removal:', id);
+      
       return removedItem;
     } catch (err) {
+      console.error('[SimpleFoodLog] Error removing food item:', err);
       setError('Failed to remove food item');
-      console.error('Error removing food item:', err);
       throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 

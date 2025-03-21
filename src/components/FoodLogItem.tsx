@@ -16,6 +16,7 @@ interface FoodLogItemProps {
   protein: number;
   carbs: number;
   fat: number;
+  onRemove?: (id: string) => Promise<void>;
 }
 
 const FoodLogItem: React.FC<FoodLogItemProps> = ({

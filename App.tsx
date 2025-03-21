@@ -1,90 +1,142 @@
 import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
+
+// Import the Firebase initialization first - order matters here
+import './src/firebase/firebaseInit';
+
 import { ThemeProvider } from './src/theme/ThemeProvider';
-import { ProfileProvider } from './src/context/ProfileContext';
-import { OnboardingProvider } from './src/context/OnboardingContext';
-import { TabBarProvider } from './src/context/TabBarContext';
+import { ProfileProvider } from './src/contexts/ProfileContext';
+import { OnboardingProvider } from './src/contexts/OnboardingContext';
+import { TabBarProvider } from './src/contexts/TabBarContext';
 import { MealProvider } from './src/contexts/MealContext';
 import { SimpleFoodLogProvider } from './src/contexts/SimpleFoodLogContext';
 import { ProfileGroupsProvider } from './src/contexts/ProfileGroupsContext';
 import { GymBuddyAlertProvider } from './src/contexts/GymBuddyAlertContext';
 import { LoadingProvider, useLoading } from './src/contexts/LoadingContext';
-import { AuthProvider } from './src/context/AuthContext';
+import { AuthProvider } from './src/contexts/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { AlertNotificationManager } from './src/components/GymBuddyAlert/AlertNotificationManager';
 import SplashScreenComponent from './src/components/SplashScreen';
 import * as SplashScreen from 'expo-splash-screen';
 import ErrorBoundary from './src/components/ErrorBoundary';
-import { initializeApp, getInitializationState } from './src/utils/AppInitializer';
+import { isFirebaseInitialized, firebaseApp } from './src/firebase/firebaseInit';
+import { TamaguiProvider } from './src/providers/TamaguiProvider';
 
-// Initialize app essentials
-initializeApp().catch(console.error);
+// Verify that Firebase initialization happened synchronously at import time
+console.log('[App] Firebase initialized at import time:', isFirebaseInitialized(), firebaseApp ? 'Firebase app exists' : 'No Firebase app');
+
+// Declare the global property for TypeScript
+declare global {
+  var RNFB_SILENCE_MODULAR_DEPRECATION_WARNINGS: boolean;
+}
+
+// Silence Firebase deprecation warnings temporarily while migrating
+globalThis.RNFB_SILENCE_MODULAR_DEPRECATION_WARNINGS = true;
+
+// Prevent splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync().catch(console.warn);
 
 const AppContent = () => {
   const { isLoading, progress } = useLoading();
-  const [isAppReady, setIsAppReady] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    async function prepare() {
+    const initializeApp = async () => {
       try {
-        while (!getInitializationState().isInitialized || !getInitializationState().authInitialized) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('[App] Starting app initialization...');
+        
+        // Verify Firebase is initialized properly
+        if (!isFirebaseInitialized()) {
+          console.warn('[App] Firebase appears not initialized, waiting briefly...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          if (!isFirebaseInitialized()) {
+            throw new Error('Firebase initialization failed after retry');
+          } else {
+            console.log('[App] Firebase initialized successfully after waiting');
+          }
+        } else {
+          console.log('[App] Firebase already initialized successfully');
         }
         
-        setIsAppReady(true);
-        
-        if (!isLoading) {
-          await SplashScreen.hideAsync();
-        }
-      } catch (error) {
-        console.error('Error preparing app:', error);
+        setIsInitialized(true);
+        console.log('[App] App initialization completed');
+      } catch (err) {
+        console.error('[App] Initialization error:', err);
+        setError(err instanceof Error ? err : new Error('Initialization failed'));
       }
-    }
+    };
 
-    prepare();
-  }, [isLoading]);
+    initializeApp();
+  }, []);
 
-  if (!isAppReady) {
-    return null;
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Error: {error.message}</Text>
+        <Text style={styles.errorText}>Please restart the app to try again.</Text>
+      </View>
+    );
+  }
+
+  if (!isInitialized || isLoading) {
+    return <SplashScreenComponent progress={progress} isLoading={isLoading} />;
   }
 
   return (
-    <>
-      <ProfileProvider>
-        <OnboardingProvider>
-          <TabBarProvider>
-            <MealProvider>
-              <SimpleFoodLogProvider>
-                <ProfileGroupsProvider>
-                  <GymBuddyAlertProvider>
-                    <StatusBar style="auto" />
-                    <AppNavigator />
-                    <AlertNotificationManager />
-                  </GymBuddyAlertProvider>
-                </ProfileGroupsProvider>
-              </SimpleFoodLogProvider>
-            </MealProvider>
-          </TabBarProvider>
-        </OnboardingProvider>
-      </ProfileProvider>
-      {isLoading && <SplashScreenComponent isLoading={isLoading} progress={progress} />}
-    </>
+    <NavigationContainer>
+      <StatusBar style="auto" />
+      <AppNavigator />
+      <AlertNotificationManager />
+    </NavigationContainer>
   );
 };
 
-export default function App() {
+const App = () => {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
-          <LoadingProvider>
-            <NavigationContainer>
-              <AppContent />
-            </NavigationContainer>
-          </LoadingProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <TamaguiProvider>
+        <LoadingProvider>
+          <AuthProvider>
+            <ThemeProvider>
+              <ProfileProvider>
+                <OnboardingProvider>
+                  <ProfileGroupsProvider>
+                    <TabBarProvider>
+                      <MealProvider>
+                        <SimpleFoodLogProvider>
+                          <GymBuddyAlertProvider>
+                            <AppContent />
+                          </GymBuddyAlertProvider>
+                        </SimpleFoodLogProvider>
+                      </MealProvider>
+                    </TabBarProvider>
+                  </ProfileGroupsProvider>
+                </OnboardingProvider>
+              </ProfileProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </LoadingProvider>
+      </TamaguiProvider>
     </ErrorBoundary>
   );
-}
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5FCFF',
+  },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+    margin: 10,
+  },
+});
+
+export default App;

@@ -1,13 +1,4 @@
-import { 
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  updateProfile,
-  User,
-  UserCredential
-} from 'firebase/auth';
-import { auth } from '../config/firebase';
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
 export interface AuthError {
   code: string;
@@ -15,82 +6,71 @@ export interface AuthError {
 }
 
 class AuthService {
-  async signUp(email: string, password: string, displayName?: string): Promise<UserCredential> {
+  async signUp(email: string, password: string, displayName?: string): Promise<FirebaseAuthTypes.UserCredential> {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
       if (displayName) {
-        await updateProfile(userCredential.user, { displayName });
+        await userCredential.user.updateProfile({
+          displayName
+        });
       }
       return userCredential;
     } catch (error: any) {
-      throw this.handleError(error);
+      throw this.handleAuthError(error);
     }
   }
 
-  async signIn(email: string, password: string): Promise<UserCredential> {
+  async signIn(email: string, password: string): Promise<FirebaseAuthTypes.UserCredential> {
     try {
-      return await signInWithEmailAndPassword(auth, email, password);
+      return await auth().signInWithEmailAndPassword(email, password);
     } catch (error: any) {
-      throw this.handleError(error);
+      throw this.handleAuthError(error);
     }
   }
 
   async signOut(): Promise<void> {
     try {
-      await signOut(auth);
+      await auth().signOut();
     } catch (error: any) {
-      throw this.handleError(error);
+      throw this.handleAuthError(error);
     }
   }
 
   async resetPassword(email: string): Promise<void> {
     try {
-      await sendPasswordResetEmail(auth, email);
+      await auth().sendPasswordResetEmail(email);
     } catch (error: any) {
-      throw this.handleError(error);
+      throw this.handleAuthError(error);
     }
   }
 
-  getCurrentUser(): User | null {
-    return auth.currentUser;
+  async updateUserProfile(displayName: string): Promise<void> {
+    try {
+      const user = auth().currentUser;
+      if (!user) {
+        throw new Error('No authenticated user');
+      }
+      await user.updateProfile({
+        displayName
+      });
+    } catch (error: any) {
+      throw this.handleAuthError(error);
+    }
   }
 
-  private handleError(error: any): AuthError {
-    const errorCode = error.code || 'unknown';
-    let errorMessage = 'An error occurred during authentication.';
+  getCurrentUser(): FirebaseAuthTypes.User | null {
+    return auth().currentUser;
+  }
 
-    switch (errorCode) {
-      case 'auth/email-already-in-use':
-        errorMessage = 'This email is already registered.';
-        break;
-      case 'auth/invalid-email':
-        errorMessage = 'Please enter a valid email address.';
-        break;
-      case 'auth/operation-not-allowed':
-        errorMessage = 'Email/password accounts are not enabled.';
-        break;
-      case 'auth/weak-password':
-        errorMessage = 'Please choose a stronger password.';
-        break;
-      case 'auth/user-disabled':
-        errorMessage = 'This account has been disabled.';
-        break;
-      case 'auth/user-not-found':
-        errorMessage = 'No account found with this email.';
-        break;
-      case 'auth/wrong-password':
-        errorMessage = 'Incorrect password.';
-        break;
-      case 'auth/too-many-requests':
-        errorMessage = 'Too many attempts. Please try again later.';
-        break;
-      default:
-        errorMessage = error.message || errorMessage;
-    }
+  isAuthenticated(): boolean {
+    return !!this.getCurrentUser();
+  }
 
+  private handleAuthError(error: any): AuthError {
+    console.error('Auth error:', error);
     return {
-      code: errorCode,
-      message: errorMessage
+      code: error.code || 'auth/unknown',
+      message: error.message || 'An unknown error occurred'
     };
   }
 }

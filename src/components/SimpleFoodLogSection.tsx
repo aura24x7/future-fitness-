@@ -13,8 +13,20 @@ import { useTheme } from '../theme/ThemeProvider';
 import { LinearGradient } from 'expo-linear-gradient';
 import FoodLogItem from './FoodLogItem';
 import { useSimpleFoodLog } from '../contexts/SimpleFoodLogContext';
-import { RemovedItem } from '../services/simpleFoodLogService';
+import { RemovedItem, SimpleFoodItem } from '../services/simpleFoodLogService';
 import UndoHistoryViewer from './UndoHistoryViewer';
+
+// Helper function to safely get macros from different item structures
+const getMacroValue = (item: SimpleFoodItem, macroType: 'protein' | 'carbs' | 'fat'): number => {
+  // If item has the macros object structure
+  if (item.macros && typeof item.macros === 'object') {
+    return item.macros[macroType] || 0;
+  }
+  
+  // If item has direct properties (fallback for backward compatibility)
+  // @ts-ignore - TypeScript doesn't know about these properties
+  return item[macroType] || 0;
+};
 
 interface SimpleFoodLogSectionProps {
   onScanFood?: () => void;
@@ -284,9 +296,9 @@ const SimpleFoodLogSection: React.FC<SimpleFoodLogSectionProps> = ({
               id={item.id}
               name={item.name}
               calories={item.calories}
-              protein={item.protein}
-              carbs={item.carbs}
-              fat={item.fat}
+              protein={getMacroValue(item, 'protein')}
+              carbs={getMacroValue(item, 'carbs')}
+              fat={getMacroValue(item, 'fat')}
               onRemove={handleRemove}
             />
           ))}

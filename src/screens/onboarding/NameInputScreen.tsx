@@ -9,19 +9,29 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useOnboarding } from '../../context/OnboardingContext';
+import { useOnboarding } from '../../contexts/OnboardingContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import { StatusBar } from 'expo-status-bar';
 import { Text } from '../../components/themed/Text';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-const NameInputScreen: React.FC = () => {
+type Props = {
+  navigation: NativeStackNavigationProp<any>;
+};
+
+const NameInputScreen: React.FC<Props> = ({ navigation }) => {
   const [name, setName] = useState('');
   const { updateOnboardingData } = useOnboarding();
   const { colors, isDarkMode } = useTheme();
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (name.trim()) {
-      updateOnboardingData({ name: name.trim() });
+      try {
+        await updateOnboardingData({ name: name.trim() });
+        navigation.replace('Birthday');
+      } catch (error) {
+        console.error('Error updating onboarding data:', error);
+      }
     }
   };
 

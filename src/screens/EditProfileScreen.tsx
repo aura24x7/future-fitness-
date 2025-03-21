@@ -15,8 +15,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { useOnboarding } from '../context/OnboardingContext';
-import { useProfile } from '../context/ProfileContext';
+import { useOnboarding } from '../contexts/OnboardingContext';
+import { useProfile } from '../contexts/ProfileContext';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';

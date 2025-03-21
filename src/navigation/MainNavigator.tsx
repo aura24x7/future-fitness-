@@ -15,6 +15,7 @@ import AddIndividualScreen from '../screens/AddIndividualScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import FoodTextInputScreen from '../screens/FoodTextInputScreen';
+import AnalyticsScreen from '../screens/AnalyticsScreen';
 
 // Import custom bottom taskbar
 import BottomTaskbar from '../components/BottomTaskbar';
@@ -33,6 +34,15 @@ const MainNavigator = () => {
       <Stack.Screen 
         name="Dashboard" 
         component={DashboardScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      {/* Analytics Screen */}
+      <Stack.Screen
+        name="Analytics"
+        component={AnalyticsScreen}
         options={{
           headerShown: false,
         }}

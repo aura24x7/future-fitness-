@@ -10,18 +10,22 @@ import {
   Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useOnboarding } from '../../context/OnboardingContext';
+import { useOnboarding } from '../../contexts/OnboardingContext';
 import CustomDatePicker from '../../components/CustomDatePicker';
 import { useTheme } from '../../theme/ThemeProvider';
 import { colors } from '../../theme/colors';
 import { StatusBar } from 'expo-status-bar';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-const BirthdayScreen = ({ navigation, route }) => {
+type Props = {
+  navigation: NativeStackNavigationProp<any>;
+};
+
+const BirthdayScreen: React.FC<Props> = ({ navigation }) => {
   const [date, setDate] = useState(new Date(2000, 0, 1));
   const [showPicker, setShowPicker] = useState(false);
   const [animation] = useState(new Animated.Value(0));
-  const { updateOnboardingData } = useOnboarding();
-  const { name } = route.params;
+  const { updateOnboardingData, onboardingData } = useOnboarding();
   const { height } = Dimensions.get('window');
   const { isDarkMode } = useTheme();
 
@@ -29,9 +33,13 @@ const BirthdayScreen = ({ navigation, route }) => {
     setDate(selectedDate);
   };
 
-  const handleContinue = () => {
-    updateOnboardingData({ birthday: date });
-    navigation.navigate('Gender');
+  const handleContinue = async () => {
+    try {
+      await updateOnboardingData({ birthday: date });
+      navigation.replace('Gender');
+    } catch (error) {
+      console.error('Error updating birthday:', error);
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -93,7 +101,7 @@ const BirthdayScreen = ({ navigation, route }) => {
             styles.subtitle,
             { color: isDarkMode ? colors.text.secondary.dark : colors.text.secondary.light }
           ]}>
-            Hi {name}, this helps me personalize your fitness journey
+            Hi {onboardingData.name}, this helps me personalize your fitness journey
           </Text>
         </View>
 

@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore';
+import firestore from '@react-native-firebase/firestore';
 import { UserMetrics } from './common/userMetrics';
 import { UserPreferences } from './common/userPreferences';
 
@@ -8,12 +8,12 @@ import { UserPreferences } from './common/userPreferences';
 export interface UserProfile {
   id: string;
   name: string;
-  birthday: Timestamp;
+  birthday: firestore.Timestamp;
   gender: 'male' | 'female' | 'other';
   metrics: UserMetrics;
   preferences: UserPreferences;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: firestore.Timestamp;
+  updatedAt: firestore.Timestamp;
 }
 
 /**
@@ -23,4 +23,4 @@ export interface ProfileState {
   profile: UserProfile | null;
   isLoading: boolean;
   error?: string;
-} 
+}

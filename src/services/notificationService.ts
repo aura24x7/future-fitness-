@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform, Vibration } from 'react-native';
 import Constants from 'expo-constants';
+import { firebaseCore } from './firebase/firebaseCore';
 
 // Configure default notification behavior
 Notifications.setNotificationHandler({
@@ -25,21 +26,97 @@ const VIBRATION_PATTERN = [
   400, // Final pause
 ];
 
-class NotificationService {
-  private static instance: NotificationService;
+export class NotificationService {
+  private static instance: NotificationService | null = null;
   private isInitialized: boolean = false;
-  private isExpoGo: boolean = Constants.appOwnership === 'expo';
+  private initializationPromise: Promise<void> | null = null;
 
   private constructor() {
-    console.log('NotificationService constructor called');
+    console.log('[NotificationService] Constructor called');
   }
 
-  static getInstance(): NotificationService {
+  static async getInstance(): Promise<NotificationService> {
     if (!NotificationService.instance) {
-      console.log('Creating new NotificationService instance');
       NotificationService.instance = new NotificationService();
     }
     return NotificationService.instance;
+  }
+
+  public async initialize(): Promise<void> {
+    if (this.isInitialized) {
+      console.log('[NotificationService] Already initialized, skipping...');
+      return;
+    }
+
+    if (!this.initializationPromise) {
+      console.log('[NotificationService] Starting initialization...');
+      this.initializationPromise = (async () => {
+        try {
+          // Initialize Firebase first
+          console.log('[NotificationService] Ensuring Firebase is initialized...');
+          await firebaseCore.ensureInitialized();
+          console.log('[NotificationService] Firebase initialization confirmed');
+
+          // Set up notification channel for Android
+          if (Platform.OS === 'android') {
+            try {
+              console.log('[NotificationService] Setting up Android notification channel...');
+              await Notifications.setNotificationChannelAsync('default', {
+                name: 'default',
+                importance: Notifications.AndroidImportance.MAX,
+                vibrationPattern: [0, 250, 250, 250],
+                lightColor: '#FF231F7C',
+              });
+              console.log('[NotificationService] Android notification channel setup complete');
+            } catch (channelError) {
+              console.warn('[NotificationService] Failed to set up notification channel:', channelError);
+              // Continue initialization - app can work without custom channel
+            }
+          }
+
+          // Request permissions with retry logic
+          let finalStatus = 'denied';
+          try {
+            const { status: existingStatus } = await Notifications.getPermissionsAsync();
+            finalStatus = existingStatus;
+            
+            if (existingStatus !== 'granted') {
+              const { status } = await Notifications.requestPermissionsAsync();
+              finalStatus = status;
+            }
+          } catch (permissionError) {
+            console.warn('[NotificationService] Error checking notification permissions:', permissionError);
+            // Continue initialization - permissions can be requested later
+          }
+
+          if (finalStatus !== 'granted') {
+            console.warn('[NotificationService] Notification permissions not granted');
+            // Don't throw - app should work without notifications
+          }
+
+          this.isInitialized = true;
+          console.log('[NotificationService] Initialization completed successfully');
+        } catch (error) {
+          console.error('[NotificationService] Initialization failed:', error);
+          this.isInitialized = false;
+          this.initializationPromise = null;
+          throw error;
+        }
+      })();
+    }
+
+    return this.initializationPromise;
+  }
+
+  private async setupAndroidNotifications() {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: VIBRATION_PATTERN,
+        lightColor: '#FF231F7C',
+      });
+    }
   }
 
   private triggerVibration() {
@@ -60,77 +137,6 @@ class NotificationService {
         Vibration.vibrate(100);
         elapsed += interval;
       }, interval);
-    }
-  }
-
-  async initialize(): Promise<void> {
-    if (this.isInitialized) {
-      console.log('NotificationService already initialized');
-      return;
-    }
-
-    console.log('Initializing NotificationService');
-    try {
-      // Request permissions
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      console.log('Current notification permission status:', existingStatus);
-      
-      let finalStatus = existingStatus;
-      if (existingStatus !== 'granted') {
-        console.log('Requesting notification permissions');
-        const { status } = await Notifications.requestPermissionsAsync({
-          ios: {
-            allowAlert: true,
-            allowBadge: true,
-            allowSound: true,
-          },
-        });
-        finalStatus = status;
-        console.log('New notification permission status:', status);
-      }
-
-      if (finalStatus !== 'granted') {
-        throw new Error('Permission not granted for notifications');
-      }
-
-      // Configure Android channel
-      if (Platform.OS === 'android') {
-        console.log('Configuring Android notification channel');
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: VIBRATION_PATTERN,
-          lightColor: '#FF231F7C',
-        });
-      }
-
-      // Set up notification categories
-      console.log('Setting up notification categories');
-      await Notifications.setNotificationCategoryAsync('gym_invite', [
-        {
-          identifier: 'accept',
-          buttonTitle: 'Accept',
-          options: {
-            isDestructive: false,
-            isAuthenticationRequired: false,
-          },
-        },
-        {
-          identifier: 'decline',
-          buttonTitle: 'Decline',
-          options: {
-            isDestructive: true,
-            isAuthenticationRequired: false,
-          },
-        },
-      ]);
-
-      this.isInitialized = true;
-      console.log('NotificationService initialization complete');
-    } catch (error) {
-      console.error('Error initializing notifications:', error);
-      this.isInitialized = false;
-      throw error;
     }
   }
 
@@ -161,7 +167,7 @@ class NotificationService {
       };
 
       // In Expo Go, we need to handle notifications differently
-      if (this.isExpoGo) {
+      if (Constants.appOwnership === 'expo') {
         console.log('Running in Expo Go, using local notifications only');
         notificationContent.data = {
           ...notificationContent.data,
@@ -209,4 +215,6 @@ class NotificationService {
   }
 }
 
-export const notificationService = NotificationService.getInstance(); 
+export async function getNotificationService(): Promise<NotificationService> {
+  return NotificationService.getInstance();
+}

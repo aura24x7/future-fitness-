@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, SafeAreaView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -6,6 +6,11 @@ import { TargetIcon, AIIcon, ProgressIcon } from '../../assets/icons/icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../theme/ThemeProvider';
 import { colors } from '../../theme/colors';
+import { unlockNavigation, NAV_REGISTRATION_KEY } from '../../utils/navigationUtils';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../../contexts/AuthContext';
+import { useOnboarding } from '../../contexts/OnboardingContext';
+import { ONBOARDING_COMPLETE_KEY } from '../../constants/storage';
 
 type WelcomeScreenProps = {
   navigation: NativeStackNavigationProp<any>;
@@ -13,6 +18,55 @@ type WelcomeScreenProps = {
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   const { isDarkMode } = useTheme();
+  const { isAuthenticated } = useAuth();
+  const { isOnboardingComplete } = useOnboarding();
+
+  // Unlock any registration navigation locks when Welcome screen mounts
+  useEffect(() => {
+    console.log('[WelcomeScreen] Screen mounted, unlocking registration navigation');
+    const clearRegistrationFlags = async () => {
+      try {
+        // Clear both the navigation lock and direct registration flag
+        await unlockNavigation(NAV_REGISTRATION_KEY);
+        await AsyncStorage.removeItem('REGISTRATION_IN_PROGRESS');
+        console.log('[WelcomeScreen] Registration flags cleared successfully');
+        
+        // Check if onboarding is already complete and user is authenticated
+        const storedOnboardingComplete = await AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY);
+        if (storedOnboardingComplete === 'true' && isAuthenticated) {
+          console.log('[WelcomeScreen] Onboarding already complete, redirecting to Main');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }],
+          });
+        }
+      } catch (error) {
+        console.error('[WelcomeScreen] Error clearing registration flags:', error);
+      }
+    };
+    
+    clearRegistrationFlags();
+  }, [isAuthenticated, navigation]);
+
+  const handleGetStarted = async () => {
+    // Double-check if onboarding is already complete before navigating
+    try {
+      const storedOnboardingComplete = await AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY);
+      if (storedOnboardingComplete === 'true' && isAuthenticated) {
+        console.log('[WelcomeScreen] Onboarding already complete, redirecting to Main');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('[WelcomeScreen] Error checking onboarding status:', error);
+    }
+    
+    console.log('[WelcomeScreen] Navigating to NameInput');
+    navigation.navigate('NameInput');
+  };
 
   return (
     <SafeAreaView style={[
@@ -86,7 +140,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
         </View>
 
         <TouchableOpacity
-          onPress={() => navigation.navigate('NameInput')}
+          onPress={handleGetStarted}
           style={styles.buttonContainer}
           activeOpacity={0.8}
         >

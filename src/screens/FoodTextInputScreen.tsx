@@ -45,6 +45,10 @@ export const FoodTextInputScreen: React.FC = () => {
     }
   };
 
+  const handleScanPress = () => {
+    navigation.navigate('FoodScanner');
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
@@ -61,23 +65,31 @@ export const FoodTextInputScreen: React.FC = () => {
       </View>
 
       <View style={styles.content}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder="What did you eat? (e.g., 2 chapatis and dal)"
-          placeholderTextColor={colors.textSecondary}
-          multiline
-          style={[
-            styles.input,
-            {
-              color: colors.text,
-              backgroundColor: isDarkMode
-                ? 'rgba(255, 255, 255, 0.05)'
-                : 'rgba(0, 0, 0, 0.05)',
-            }
-          ]}
-          autoFocus
-        />
+        <View style={styles.inputContainer}>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="What did you eat? (e.g., 2 chapatis and dal)"
+            placeholderTextColor={colors.textSecondary}
+            multiline
+            style={[
+              styles.input,
+              {
+                color: colors.text,
+                backgroundColor: isDarkMode
+                  ? 'rgba(255, 255, 255, 0.05)'
+                  : 'rgba(0, 0, 0, 0.05)',
+              }
+            ]}
+            autoFocus
+          />
+          <TouchableOpacity
+            style={styles.cameraButton}
+            onPress={handleScanPress}
+          >
+            <Ionicons name="camera-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           style={[
@@ -139,12 +151,25 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 16,
   },
+  inputContainer: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
   input: {
+    flex: 1,
     borderRadius: 12,
     padding: 16,
+    paddingRight: 48,
     fontSize: 16,
     minHeight: 120,
     textAlignVertical: 'top',
+  },
+  cameraButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    padding: 4,
   },
   submitButton: {
     height: 50,

@@ -1,40 +1,20 @@
 import * as SplashScreen from 'expo-splash-screen';
-import { auth } from '../config/firebase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
 import * as Font from 'expo-font';
+import { networkManager } from './networkUtils';
+import { AppError, ErrorCodes } from './errorHandling';
+import firebaseService from '../config/firebase';
 
 // Constants
-const AUTH_PERSISTENCE_KEY = '@auth_persistence';
-const AUTH_CREDENTIALS_KEY = '@auth_credentials';
-const AUTH_REFRESH_KEY = '@auth_refresh';
 const INITIALIZATION_TIMEOUT = 10000; // 10 seconds
-const TOKEN_REFRESH_INTERVAL = 1000 * 60 * 50; // 50 minutes
 const MINIMUM_SPLASH_DURATION = 2000; // 2 seconds minimum display time
+const OFFLINE_RETRY_ATTEMPTS = 3;
+const OFFLINE_RETRY_DELAY = 2000; // 2 seconds
 
 // Track initialization state
 let isInitialized = false;
 let authInitialized = false;
 let appStateSubscription: any = null;
-let tokenRefreshInterval: NodeJS.Timeout | null = null;
-
-// Initialize Firebase Auth
-export const initializeFirebaseAuth = async () => {
-  try {
-    // Set up auth state listener
-    return new Promise<void>((resolve) => {
-      const unsubscribe = auth.onAuthStateChanged((user) => {
-        authInitialized = true;
-        unsubscribe();
-        resolve();
-      });
-    });
-  } catch (error) {
-    console.error('Error initializing Firebase Auth:', error);
-    authInitialized = true; // Mark as initialized even on error to prevent loops
-    throw error;
-  }
-};
 
 // Initialize app essentials
 export const initializeApp = async () => {
@@ -52,11 +32,28 @@ export const initializeApp = async () => {
     // Prevent splash screen from auto-hiding
     await SplashScreen.preventAutoHideAsync();
     
-    // Initialize other essential services with timeout
+    // Initialize Firebase with retries for offline scenarios
+    let retryCount = 0;
+    while (retryCount < OFFLINE_RETRY_ATTEMPTS) {
+      try {
+        await firebaseService.initialize();
+        break;
+      } catch (error) {
+        retryCount++;
+        if (retryCount === OFFLINE_RETRY_ATTEMPTS) {
+          throw new AppError(
+            ErrorCodes.FIREBASE_INITIALIZATION_FAILED,
+            'Failed to initialize Firebase after multiple attempts',
+            error as Error
+          );
+        }
+        await new Promise(resolve => setTimeout(resolve, OFFLINE_RETRY_DELAY));
+      }
+    }
+    
+    // Initialize essential services with timeout
     await Promise.race([
       Promise.all([
-        initializeFirebaseAuth(),
-        setupAppStateListener(),
         // Load fonts
         Font.loadAsync({
           'Inter': require('../../assets/fonts/Inter-Regular.ttf'),
@@ -64,51 +61,65 @@ export const initializeApp = async () => {
           'Inter-SemiBold': require('../../assets/fonts/Inter-SemiBold.ttf'),
           'Inter-Bold': require('../../assets/fonts/Inter-Bold.ttf'),
         }),
-        // Add other initialization tasks here
+        // Set up app state listener
+        setupAppStateListener(),
       ]),
       timeoutPromise
     ]);
 
-    // Calculate remaining time to meet minimum duration
+    // Ensure minimum splash screen duration
     const elapsedTime = Date.now() - startTime;
-    const remainingTime = Math.max(0, MINIMUM_SPLASH_DURATION - elapsedTime);
-
-    // Wait for remaining time if needed
-    if (remainingTime > 0) {
-      await new Promise(resolve => setTimeout(resolve, remainingTime));
+    if (elapsedTime < MINIMUM_SPLASH_DURATION) {
+      await new Promise(resolve => setTimeout(resolve, MINIMUM_SPLASH_DURATION - elapsedTime));
     }
 
     isInitialized = true;
   } catch (error) {
-    console.error('Error during app initialization:', error);
-    // Still mark as initialized to prevent loops
-    isInitialized = true;
-    authInitialized = true;
+    console.error('App initialization failed:', error);
+    throw error;
   }
 };
 
-// Setup app state listener
-const setupAppStateListener = async () => {
-  if (appStateSubscription) {
-    appStateSubscription.remove();
+// Verify auth state
+export const verifyAuthState = async (): Promise<boolean> => {
+  try {
+    if (!authInitialized) {
+      await firebaseService.initialize();
+      authInitialized = true;
+    }
+    return true;
+  } catch (error) {
+    console.error('Auth state verification failed:', error);
+    return false;
   }
-
-  appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
 };
 
 // Handle app state changes
 const handleAppStateChange = async (nextAppState: AppStateStatus) => {
-  if (nextAppState === 'active' && auth.currentUser) {
+  if (nextAppState === 'active') {
     try {
-      await auth.currentUser.reload();
+      await networkManager.checkConnectivity();
+      if (networkManager.isConnected) {
+        await firebaseService.firestore.enableNetwork();
+      }
     } catch (error) {
-      console.error('Error reloading user:', error);
+      console.error('Error handling app state change:', error);
     }
   }
 };
 
-// Export initialization states
-export const getInitializationState = () => ({
-  isInitialized,
-  authInitialized
-}); 
+// Set up app state listener
+const setupAppStateListener = () => {
+  if (appStateSubscription) {
+    appStateSubscription.remove();
+  }
+  appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+};
+
+// Get initialization state
+export const getInitializationState = () => {
+  return {
+    isInitialized,
+    authInitialized,
+  };
+};

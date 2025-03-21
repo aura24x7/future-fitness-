@@ -1,6 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStartOfDay } from '../utils/dateUtils';
 import LRU from 'lru-cache';
+import { firebaseMealService } from './firebaseMealService';
+import { MealDocument } from '../types/meal';
+import NetInfo from '@react-native-community/netinfo';
+import { firestore, auth, Timestamp } from '../firebase/firebaseInstances';
+import { analyticsService } from './analyticsService';
+import { firebaseCore } from './firebase/firebaseCore';
+import { FirebaseMealDocument } from './firebaseMealService';
 
 const SIMPLE_FOOD_LOG_KEY = '@simple_food_log';
 const UNDO_HISTORY_KEY = '@simple_food_log_undo_history';
@@ -23,9 +30,13 @@ export interface SimpleFoodItem {
   id: string;
   name: string;
   calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
+  macros: {
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  servingSize?: number;
+  servingUnit?: string;
   timestamp: string;
 }
 
@@ -52,6 +63,19 @@ interface PaginatedResponse<T> {
   items: T[];
   hasMore: boolean;
   total: number;
+  [Symbol.iterator](): Iterator<T>;
+}
+
+class PaginatedResponseImpl<T> implements PaginatedResponse<T> {
+  constructor(
+    public items: T[],
+    public hasMore: boolean,
+    public total: number
+  ) {}
+
+  [Symbol.iterator](): Iterator<T> {
+    return this.items[Symbol.iterator]();
+  }
 }
 
 // Utility function to compress data before storing
@@ -64,46 +88,122 @@ const decompressData = <T>(data: string): T => {
   return JSON.parse(data);
 };
 
+let activeMealSubscription: (() => void) | null = null;
+
 export const simpleFoodLogService = {
+  async _waitForAuth(): Promise<void> {
+    return new Promise((resolve) => {
+      if (auth().currentUser) {
+        resolve();
+        return;
+      }
+      
+      const unsubscribe = auth().onAuthStateChanged((user) => {
+        if (user) {
+          unsubscribe();
+          resolve();
+        }
+      });
+
+      // Add timeout to prevent hanging
+      setTimeout(() => {
+        unsubscribe();
+        resolve();
+      }, 10000); // 10 second timeout
+    });
+  },
+
   async getSimpleFoodLog(page: number = 1, pageSize: number = 20): Promise<PaginatedResponse<SimpleFoodItem>> {
     try {
-      const cacheKey = `${SIMPLE_FOOD_LOG_KEY}_${page}_${pageSize}`;
-      const cachedData = cache.get(cacheKey);
+      // Get local items first
+      const localItems = await this._getAllItems();
+
+      // Only proceed with Firebase subscription if user is authenticated
+      const user = auth().currentUser;
+      if (!user) {
+        console.log('[SimpleFoodLog] No authenticated user, returning local data only');
+        const paginatedItems = localItems.slice((page - 1) * pageSize, page * pageSize);
+        return new PaginatedResponseImpl(
+          paginatedItems,
+          page * pageSize < localItems.length,
+          localItems.length
+        );
+      }
+
+      // Clear any existing subscription
+      if (activeMealSubscription) {
+        activeMealSubscription();
+        activeMealSubscription = null;
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       
-      if (cachedData) {
-        return {
-          items: cachedData,
-          hasMore: cachedData.length === pageSize,
-          total: cachedData.length
-        };
-      }
+      return new Promise<PaginatedResponse<SimpleFoodItem>>((resolve, reject) => {
+        try {
+          const handleMealUpdate = (meal: FirebaseMealDocument | null) => {
+            if (!meal) {
+              const paginatedItems = localItems.slice((page - 1) * pageSize, page * pageSize);
+              resolve(new PaginatedResponseImpl(
+                paginatedItems,
+                page * pageSize < localItems.length,
+                localItems.length
+              ));
+              return;
+            }
 
-      const data = await AsyncStorage.getItem(SIMPLE_FOOD_LOG_KEY);
-      if (!data) {
-        return { items: [], hasMore: false, total: 0 };
-      }
+            // Convert and save meal data
+            this._convertAndSaveMeal(meal).then(() => {
+              this._getAllItems().then(items => {
+                const paginatedItems = items.slice((page - 1) * pageSize, page * pageSize);
+                resolve(new PaginatedResponseImpl(
+                  paginatedItems,
+                  page * pageSize < items.length,
+                  items.length
+                ));
+              });
+            }).catch(reject);
+          };
 
-      const allItems: SimpleFoodItem[] = decompressData(data);
-      const start = (page - 1) * pageSize;
-      const end = start + pageSize;
-      const paginatedItems = allItems.slice(start, end);
-
-      // Cache the results
-      cache.set(cacheKey, paginatedItems);
-
-      return {
-        items: paginatedItems,
-        hasMore: end < allItems.length,
-        total: allItems.length
-      };
+          // Set up new subscription only if authenticated
+          firebaseMealService.subscribeToMealUpdates(today.toISOString(), handleMealUpdate)
+            .then(unsubscribe => {
+              if (unsubscribe) {
+                activeMealSubscription = unsubscribe;
+                console.log('[SimpleFoodLog] Set up new Firebase subscription');
+              }
+            })
+            .catch(error => {
+              console.warn('[SimpleFoodLog] Firebase subscription failed, using local data:', error);
+              const paginatedItems = localItems.slice((page - 1) * pageSize, page * pageSize);
+              resolve(new PaginatedResponseImpl(
+                paginatedItems,
+                page * pageSize < localItems.length,
+                localItems.length
+              ));
+            });
+        } catch (error) {
+          console.error('[SimpleFoodLog] Error in subscription setup:', error);
+          reject(error);
+        }
+      });
     } catch (error) {
-      console.error('Error getting simple food log:', error);
-      return { items: [], hasMore: false, total: 0 };
+      console.error('[SimpleFoodLog] Error in getSimpleFoodLog:', error);
+      const localItems = await this._getAllItems();
+      const paginatedItems = localItems.slice((page - 1) * pageSize, page * pageSize);
+      return new PaginatedResponseImpl(
+        paginatedItems,
+        page * pageSize < localItems.length,
+        localItems.length
+      );
     }
   },
 
   async addFoodItem(item: Omit<SimpleFoodItem, 'id' | 'timestamp'>): Promise<SimpleFoodItem> {
     try {
+      // Wait for auth to be initialized
+      await this._waitForAuth();
+
       const currentItems = await this._getAllItems();
       
       const newItem: SimpleFoodItem = {
@@ -112,10 +212,21 @@ export const simpleFoodLogService = {
         timestamp: new Date().toISOString(),
       };
 
+      // Save to Firebase if online
+      const networkState = await NetInfo.fetch();
+      if (networkState.isConnected && auth().currentUser) {
+        try {
+          await firebaseMealService.addMeal(newItem);
+          console.log('[SimpleFoodLog] Successfully saved meal to Firebase:', newItem.id);
+        } catch (error) {
+          console.error('Error saving to Firebase:', error);
+          // Continue with local save even if Firebase fails
+        }
+      }
+
       const updatedItems = [newItem, ...currentItems];
       await this._saveItems(updatedItems);
       
-      // Invalidate cache
       cache.clear();
       
       return newItem;
@@ -126,11 +237,41 @@ export const simpleFoodLogService = {
   },
 
   async removeFoodItem(id: string): Promise<RemovedItem> {
+    let itemToRemove: SimpleFoodItem | undefined;
+    
     try {
+      // Wait for auth to be initialized
+      await this._waitForAuth();
+
+      console.log('[SimpleFoodLog] Starting removal of food item:', id);
+
       const currentItems = await this._getAllItems();
-      const itemToRemove = currentItems.find(item => item.id === id);
+      itemToRemove = currentItems.find(item => item.id === id);
       if (!itemToRemove) {
         throw new Error('Item not found');
+      }
+
+      // Delete from Firebase first if online
+      const networkState = await NetInfo.fetch();
+      if (networkState.isConnected && auth().currentUser) {
+        try {
+          await firebaseMealService.deleteMeal(id);
+          console.log('[SimpleFoodLog] Successfully deleted meal from Firebase:', id);
+          
+          // Immediately update local state
+          const updatedItems = currentItems.filter(item => item.id !== id);
+          await this._saveItems(updatedItems);
+          console.log('[SimpleFoodLog] Successfully updated local state after deletion');
+        } catch (error) {
+          console.error('[SimpleFoodLog] Error deleting from Firebase:', error);
+          throw error;
+        }
+      } else {
+        // If offline, update local state and queue for sync
+        const updatedItems = currentItems.filter(item => item.id !== id);
+        await this._saveItems(updatedItems);
+        await this._markForSync(id, 'delete');
+        console.log('[SimpleFoodLog] Queued deletion for sync:', id);
       }
 
       const now = new Date();
@@ -141,6 +282,7 @@ export const simpleFoodLogService = {
         expiresAt: new Date(now.getTime() + config.timeout).toISOString(),
       };
 
+      // Add to undo history
       await this._addToUndoHistory({
         id: removedItem.id,
         type: 'single',
@@ -148,28 +290,62 @@ export const simpleFoodLogService = {
         expiresAt: removedItem.expiresAt,
       });
 
-      const updatedItems = currentItems.filter(item => item.id !== id);
-      await this._saveItems(updatedItems);
-
-      // Invalidate cache
+      // Clear all caches to ensure fresh data
       cache.clear();
+      console.log('[SimpleFoodLog] Cleared cache after deletion');
+
+      // Force a refresh of the Firebase subscription
+      if (activeMealSubscription) {
+        activeMealSubscription();
+        activeMealSubscription = null;
+        console.log('[SimpleFoodLog] Reset Firebase subscription after deletion');
+      }
 
       return removedItem;
     } catch (error) {
-      console.error('Error removing food item:', error);
+      console.error('[SimpleFoodLog] Error removing food item:', error);
       throw error;
+    }
+  },
+
+  async _markForSync(id: string, operation: 'create' | 'update' | 'delete'): Promise<void> {
+    try {
+      const syncKey = `@sync_pending_${operation}`;
+      const pendingSync = await AsyncStorage.getItem(syncKey);
+      const pendingIds = pendingSync ? JSON.parse(pendingSync) : [];
+      
+      if (!pendingIds.includes(id)) {
+        pendingIds.push(id);
+        await AsyncStorage.setItem(syncKey, JSON.stringify(pendingIds));
+      }
+    } catch (error) {
+      console.error('[SimpleFoodLog] Error marking for sync:', error);
     }
   },
 
   // Private helper methods for optimized storage operations
   async _getAllItems(): Promise<SimpleFoodItem[]> {
-    const data = await AsyncStorage.getItem(SIMPLE_FOOD_LOG_KEY);
-    return data ? decompressData(data) : [];
+    try {
+      const data = await AsyncStorage.getItem(SIMPLE_FOOD_LOG_KEY);
+      if (!data) return [];
+      
+      // Parse the stored data
+      const parsedData = JSON.parse(data);
+      return Array.isArray(parsedData) ? parsedData : [];
+    } catch (error) {
+      console.error('Error getting food items:', error);
+      return [];
+    }
   },
 
   async _saveItems(items: SimpleFoodItem[]): Promise<void> {
-    const compressed = compressData(items);
-    await AsyncStorage.setItem(SIMPLE_FOOD_LOG_KEY, compressed);
+    const validItems = items.map(item => ({
+      ...item,
+      timestamp: typeof item.timestamp === 'string' 
+        ? item.timestamp 
+        : new Date().toISOString()
+    }));
+    await AsyncStorage.setItem(SIMPLE_FOOD_LOG_KEY, JSON.stringify(validItems));
   },
 
   async undoRemove(removedItem: RemovedItem): Promise<SimpleFoodItem> {
@@ -350,5 +526,132 @@ export const simpleFoodLogService = {
     } catch (error) {
       console.error('Error cleaning up old data:', error);
     }
+  },
+
+  async syncWithFirebase(): Promise<void> {
+    try {
+      // Wait for auth to be initialized
+      await this._waitForAuth();
+
+      const networkState = await NetInfo.fetch();
+      if (!networkState.isConnected || !auth().currentUser) {
+        console.log('Cannot sync with Firebase: offline or not authenticated');
+        return;
+      }
+
+      // Get all local items
+      const localItems = await this._getAllItems();
+      
+      // Get all Firebase items
+      const startDate = new Date(0);
+      const endDate = new Date();
+      const firebaseMeals = await firebaseMealService.getMealsInRange(startDate, endDate);
+
+      // Create maps for easier comparison
+      const localItemsMap = new Map(localItems.map(item => [item.id, item]));
+      const firebaseItemsMap = new Map(firebaseMeals.map(meal => [meal.id, meal]));
+
+      // Items to sync to Firebase (items in local but not in Firebase)
+      const itemsToSync = localItems.filter(item => !firebaseItemsMap.has(item.id));
+      if (itemsToSync.length > 0) {
+        await firebaseMealService.syncLocalMealsToFirebase(itemsToSync);
+        console.log('[SimpleFoodLog] Synced local items to Firebase:', itemsToSync.length);
+      }
+
+      // Items to sync from Firebase (items in Firebase but not in local)
+      const itemsToAdd = firebaseMeals
+        .filter(meal => !localItemsMap.has(meal.id))
+        .map(meal => this._convertToSimpleFoodItem(meal));
+
+      if (itemsToAdd.length > 0) {
+        const updatedItems = [...itemsToAdd, ...localItems];
+        await this._saveItems(updatedItems);
+        console.log('[SimpleFoodLog] Synced Firebase items to local:', itemsToAdd.length);
+      }
+
+      cache.clear();
+      console.log('[SimpleFoodLog] Successfully completed Firebase sync');
+    } catch (error) {
+      console.error('Error syncing with Firebase:', error);
+      throw error;
+    }
+  },
+
+  cleanup(): void {
+    if (activeMealSubscription) {
+      activeMealSubscription();
+      activeMealSubscription = null;
+    }
+  },
+
+  // Helper method to merge Firebase and local meal data
+  _mergeMealData(firebaseItems: SimpleFoodItem[], localItems: SimpleFoodItem[]): SimpleFoodItem[] {
+    const itemMap = new Map<string, SimpleFoodItem>();
+    
+    // Add all Firebase items to the map
+    firebaseItems.forEach(item => {
+      itemMap.set(item.id, item);
+    });
+    
+    // Add local items that don't exist in Firebase
+    localItems.forEach(item => {
+      if (!itemMap.has(item.id)) {
+        itemMap.set(item.id, item);
+      }
+    });
+    
+    // Convert map back to array and sort by timestamp
+    return Array.from(itemMap.values())
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  },
+
+  // Add helper method to get pending deletions
+  async _getPendingDeletions(): Promise<string[]> {
+    try {
+      const pendingSync = await AsyncStorage.getItem('@sync_pending_delete');
+      return pendingSync ? JSON.parse(pendingSync) : [];
+    } catch (error) {
+      console.error('[SimpleFoodLog] Error getting pending deletions:', error);
+      return [];
+    }
+  },
+
+  // Helper method for saving individual items
+  async _saveItem(item: SimpleFoodItem): Promise<void> {
+    const items = await this._getAllItems();
+    const index = items.findIndex(i => i.id === item.id);
+    if (index >= 0) {
+      items[index] = item;
+    } else {
+      items.push(item);
+    }
+    await this._saveItems(items);
+  },
+
+  // Convert Firebase meal to SimpleFoodItem
+  _convertToSimpleFoodItem(meal: FirebaseMealDocument): SimpleFoodItem {
+    return {
+      id: meal.id,
+      name: meal.name,
+      calories: meal.calories,
+      macros: {
+        protein: meal.protein,
+        carbs: meal.carbs,
+        fat: meal.fat,
+      },
+      servingSize: meal.servingSize,
+      servingUnit: meal.servingUnit,
+      timestamp: meal.timestamp instanceof Timestamp 
+        ? meal.timestamp.toDate().toISOString()
+        : typeof meal.timestamp === 'string'
+          ? meal.timestamp
+          : new Date().toISOString()
+    };
+  },
+
+  // Helper method to convert and save meal data
+  async _convertAndSaveMeal(meal: FirebaseMealDocument): Promise<void> {
+    const simpleFoodItem = this._convertToSimpleFoodItem(meal);
+    await this._saveItem(simpleFoodItem);
   }
 }; 

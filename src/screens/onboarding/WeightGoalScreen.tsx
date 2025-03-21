@@ -13,7 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useOnboarding } from '../../context/OnboardingContext';
+import { useOnboarding } from '../../contexts/OnboardingContext';
 import { RootStackParamList } from '../../types/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -91,7 +91,7 @@ export const WeightGoalScreen = () => {
         },
       });
 
-      navigation.navigate('Location');
+      navigation.navigate('WeightTargetDate');
     } catch (error) {
       console.error('Error updating weight goal:', error);
       setError('Failed to save your weight goal. Please try again.');
