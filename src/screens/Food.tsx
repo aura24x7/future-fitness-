@@ -69,7 +69,7 @@ function Food() {
           </NutritionInfo>
         </MealCard>
       </View>
-    </View>
+    </ScrollView>
   )
 }
 
@@ -79,6 +79,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchSection: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  filterSection: {
+    marginTop: 8,
+  },
+  nutritionSection: {
     paddingHorizontal: 16,
     paddingTop: 16,
   },

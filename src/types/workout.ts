@@ -62,6 +62,36 @@ export interface WorkoutPlanFormData {
     days: DayPlanFormData[];
 }
 
+// Workout Progress Tracking Types
+export interface ExerciseProgress {
+    id?: string;
+    exerciseId: string;  // A unique identifier for the exercise (can be combination of planId + dayIndex + array index)
+    planId: string;
+    dayIndex: number;
+    userId: string;
+    date: Date;
+    completed: boolean;
+    actualSets: number;
+    actualReps: number;
+    actualWeight: number;
+    notes?: string;
+    completedAt: Date;
+}
+
+export interface WorkoutCompletion {
+    id?: string;
+    planId: string;
+    userId: string;
+    dayIndex: number;
+    completedDate: Date;
+    totalExercises: number;
+    completedExercises: number;
+    duration: number;
+    caloriesBurned: number;
+    notes?: string;
+    feeling?: 'easy' | 'moderate' | 'challenging' | 'difficult';
+}
+
 // Sharing types
 export interface WorkoutPlanShare {
     planId: string;

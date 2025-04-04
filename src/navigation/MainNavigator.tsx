@@ -16,6 +16,13 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import FoodTextInputScreen from '../screens/FoodTextInputScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
+import FriendSearchScreen from '../screens/FriendSearchScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import ConnectionRequestsScreen from '../screens/ConnectionRequestsScreen';
+import ChangeUsernameScreen from '../screens/ChangeUsernameScreen';
+import Workouts from '../screens/Workouts';
+import { WorkoutPlanScreen } from '../screens/features/WorkoutPlanScreen';
+import WorkoutTrackingScreen from '../screens/features/WorkoutTrackingScreen';
 
 // Import custom bottom taskbar
 import BottomTaskbar from '../components/BottomTaskbar';
@@ -90,7 +97,7 @@ const MainNavigator = () => {
         component={ProfileGroupsScreen}
         options={{
           headerShown: true,
-          title: 'Groups'
+          title: 'Connections'
         }}
       />
       <Stack.Screen
@@ -133,11 +140,71 @@ const MainNavigator = () => {
           title: 'Add Individual'
         }}
       />
+      
+      {/* Friend Search Screen */}
+      <Stack.Screen
+        name="FriendSearch"
+        component={FriendSearchScreen}
+        options={{
+          headerShown: true,
+          title: 'Find Friends'
+        }}
+      />
+
+      {/* Connection Requests Screen */}
+      <Stack.Screen
+        name="ConnectionRequests"
+        component={ConnectionRequestsScreen}
+        options={{
+          headerShown: true,
+          title: 'Connection Requests'
+        }}
+      />
+
+      {/* Notifications Screen */}
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{
+          headerShown: true,
+          title: 'Notifications'
+        }}
+      />
+
+      {/* Workout Screens */}
+      <Stack.Screen
+        name="Workouts"
+        component={Workouts}
+        options={{
+          headerShown: false
+        }}
+      />
+      <Stack.Screen
+        name="WorkoutPlan"
+        component={WorkoutPlanScreen}
+        options={{
+          headerShown: false
+        }}
+      />
+      <Stack.Screen
+        name="WorkoutTracking"
+        component={WorkoutTrackingScreen}
+        options={{
+          headerShown: false
+        }}
+      />
 
       {/* Profile & Settings */}
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}
+        options={{
+          headerShown: false
+        }}
+      />
+      <Stack.Screen
+        name="ChangeUsername"
+        component={ChangeUsernameScreen}
         options={{
           headerShown: false
         }}

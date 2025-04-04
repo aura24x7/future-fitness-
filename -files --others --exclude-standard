@@ -1,0 +1,114 @@
+warning: in the working copy of 'src/App.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/BottomTaskbar.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/CalorieTrackerCard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/FoodLogItem.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Header.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/ProfileGroups/GroupsSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/SimpleFoodLogSection.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/constants/storage.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/context/GymBuddyAlertContext.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/context/MealContext.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/context/SimpleFoodLogContext.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/contexts/GymBuddyAlertContext.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/contexts/LoadingContext.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/contexts/MealContext.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/contexts/SimpleFoodLogContext.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/navigation/AppNavigator.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/navigation/MainNavigator.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/screens/DashboardScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/screens/EditProfileScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/screens/FoodTextInputScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/screens/ProfileGroupsScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/screens/ProfileScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/screens/RegisterScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/screens/ScannedFoodDetailsScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/screens/SettingsScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/screens/onboarding/DietaryPreferenceScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/screens/onboarding/FinalSetupScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/screens/onboarding/WelcomeScreen.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/auth.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/firestore.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/gymBuddyAlertService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/notificationService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/simpleFoodLogService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/syncService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/userProfileService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/waterService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/workoutService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/types/calorie.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/types/meal.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/types/navigation.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/types/profile.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/utils/AppInitializer.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/utils/ProfileManager.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/utils/dateUtils.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/utils/dateValidation.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/utils/errorHandling.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/utils/errorUtils.ts', LF will be replaced by CRLF the next time Git touches it
+src/App.tsx
+src/__tests__/simpleFoodLog.test.ts
+src/components/BottomTaskbar.tsx
+src/components/CalorieGoals.tsx
+src/components/CalorieTrackerCard.tsx
+src/components/FloatingTabBar.tsx
+src/components/FoodLogItem.tsx
+src/components/GymBuddyAlert/AlertNotificationManager.tsx
+src/components/GymBuddyAlert/ReceiveAlertModal.tsx
+src/components/Header.tsx
+src/components/MigrationStatusModal.tsx
+src/components/ProfileGroups/IndividualProfileSection.tsx
+src/components/SimpleFoodLogSection.tsx
+src/components/StatCard.tsx
+src/config/firebase.ts
+src/constants/storage.ts
+src/context/AuthContext.tsx
+src/context/GymBuddyAlertContext.tsx
+src/context/LoadingContext.tsx
+src/context/MealContext.tsx
+src/context/OnboardingContext.tsx
+src/context/ProfileContext.tsx
+src/context/SimpleFoodLogContext.tsx
+src/context/TabBarContext.tsx
+src/contexts/GymBuddyAlertContext.tsx
+src/contexts/LoadingContext.tsx
+src/contexts/MealContext.tsx
+src/contexts/SimpleFoodLogContext.tsx
+src/hooks/useOnboarding.ts
+src/hooks/useScrollToTabBar.ts
+src/hooks/useTabBarScroll.ts
+src/hooks/useUserProfile.ts
+src/navigation/AppNavigator.tsx
+src/navigation/MainNavigator.tsx
+src/screens/DashboardScreen.tsx
+src/screens/EditProfileScreen.tsx
+src/screens/FoodTextInputScreen.tsx
+src/screens/ForgotPasswordScreen.tsx
+src/screens/LoginScreen.tsx
+src/screens/OnboardingScreen.tsx
+src/screens/ProfileGroupsScreen.tsx
+src/screens/ProfileScreen.tsx
+src/screens/RegisterScreen.tsx
+src/screens/ScannedFoodDetailsScreen.tsx
+src/screens/SettingsScreen.tsx
+src/screens/onboarding/ActivityLevelScreen.tsx
+src/screens/onboarding/BirthdayScreen.tsx
+src/screens/onboarding/DietaryPreferenceScreen.tsx
+src/screens/onboarding/FinalSetupScreen.tsx
+src/screens/onboarding/GenderScreen.tsx
+src/screens/onboarding/HeightWeightScreen.tsx
+src/screens/onboarding/LocationScreen.tsx
+src/screens/onboarding/NameInputScreen.tsx
+src/screens/onboarding/WeightGoalScreen.tsx
+src/screens/onboarding/WelcomeScreen.tsx
+src/screens/onboarding/WorkoutPreferenceScreen.tsx
+src/services/ai/food/food-analysis.service.ts
+src/services/auth.service.ts
+src/services/firebaseService.ts
+src/services/firestore.service.ts
+src/services/gymBuddyAlertService.ts
+src/services/notificationService.ts
+src/services/simpleFoodLogService.ts
+src/services/syncService.ts
+src/services/userProfileService.ts
+src/services/waterService.ts
+src/services/workoutServic

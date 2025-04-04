@@ -1,22 +1,18 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   Alert,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRoute } from '@react-navigation/native';
-import { useGymBuddyAlerts } from '../../contexts/GymBuddyAlertContext';
 import { useTheme } from '../../theme/ThemeProvider';
-import { ReceiveAlertModal } from '../../components/GymBuddyAlert/ReceiveAlertModal';
-import { GymBuddyAlert } from '../../types/gymBuddyAlert';
-import { auth } from '../../config/firebase';
+import { userService } from '../../services/userService';
+import { friendNotificationService } from '../../services/friendNotificationService';
 
 interface IndividualProfileSectionProps {
   profile: {
@@ -30,218 +26,223 @@ interface IndividualProfileSectionProps {
   onSelect?: (userId: string) => void;
 }
 
-interface RouteParams {
-  mode?: 'share';
-}
-
 export function IndividualProfileSection({ 
   profile, 
   navigation,
   onSelect,
 }: IndividualProfileSectionProps) {
-  const route = useRoute();
-  const { colors, isDarkMode: isDark } = useTheme();
-  const params = route.params as RouteParams;
-  const isShareMode = params?.mode === 'share';
-  const { sendGymInvite, sentAlerts, receivedAlerts } = useGymBuddyAlerts();
-  const [selectedAlert, setSelectedAlert] = useState<GymBuddyAlert | null>(null);
+  const { colors } = useTheme();
   const [isSending, setIsSending] = useState(false);
-  const [lastClickTime, setLastClickTime] = useState(0);
 
-  // For testing: Use current user's ID
-  const currentUser = auth.currentUser;
-  const testRecipientId = currentUser?.uid || profile.id;
-
-  // Find pending alerts for this profile
-  const pendingAlerts = receivedAlerts.filter(
-    alert => alert.senderId === profile.id && alert.status === 'pending'
-  );
-
-  const showAlert = useCallback((title: string, message: string) => {
+  const handleSendNotification = () => {
     Alert.alert(
-      title,
-      message,
-      [{ text: 'OK' }],
-      { 
-        cancelable: true,
-        onDismiss: () => {},
-      }
+      'Send Notification',
+      `Send a notification to ${profile.name}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Test Notification',
+          onPress: async () => {
+            try {
+              setIsSending(true);
+              const currentUserId = userService.getCurrentUserId();
+              
+              await friendNotificationService.sendNotification(
+                currentUserId, 
+                profile.id, 
+                'other',
+                `This is a test notification from ${currentUserId}`
+              );
+              
+              Alert.alert('Success', `Test notification sent to ${profile.name}!`);
+            } catch (error) {
+              let errorMessage = 'Failed to send notification';
+              if (error instanceof Error) {
+                errorMessage = error.message;
+              }
+              Alert.alert('Error', errorMessage);
+              console.error(error);
+            } finally {
+              setIsSending(false);
+            }
+          },
+        },
+        {
+          text: 'Send Workout Invite',
+          onPress: () => {
+            // Show prompt for gym name and time
+            Alert.prompt(
+              'Workout Invitation',
+              'Enter gym name (optional):',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel'
+                },
+                {
+                  text: 'Next',
+                  onPress: (gymName = '') => {
+                    // Now prompt for time
+                    Alert.prompt(
+                      'Workout Time',
+                      'Enter workout time (optional):',
+                      [
+                        {
+                          text: 'Cancel',
+                          style: 'cancel'
+                        },
+                        {
+                          text: 'Send Invite',
+                          onPress: async (time = '') => {
+                            try {
+                              setIsSending(true);
+                              const currentUserId = userService.getCurrentUserId();
+                              
+                              await friendNotificationService.sendWorkoutInvite(
+                                currentUserId,
+                                profile.id,
+                                gymName || undefined,
+                                time || undefined
+                              );
+                              
+                              Alert.alert('Success', `Workout invitation sent to ${profile.name}!`);
+                            } catch (error) {
+                              let errorMessage = 'Failed to send workout invitation';
+                              if (error instanceof Error) {
+                                errorMessage = error.message;
+                              }
+                              Alert.alert('Error', errorMessage);
+                              console.error(error);
+                            } finally {
+                              setIsSending(false);
+                            }
+                          }
+                        }
+                      ]
+                    );
+                  }
+                }
+              ]
+            );
+          },
+        },
+        {
+          text: 'Send Workout Reminder',
+          onPress: async () => {
+            try {
+              setIsSending(true);
+              const currentUserId = userService.getCurrentUserId();
+              
+              await friendNotificationService.sendNotification(
+                currentUserId, 
+                profile.id, 
+                'workout',
+                `It's time for your workout!`
+              );
+              
+              Alert.alert('Success', `Workout reminder sent to ${profile.name}!`);
+            } catch (error) {
+              let errorMessage = 'Failed to send notification';
+              if (error instanceof Error) {
+                errorMessage = error.message;
+              }
+              Alert.alert('Error', errorMessage);
+              console.error(error);
+            } finally {
+              setIsSending(false);
+            }
+          },
+        },
+        {
+          text: 'Send Meal Reminder',
+          onPress: async () => {
+            try {
+              setIsSending(true);
+              const currentUserId = userService.getCurrentUserId();
+              
+              await friendNotificationService.sendNotification(
+                currentUserId, 
+                profile.id, 
+                'meal',
+                `Time to log your meal!`
+              );
+              
+              Alert.alert('Success', `Meal reminder sent to ${profile.name}!`);
+            } catch (error) {
+              let errorMessage = 'Failed to send notification';
+              if (error instanceof Error) {
+                errorMessage = error.message;
+              }
+              Alert.alert('Error', errorMessage);
+              console.error(error);
+            } finally {
+              setIsSending(false);
+            }
+          },
+        },
+      ],
     );
-  }, []);
-
-  const handlePress = useCallback(async () => {
-    // Prevent double clicks
-    const now = Date.now();
-    if (now - lastClickTime < 500) { // 500ms debounce
-      return;
-    }
-    setLastClickTime(now);
-
-    console.log('Button pressed', { profile, currentUser });
-    
-    if (isShareMode && onSelect) {
-      try {
-        onSelect(profile.id);
-      } catch (error) {
-        console.error('Error in onSelect:', error);
-        showAlert('Error', 'Failed to select profile. Please try again.');
-      }
-      return;
-    }
-
-    if (!currentUser) {
-      showAlert('Error', 'You must be logged in to use this feature');
-      return;
-    }
-
-    if (pendingAlerts.length > 0 && pendingAlerts[0]) {
-      console.log('Opening existing alert', pendingAlerts[0]);
-      const alert: GymBuddyAlert = {
-        id: pendingAlerts[0].id,
-        senderId: pendingAlerts[0].senderId,
-        receiverId: pendingAlerts[0].receiverId,
-        message: pendingAlerts[0].message,
-        status: pendingAlerts[0].status,
-        createdAt: pendingAlerts[0].createdAt,
-        senderName: pendingAlerts[0].senderName || profile.name,
-        receiverName: pendingAlerts[0].receiverName,
-        type: pendingAlerts[0].type || 'CUSTOM_MESSAGE'
-      };
-      setSelectedAlert(alert);
-    } else {
-      if (isSending) {
-        console.log('Already sending, ignoring click');
-        return;
-      }
-
-      try {
-        setIsSending(true);
-        console.log('Sending gym invite to:', testRecipientId);
-        
-        const result = await sendGymInvite(testRecipientId);
-        console.log('Gym invite sent successfully:', result);
-        
-        // Show alert for 3 seconds
-        setTimeout(() => {
-          showAlert(
-            'Success',
-            'Gym invite sent successfully!'
-          );
-        }, 500); // Small delay to ensure loading indicator is visible
-      } catch (error) {
-        console.error('Failed to send gym invite:', error);
-        showAlert(
-          'Error',
-          'Failed to send gym invite. Please try again.'
-        );
-      } finally {
-        // Keep loading indicator visible for at least 1 second
-        setTimeout(() => {
-          setIsSending(false);
-        }, 1000);
-      }
-    }
-  }, [
-    profile,
-    currentUser,
-    isShareMode,
-    onSelect,
-    pendingAlerts,
-    isSending,
-    testRecipientId,
-    sendGymInvite,
-    showAlert,
-    lastClickTime,
-  ]);
+  };
 
   return (
-    <>
-      <View style={[styles.container, { backgroundColor: colors.cardBackground }]}>
-        <View style={styles.profileSection}>
-          {profile.image ? (
-            <Image source={{ uri: profile.image }} style={styles.profileImage} />
-          ) : (
-            <View style={[styles.profileImagePlaceholder, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.profileImageText, { color: colors.cardBackground }]}>
-                {profile.name.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.profileInfo}>
-            <Text style={[styles.name, { color: colors.text }]}>
-              {profile.name}
-              {currentUser && profile.id === currentUser.uid && ' (You)'}
+    <View style={[styles.container, { backgroundColor: colors.cardBackground }]}>
+      <View style={styles.profileSection}>
+        {profile.image ? (
+          <Image source={{ uri: profile.image }} style={styles.profileImage} />
+        ) : (
+          <View style={[styles.profileImagePlaceholder, { backgroundColor: colors.primary }]}>
+            <Text style={[styles.profileImageText, { color: colors.cardBackground }]}>
+              {profile.name.charAt(0).toUpperCase()}
             </Text>
-            {profile.status && (
-              <Text style={[styles.status, { color: colors.textSecondary }]}>
-                {profile.status}
-              </Text>
-            )}
-            {profile.goals && profile.goals.length > 0 && (
-              <View style={styles.goalsContainer}>
-                {profile.goals.map((goal, index) => (
-                  <LinearGradient
-                    key={index}
-                    colors={[colors.primary, colors.secondary]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.goalBadge}
-                  >
-                    <Text style={[styles.goalText, { color: colors.cardBackground }]}>{goal}</Text>
-                  </LinearGradient>
-                ))}
-              </View>
-            )}
           </View>
-        </View>
+        )}
 
-        <TouchableOpacity
-          style={[
-            styles.alertButton,
-            isSending && styles.disabledButton,
-            Platform.select({
-              android: styles.androidButton,
-              ios: styles.iosButton
-            })
-          ]}
-          onPress={handlePress}
-          disabled={isSending}
-          activeOpacity={0.7}
-          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-          pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
-          delayPressIn={0}
-          delayPressOut={0}
-        >
-          {isSending ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <View style={styles.buttonContent}>
-              <Ionicons
-                name={pendingAlerts.length > 0 ? "notifications" : "barbell-outline"}
-                size={24}
-                color={pendingAlerts.length > 0 ? colors.primary : colors.textSecondary}
-              />
-              {pendingAlerts.length > 0 && (
-                <View style={[styles.alertBadge, { backgroundColor: colors.primary }]}>
-                  <Text style={[styles.alertBadgeText, { color: colors.cardBackground }]}>
-                    {pendingAlerts.length}
-                  </Text>
-                </View>
-              )}
+        <View style={styles.profileInfo}>
+          <Text style={[styles.name, { color: colors.text }]}>
+            {profile.name}
+          </Text>
+          {profile.status && (
+            <Text style={[styles.status, { color: colors.textSecondary }]}>
+              {profile.status}
+            </Text>
+          )}
+          {profile.goals && profile.goals.length > 0 && (
+            <View style={styles.goalsContainer}>
+              {profile.goals.map((goal, index) => (
+                <LinearGradient
+                  key={index}
+                  colors={[colors.primary, colors.primary + '80']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.goalBadge}
+                >
+                  <Text style={[styles.goalText, { color: colors.cardBackground }]}>{goal}</Text>
+                </LinearGradient>
+              ))}
             </View>
           )}
-        </TouchableOpacity>
+        </View>
       </View>
 
-      {selectedAlert && (
-        <ReceiveAlertModal
-          isVisible={!!selectedAlert}
-          onClose={() => setSelectedAlert(null)}
-          alert={selectedAlert}
-        />
-      )}
-    </>
+      <TouchableOpacity
+        style={styles.notificationButton}
+        onPress={handleSendNotification}
+        disabled={isSending}
+      >
+        {isSending ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Ionicons
+            name="notifications-outline"
+            size={24}
+            color={colors.primary}
+          />
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -312,35 +313,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
-  alertButton: {
+  notificationButton: {
     padding: 8,
     borderRadius: 20,
-  },
-  androidButton: {
-    elevation: 0,
-  },
-  iosButton: {
-    shadowColor: 'transparent',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  buttonContent: {
-    position: 'relative',
-  },
-  alertBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  alertBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
   },
 });

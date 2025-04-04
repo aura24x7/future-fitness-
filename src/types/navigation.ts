@@ -31,16 +31,32 @@ export type RootStackParamList = {
     result?: any;
     source?: 'image' | 'text';
   };
-  GroupDetails: undefined;
+  GroupDetails: {
+    groupId: string;
+  };
   CreateGroup: undefined;
   InviteMembers: undefined;
   ManageInvites: undefined;
   AddIndividual: undefined;
+  FriendSearch: undefined;
+  Notifications: undefined;
+  ConnectionRequests: undefined;
   Main: undefined;
   WeightGoal: undefined;
   WeightTargetDate: undefined;
+  UsernameSelection: {
+    displayName: string;
+  };
+  ChangeUsername: undefined;
   Workouts: undefined;
-  WorkoutPlan: undefined;
+  WorkoutPlan: {
+    planId: string;
+    dayName?: string;
+  };
+  WorkoutTracking: {
+    planId: string;
+    dayIndex: number;
+  };
 };
 
 export type RootTabParamList = {

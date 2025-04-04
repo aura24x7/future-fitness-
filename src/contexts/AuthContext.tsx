@@ -2,23 +2,48 @@ import React, { createContext, useState, useContext, useEffect, useRef } from 'r
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as firebaseUtils from '../services/firebase/firebaseUtils';
 import { ONBOARDING_COMPLETE_KEY, AUTH_PERSISTENCE_KEY } from '../constants/storage';
+import { workoutPlanService } from '../services/workoutPlanService';
 
 // Import from our synchronized Firebase initialization
-import { auth, firestore } from '../firebase/firebaseInit';
 import { 
-  User, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  updateProfile,
-  signOut as firebaseSignOut
-} from 'firebase/auth';
+  initializeFirebase, 
+  getFirebaseApp, 
+  getFirebaseAuth, 
+  getFirebaseFirestore 
+} from '../services/firebase/firebaseInit';
 
-import {
-  doc,
-  getDoc,
-  updateDoc
-} from 'firebase/firestore';
+// We'll set these up after Firebase initialization
+let auth: any;
+let firestore: any;
+
+// Initialize Firebase first, then get the auth and firestore instances
+const initializeAuthDependencies = async () => {
+  try {
+    await initializeFirebase();
+    auth = getFirebaseAuth();
+    firestore = getFirebaseFirestore();
+    console.log('[AuthContext] Firebase dependencies initialized');
+    return true;
+  } catch (error) {
+    console.error('[AuthContext] Failed to initialize Firebase dependencies:', error);
+    // Fall back to web Firebase in config
+    try {
+      const { auth: webAuth, firestore: webFirestore } = require('../config/firebaseWebConfig');
+      auth = webAuth;
+      firestore = webFirestore;
+      console.log('[AuthContext] Using web Firebase fallback');
+      return true;
+    } catch (webError) {
+      console.error('[AuthContext] Web Firebase fallback failed:', webError);
+      return false;
+    }
+  }
+};
+
+// Import type definitions from Firebase
+import type { User, Auth } from 'firebase/auth';
+// Add React Native Firebase types
+import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
 // Import the compatibility layer
 import * as FirebaseCompat from '../utils/firebaseCompatibility';
@@ -29,6 +54,11 @@ import { saveUserToStorage, getStoredUser } from '../utils/firebase-storage-help
 // Import navigation utils
 import { NAV_ONBOARDING_KEY, lockNavigation, unlockNavigation } from '../utils/navigationUtils';
 
+// Define types to manage different User objects from different Firebase SDKs
+type RNFirebaseUser = FirebaseAuthTypes.User;
+type WebFirebaseUser = User;
+type AnyFirebaseUser = WebFirebaseUser | RNFirebaseUser;
+
 // Update the interface to use the web Firebase User type
 interface AuthContextType {
   user: User | null;
@@ -36,7 +66,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateUserProfile: (data: { displayName?: string; photoURL?: string }) => Promise<void>;
+  updateUserProfile: (name: string, photoURL?: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   isAuthenticated: boolean;
   completeOnboarding: () => Promise<void>;
@@ -44,7 +74,7 @@ interface AuthContextType {
   checkOnboardingStatus: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -76,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const docSnap = await FirebaseCompat.getDoc('users', user.uid);
         if (docSnap.exists) {
           const userData = docSnap.data();
-          const isComplete = userData.onboardingComplete === true;
+          const isComplete = userData?.onboardingComplete === true;
           console.log('[AuthContext] Onboarding status from compat layer:', isComplete);
           setIsAuthenticated(isComplete);
           
@@ -92,22 +122,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Try direct Firestore access
       try {
-        const userDocRef = doc(firestore, 'users', user.uid);
-        const docSnap = await getDoc(userDocRef);
+        // Make sure firestore is initialized
+        if (!firestore) {
+          await initializeAuthDependencies();
+        }
         
-        if (docSnap.exists()) {
-          const userData = docSnap.data();
-          const isComplete = userData.onboardingComplete === true;
-          console.log('[AuthContext] Onboarding status from Firestore:', isComplete);
-          setIsAuthenticated(isComplete);
+        if (firestore) {
+          let userDoc;
+          let docSnap;
           
-          // Cache the result
-          if (isComplete) {
-            await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
+          // Check which firestore API we're using
+          if (typeof firestore.collection === 'function') {
+            // React Native Firebase
+            userDoc = await firestore.collection('users').doc(user.uid).get();
+            docSnap = userDoc;
+          } else {
+            // Web Firebase
+            const { doc, getDoc } = require('firebase/firestore');
+            userDoc = doc(firestore, 'users', user.uid);
+            docSnap = await getDoc(userDoc);
           }
-        } else {
-          console.log('[AuthContext] No user document found, user needs onboarding');
-          setIsAuthenticated(false);
+          
+          const exists = typeof docSnap.exists === 'function' ? docSnap.exists() : docSnap.exists;
+          
+          if (exists) {
+            const userData = typeof docSnap.data === 'function' ? docSnap.data() : docSnap.data;
+            const isComplete = userData?.onboardingComplete === true;
+            console.log('[AuthContext] Onboarding status from Firestore:', isComplete);
+            setIsAuthenticated(isComplete);
+            
+            // Cache the result
+            if (isComplete) {
+              await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
+            }
+          } else {
+            console.log('[AuthContext] No user document found, user needs onboarding');
+            setIsAuthenticated(false);
+          }
         }
       } catch (firestoreError) {
         console.error('[AuthContext] Error checking onboarding with Firestore:', firestoreError);
@@ -135,6 +186,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         console.log('[AuthContext] Starting auth initialization...');
         
+        // Initialize Firebase dependencies first
+        const initialized = await initializeAuthDependencies();
+        if (!initialized && mounted) {
+          console.error('[AuthContext] Firebase dependencies failed to initialize');
+          setLoading(false);
+          setAuthInitialized(true); // Set to true to allow retry
+          return;
+        }
+        
         // Check for persisted auth state using our custom helper
         const storedUser = await getStoredUser();
         if (storedUser) {
@@ -142,7 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         // Set up auth state listener using Firebase auth
-        const unsubscribe = auth.onAuthStateChanged(async (authUser) => {
+        const unsubscribe = auth.onAuthStateChanged(async (authUser: any) => {
           if (mounted) {
             setUser(authUser);
             
@@ -199,6 +259,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (user) {
       checkOnboardingStatus();
+      
+      // Initialize workout service and sync workout plans when user logs in
+      try {
+        console.log('[AuthContext] User authenticated, initializing workout plan service');
+        // This will trigger plan sync from local storage to Firebase if needed
+        workoutPlanService.syncLocalPlansToFirebase().catch(error => {
+          console.error('[AuthContext] Error syncing workout plans:', error);
+        });
+      } catch (error) {
+        console.error('[AuthContext] Error initializing workout plan service:', error);
+      }
     }
   }, [user]);
 
@@ -206,7 +277,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      // Ensure Firebase auth is initialized
+      if (!auth) {
+        await initializeAuthDependencies();
+      }
+      
+      // Use the signInWithEmailAndPassword method from the right auth object
+      if (auth.signInWithEmailAndPassword) {
+        await auth.signInWithEmailAndPassword(email, password);
+      } else {
+        // Web Firebase style
+        const { signInWithEmailAndPassword } = require('firebase/auth');
+        await signInWithEmailAndPassword(auth, email, password);
+      }
     } catch (error) {
       console.error('[AuthContext] Login error:', error);
       throw error;
@@ -218,13 +301,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string) => {
     setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // Ensure Firebase auth is initialized
+      if (!auth) {
+        await initializeAuthDependencies();
+      }
+      
+      let userCredential;
+      if (typeof auth.createUserWithEmailAndPassword === 'function') {
+        // React Native Firebase
+        userCredential = await auth.createUserWithEmailAndPassword(email, password);
+      } else {
+        // Web Firebase
+        const { createUserWithEmailAndPassword } = require('firebase/auth');
+        userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      }
       
       // Update profile with display name
       if (userCredential.user) {
-        await updateProfile(userCredential.user, {
-          displayName: name
-        });
+        if (typeof userCredential.user.updateProfile === 'function') {
+          // React Native Firebase
+          await userCredential.user.updateProfile({
+            displayName: name
+          });
+        } else {
+          // Web Firebase
+          const { updateProfile } = require('firebase/auth');
+          await updateProfile(userCredential.user, {
+            displayName: name
+          });
+        }
       }
     } catch (error) {
       console.error('[AuthContext] Registration error:', error);
@@ -247,7 +352,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await AsyncStorage.removeItem(ONBOARDING_COMPLETE_KEY);
       
       // Then sign out from Firebase
-      await firebaseSignOut(auth);
+      if (!auth) {
+        // Make sure auth is initialized
+        await initializeAuthDependencies();
+      }
+
+      if (auth) {
+        // Check which type of auth object we have and use the appropriate signOut method
+        if (typeof auth.signOut === 'function') {
+          // React Native Firebase
+          await auth.signOut();
+        } else {
+          // Web Firebase
+          const { signOut } = require('firebase/auth');
+          await signOut(auth);
+        }
+        console.log('[AuthContext] Firebase sign out completed');
+      }
       
       console.log('[AuthContext] Logout completed successfully');
     } catch (error) {
@@ -258,22 +379,101 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateUserProfile = async (data: { displayName?: string; photoURL?: string }) => {
-    if (!user) {
-      throw new Error('No user logged in');
-    }
+  const updateUserProfile = async (name: string, photoURL?: string) => {
+    setLoading(true);
     
     try {
-      await updateProfile(user, data);
+      if (!user) {
+        throw new Error('User must be authenticated to update profile');
+      }
+      
+      console.log('[AuthContext] Updating user profile: name:', name, 'photoURL:', photoURL);
+      
+      // Update both async storage and firebase
+      let profileData: any = {
+        displayName: name,
+      };
+      
+      if (photoURL) {
+        profileData.photoURL = photoURL;
+      }
+      
+      // Try updating Firebase Auth user profile
+      try {
+        // Determine which Firebase SDK we're using by checking the user object properties/methods
+        // Use type casting to handle both Firebase SDK types
+        const firebaseUser = user as any;
+        if (typeof firebaseUser.updateProfile === 'function') {
+          // React Native Firebase
+          await firebaseUser.updateProfile(profileData);
+        } else {
+          // Web Firebase SDK
+          const { updateProfile } = require('firebase/auth');
+          await updateProfile(user, profileData);
+        }
+        
+        console.log('[AuthContext] Updated user profile in Firebase Auth');
+      } catch (authError) {
+        console.error('[AuthContext] Error updating profile in Firebase Auth:', authError);
+      }
+      
+      // Also update Firestore user document if available
+      try {
+        if (firestore) {
+          if (typeof firestore.collection === 'function') {
+            // React Native Firebase
+            await firestore.collection('users').doc(user.uid).update({
+              displayName: name,
+              ...(photoURL ? { photoURL } : {}),
+              updatedAt: new Date()
+            });
+          } else {
+            // Web Firebase
+            const { doc, updateDoc } = require('firebase/firestore');
+            const userDocRef = doc(firestore, 'users', user.uid);
+            await updateDoc(userDocRef, {
+              displayName: name,
+              ...(photoURL ? { photoURL } : {}),
+              updatedAt: new Date()
+            });
+          }
+          console.log('[AuthContext] Updated user profile in Firestore');
+        }
+      } catch (firestoreError) {
+        console.error('[AuthContext] Error updating profile in Firestore:', firestoreError);
+      }
+      
+      // Update local state
+      setUser({
+        ...user,
+        displayName: name,
+        ...(photoURL ? { photoURL } : {})
+      });
+      
+      console.log('[AuthContext] User profile updated successfully');
     } catch (error) {
-      console.error('[AuthContext] Profile update error:', error);
+      console.error('[AuthContext] Error in updateUserProfile:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const resetPassword = async (email: string) => {
     try {
-      await sendPasswordResetEmail(auth, email);
+      // Ensure Firebase auth is initialized
+      if (!auth) {
+        await initializeAuthDependencies();
+      }
+      
+      if (typeof auth.sendPasswordResetEmail === 'function') {
+        // React Native Firebase
+        await auth.sendPasswordResetEmail(email);
+      } else {
+        // Web Firebase
+        const { sendPasswordResetEmail } = require('firebase/auth');
+        await sendPasswordResetEmail(auth, email);
+      }
     } catch (error) {
       console.error('[AuthContext] Password reset error:', error);
       throw error;
@@ -321,13 +521,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Try Firebase direct if compatibility layer fails
       if (!firebaseSuccess) {
         try {
-          const userDocRef = doc(firestore, 'users', user.uid);
-          await updateDoc(userDocRef, {
-            onboardingComplete: true,
-            updatedAt: new Date()
-          });
-          console.log('[AuthContext] Updated onboarding status with Firebase direct');
-          firebaseSuccess = true;
+          // Make sure firestore is initialized
+          if (!firestore) {
+            await initializeAuthDependencies();
+          }
+          
+          if (firestore) {
+            if (typeof firestore.collection === 'function') {
+              // React Native Firebase
+              await firestore.collection('users').doc(user.uid).update({
+                onboardingComplete: true,
+                updatedAt: new Date()
+              });
+            } else {
+              // Web Firebase
+              const { doc, updateDoc } = require('firebase/firestore');
+              const userDocRef = doc(firestore, 'users', user.uid);
+              await updateDoc(userDocRef, {
+                onboardingComplete: true,
+                updatedAt: new Date()
+              });
+            }
+            console.log('[AuthContext] Updated onboarding status with Firebase direct');
+            firebaseSuccess = true;
+          }
         } catch (directError) {
           console.error('[AuthContext] Firebase direct update failed:', directError);
         }

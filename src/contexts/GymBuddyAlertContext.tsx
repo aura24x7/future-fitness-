@@ -9,6 +9,7 @@ import {
 } from '../types/gymBuddyAlert';
 import { firebaseCore } from '../services/firebase/firebaseCore';
 import { getNotificationService } from '../services/notificationService';
+import { friendNotificationService } from '../services/friendNotificationService';
 
 interface AlertContextState {
   sentAlerts: GymBuddyAlert[];
@@ -20,7 +21,7 @@ interface AlertContextState {
 
 interface AlertContextValue extends AlertContextState {
   sendCustomMessageAlert: (recipientId: string, message: string) => Promise<CustomMessageAlert>;
-  sendGymInvite: (recipientId: string) => Promise<GymInviteAlert>;
+  sendGymInvite: (recipientId: string, gymName?: string, time?: string) => Promise<GymInviteAlert>;
   respondToAlert: (alertId: string, accept: 'accept' | 'decline') => Promise<void>;
 }
 
@@ -91,26 +92,29 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
         const subscription = notificationService.addNotificationReceivedListener(
           (notification) => {
             const data = notification.request.content.data;
-            if (data?.type === 'GYM_INVITE') {
+            
+            // Check if this is a workout invitation
+            if (data?.type === 'GYM_INVITE' || data?.isWorkoutInvite) {
               const user = firebaseCore.getCurrentUser();
               if (!user) return;
 
-              if (data.alertId && data.senderId) {
+              if (data.notificationId && data.senderId) {
                 dispatch({
                   type: 'RECEIVE_ALERT',
                   payload: {
-                    id: data.alertId as string,
+                    id: data.notificationId as string,
                     senderId: data.senderId as string,
-                    senderName: data.senderName as string,
+                    senderName: data.senderName as string || 'Friend',
                     receiverId: user.uid,
                     status: 'pending',
                     createdAt: new Date().toISOString(),
                     type: 'GYM_INVITE',
-                    message: "Let's hit the gym!"
+                    message: notification.request.content.body || "Let's hit the gym!",
+                    gymName: data.gymName as string,
+                    time: data.time as string
                   }
                 });
               }
-              Vibration.vibrate([0, 500, 200, 500]);
             }
           }
         );
@@ -118,11 +122,32 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
 
         // Add notification response listener
         const responseSubscription = notificationService.addNotificationResponseReceivedListener(
-          (response) => {
+          async (response) => {
             const data = response.notification.request.content.data;
-            if (data?.alertId) {
-              const accept = response.actionIdentifier === 'accept';
-              respondToAlert(data.alertId as string, accept ? 'accept' : 'decline');
+            console.log('Notification response received:', response.actionIdentifier, data);
+            
+            // Handle workout invitation responses
+            if (data?.notificationId && 
+                (data?.type === 'GYM_INVITE' || data?.isWorkoutInvite || data?.type === 'workout')) {
+                
+              try {
+                // Determine if accepted or declined
+                const accept = response.actionIdentifier === 'accept' ? 'accepted' : 'declined';
+                
+                // Respond to the workout invitation
+                await friendNotificationService.respondToWorkoutInvite(
+                  data.notificationId as string, 
+                  accept
+                );
+                
+                console.log(`Workout invitation ${accept}`);
+                
+                // Also update local state
+                respondToAlert(data.notificationId as string, accept === 'accepted' ? 'accept' : 'decline');
+              } catch (error) {
+                console.error('Error responding to workout invitation:', error);
+                Alert.alert('Error', 'Failed to respond to workout invitation');
+              }
             }
           }
         );
@@ -191,7 +216,7 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
     }
   }, [state.isAuthenticated]);
 
-  const sendGymInvite = useCallback(async (recipientId: string): Promise<GymInviteAlert> => {
+  const sendGymInvite = useCallback(async (recipientId: string, gymName?: string, time?: string): Promise<GymInviteAlert> => {
     if (!state.isAuthenticated) {
       Alert.alert('Authentication Required', 'Please sign in to send gym invites');
       throw new Error('Not authenticated');
@@ -199,9 +224,30 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
 
     dispatch({ type: 'SEND_ALERT_START' });
     try {
-      const newAlert = await gymBuddyAlertService.sendAlert(recipientId, "Let's hit the gym!", 'GYM_INVITE');
+      // Use the friendNotificationService for sending workout invitations
+      const notificationId = await friendNotificationService.sendWorkoutInvite(
+        firebaseCore.getCurrentUser()?.uid || '',
+        recipientId,
+        gymName,
+        time
+      );
+      
+      // Create a GymInviteAlert object for state management
+      const newAlert: GymInviteAlert = {
+        id: notificationId,
+        senderId: firebaseCore.getCurrentUser()?.uid || '',
+        senderName: firebaseCore.getCurrentUser()?.displayName || 'You',
+        receiverId: recipientId,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        type: 'GYM_INVITE',
+        message: `Let's hit the gym${gymName ? ` at ${gymName}` : ''}${time ? ` at ${time}` : ''}!`,
+        gymName,
+        time
+      };
+      
       dispatch({ type: 'SEND_ALERT_SUCCESS', payload: newAlert });
-      return newAlert as GymInviteAlert;
+      return newAlert;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to send gym invite';
       Alert.alert('Error', errorMessage);
@@ -210,15 +256,39 @@ export function GymBuddyAlertProvider({ children }: { children: React.ReactNode 
     }
   }, [state.isAuthenticated]);
 
-  const respondToAlert = useCallback(async (alertId: string, accept: 'accept' | 'decline') => {
+  const respondToAlert = useCallback(async (alertId: string, accept: 'accept' | 'decline'): Promise<void> => {
     try {
-      await gymBuddyAlertService.respondToAlert(alertId, accept);
+      // Find the alert in received alerts
+      const alert = state.receivedAlerts.find(a => a.id === alertId);
+      if (!alert) {
+        throw new Error('Alert not found');
+      }
+
+      // Call the appropriate service based on alert type
+      if (alert.type === 'GYM_INVITE') {
+        await friendNotificationService.respondToWorkoutInvite(
+          alertId, 
+          accept === 'accept' ? 'accepted' : 'declined'
+        );
+      } else {
+        await gymBuddyAlertService.respondToAlert(alertId, accept);
+      }
+
+      // Update UI optimistically
+      const updatedAlert = {
+        ...alert,
+        status: accept === 'accept' ? 'accepted' : 'declined'
+      };
+
+      dispatch({
+        type: 'SEND_ALERT_SUCCESS',
+        payload: updatedAlert
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to respond to alert';
       Alert.alert('Error', errorMessage);
-      throw error;
     }
-  }, []);
+  }, [state.receivedAlerts]);
 
   const value: AlertContextValue = {
     ...state,

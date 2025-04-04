@@ -3,9 +3,23 @@ import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 
-// Import the Firebase initialization first - order matters here
+// STEP 1: Import Firebase web initialization first to avoid the native module error
+// Web Firebase doesn't have the _nativeModule.getAppModule() issue
 import './src/firebase/firebaseInit';
 
+// STEP 2: After web Firebase is initialized, import native modules WITHOUT initializing
+// This resolves conflicts with initializeApp from native modules
+import firebase from '@react-native-firebase/app';
+import '@react-native-firebase/auth';
+import '@react-native-firebase/firestore';
+
+// STEP 3: Set flag to silence deprecation warnings
+// This avoids console clutter during the transition period
+console.log('📱 Setting up Firebase compatibility mode...');
+// @ts-ignore
+global.RNFB_SILENCE_MODULAR_DEPRECATION_WARNINGS = true;
+
+// Import app components
 import { ThemeProvider } from './src/theme/ThemeProvider';
 import { ProfileProvider } from './src/contexts/ProfileContext';
 import { OnboardingProvider } from './src/contexts/OnboardingContext';
@@ -21,19 +35,14 @@ import { AlertNotificationManager } from './src/components/GymBuddyAlert/AlertNo
 import SplashScreenComponent from './src/components/SplashScreen';
 import * as SplashScreen from 'expo-splash-screen';
 import ErrorBoundary from './src/components/ErrorBoundary';
-import { isFirebaseInitialized, firebaseApp } from './src/firebase/firebaseInit';
+import { isFirebaseInitialized } from './src/firebase/firebaseInit';
 import { TamaguiProvider } from './src/providers/TamaguiProvider';
-
-// Verify that Firebase initialization happened synchronously at import time
-console.log('[App] Firebase initialized at import time:', isFirebaseInitialized(), firebaseApp ? 'Firebase app exists' : 'No Firebase app');
+import { WorkoutProvider } from './src/contexts/WorkoutContext';
 
 // Declare the global property for TypeScript
 declare global {
   var RNFB_SILENCE_MODULAR_DEPRECATION_WARNINGS: boolean;
 }
-
-// Silence Firebase deprecation warnings temporarily while migrating
-globalThis.RNFB_SILENCE_MODULAR_DEPRECATION_WARNINGS = true;
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync().catch(console.warn);
@@ -109,7 +118,9 @@ const App = () => {
                       <MealProvider>
                         <SimpleFoodLogProvider>
                           <GymBuddyAlertProvider>
-                            <AppContent />
+                            <WorkoutProvider>
+                              <AppContent />
+                            </WorkoutProvider>
                           </GymBuddyAlertProvider>
                         </SimpleFoodLogProvider>
                       </MealProvider>

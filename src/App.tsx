@@ -19,6 +19,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { appInitializer } from './services/appInitializer';
+import { WorkoutProvider } from './contexts/WorkoutContext';
 
 const App = () => {
   const [isReady, setIsReady] = useState(false);
@@ -53,15 +54,17 @@ const App = () => {
                     <SimpleFoodLogProvider>
                       <ProfileGroupsProvider>
                         <GymBuddyAlertProvider>
-                          <LoadingProvider>
-                            <NavigationContainer>
-                              <AlertNotificationManager>
-                                <ErrorBoundary>
-                                  <AppNavigator />
-                                </ErrorBoundary>
-                              </AlertNotificationManager>
-                            </NavigationContainer>
-                          </LoadingProvider>
+                          <WorkoutProvider>
+                            <LoadingProvider>
+                              <NavigationContainer>
+                                <AlertNotificationManager>
+                                  <ErrorBoundary>
+                                    <AppNavigator />
+                                  </ErrorBoundary>
+                                </AlertNotificationManager>
+                              </NavigationContainer>
+                            </LoadingProvider>
+                          </WorkoutProvider>
                         </GymBuddyAlertProvider>
                       </ProfileGroupsProvider>
                     </SimpleFoodLogProvider>

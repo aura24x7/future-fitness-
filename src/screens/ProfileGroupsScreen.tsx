@@ -4,33 +4,30 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
   Dimensions,
-  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useProfileGroups } from '../contexts/ProfileGroupsContext';
 import { useGymBuddyAlerts } from '../contexts/GymBuddyAlertContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { IndividualProfileSection } from '../components/ProfileGroups/IndividualProfileSection';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { YStack, XStack, Button } from 'tamagui';
+import { YStack } from 'tamagui';
 import { GroupsSection } from '../components/ProfileGroups/GroupsSection';
-import { SharedPlansSection } from '../components/ProfileGroups/SharedPlansSection';
+import SharedPlansSection from '../components/ProfileGroups/SharedPlansSection';
+import { NotificationBadge } from '../components/ProfileGroups/NotificationBadge';
 
 const { width } = Dimensions.get('window');
+
+type TabType = 'connections' | 'shared_plans';
 
 interface Props {
   navigation: any;
 }
 
-type TabType = 'groups' | 'shared-plans';
-
 const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
-  const { state: { individuals }, fetchIndividuals } = useProfileGroups();
-  const { sentAlerts, receivedAlerts } = useGymBuddyAlerts();
+  const { fetchIndividuals } = useProfileGroups();
   const { colors, isDarkMode } = useTheme();
-  const [activeTab, setActiveTab] = useState<TabType>('groups');
+  const [activeTab, setActiveTab] = useState<TabType>('connections');
 
   const fetchData = useCallback(async () => {
     await fetchIndividuals();
@@ -40,58 +37,114 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
     fetchData();
   }, [fetchData]);
 
-  const getSectionTitle = (title: string, items: any[]) => {
-    const pendingAlertCount = receivedAlerts.filter(
-      alert => 
-        alert.status === 'pending' && 
-        items.some(item => item.id === alert.senderId)
-    ).length;
+  const handleNotificationsPress = () => {
+    navigation.navigate('Notifications');
+  };
 
-    return pendingAlertCount > 0 
-      ? `${title} (${pendingAlertCount} new alerts)`
-      : title;
+  const handleConnectionRequestsPress = () => {
+    navigation.navigate('ConnectionRequests');
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView 
+      style={[
+        styles.container, 
+        { backgroundColor: isDarkMode ? colors.background : '#F9FAFB' }
+      ]} 
+      edges={['top']}
+    >
       <YStack flex={1}>
-        <XStack padding="$4" space="$2">
-          <Button
-            flex={1}
-            backgroundColor={activeTab === 'groups' ? colors.primary : 'transparent'}
-            onPress={() => setActiveTab('groups')}
-          >
-            <Text
-              style={{
-                color: activeTab === 'groups' ? 'white' : colors.text,
-                fontWeight: '600'
-              }}
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>Connections</Text>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity 
+              style={[styles.headerButton, styles.connectionButton, { borderColor: colors.primary }]} 
+              onPress={handleConnectionRequestsPress}
+              activeOpacity={0.7}
             >
-              Groups
-            </Text>
-          </Button>
-          <Button
-            flex={1}
-            backgroundColor={activeTab === 'shared-plans' ? colors.primary : 'transparent'}
-            onPress={() => setActiveTab('shared-plans')}
+              <Ionicons 
+                name="people-outline" 
+                size={24} 
+                color={colors.primary} 
+              />
+              <NotificationBadge size={16} type="connections" />
+              <Text style={[styles.buttonText, { color: colors.primary }]}>Requests</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.headerButton} 
+              onPress={handleNotificationsPress}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name="notifications-outline" 
+                size={24} 
+                color={colors.primary} 
+              />
+              <NotificationBadge size={16} type="notifications" />
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        <View style={[styles.tabContainer, {
+          backgroundColor: isDarkMode ? 'rgba(31, 41, 55, 0.6)' : 'rgba(229, 231, 235, 0.6)',
+        }]}>
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'connections' && [
+                styles.activeTab, 
+                { backgroundColor: isDarkMode ? colors.cardBackground : '#FFFFFF' }
+              ]
+            ]}
+            onPress={() => setActiveTab('connections')}
           >
             <Text
-              style={{
-                color: activeTab === 'shared-plans' ? 'white' : colors.text,
-                fontWeight: '600'
-              }}
+              style={[
+                styles.tabText,
+                { color: activeTab === 'connections' ? colors.primary : colors.textSecondary }
+              ]}
+            >
+              Friends
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'shared_plans' && [
+                styles.activeTab, 
+                { backgroundColor: isDarkMode ? colors.cardBackground : '#FFFFFF' }
+              ]
+            ]}
+            onPress={() => setActiveTab('shared_plans')}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                { color: activeTab === 'shared_plans' ? colors.primary : colors.textSecondary }
+              ]}
             >
               Shared Plans
             </Text>
-          </Button>
-        </XStack>
+          </TouchableOpacity>
+        </View>
 
-        {activeTab === 'groups' ? (
-          <GroupsSection />
-        ) : (
-          <SharedPlansSection />
-        )}
+        <View style={{ flex: 1 }}>
+          {activeTab === 'connections' ? (
+            <GroupsSection />
+          ) : (
+            <SharedPlansSection />
+          )}
+        </View>
       </YStack>
+      
+      {/* Add Friends Button */}
+      <TouchableOpacity
+        style={[styles.addButton, { backgroundColor: colors.primary }]}
+        onPress={() => navigation.navigate('FriendSearch')}
+      >
+        <Ionicons name="person-add" size={24} color="#FFFFFF" />
+        <Text style={styles.addButtonText}>Add Friends</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -99,7 +152,6 @@ const ProfileGroupsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   header: {
     paddingHorizontal: 20,
@@ -110,52 +162,82 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
   },
-  tabContainer: {
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButton: {
+    padding: 8,
+    borderRadius: 20,
     position: 'relative',
-    marginBottom: 10,
-    paddingHorizontal: 20,
+    marginLeft: 8,
+  },
+  connectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 20,
+  },
+  buttonText: {
+    marginLeft: 6,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    borderRadius: 16,
+    padding: 4,
+    height: 48,
+    marginBottom: 16,
   },
   tabButton: {
-    paddingVertical: 12,
+    flex: 1,
+    borderRadius: 12,
+    justifyContent: 'center',
     alignItems: 'center',
+    height: 40,
+  },
+  activeTab: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   tabText: {
     fontSize: 16,
-    fontWeight: '500',
-  },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    height: 2,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  page: {
-    flex: 1,
+    fontWeight: '600',
   },
   addButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    borderRadius: 28,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 20,
-    marginBottom: 10,
-    padding: 12,
-    borderRadius: 12,
-    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   addButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    marginLeft: 8,
     fontWeight: '600',
-  },
-  searchButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
+    fontSize: 16,
   },
 });
 

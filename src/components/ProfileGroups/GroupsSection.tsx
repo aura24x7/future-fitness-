@@ -7,41 +7,61 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { groupService } from '../../services/groupService';
-import { Group } from '../../types/group';
+import { userService } from '../../services/userService';
 import { useTheme } from '../../theme/ThemeProvider';
+import { IndividualProfileSection } from './IndividualProfileSection';
 
-interface ExtendedGroup extends Group {
-  lastActive: string;
-  type: string;
-  memberCount: number;
+interface User {
+  id: string;
+  name: string;
+  email?: string;
+  image?: string;
+  status?: string;
+  goals?: string[];
+  last_active?: string;
 }
 
 type GroupsNavigationProp = any;
 
 export const GroupsSection: React.FC = () => {
   const navigation = useNavigation<GroupsNavigationProp>();
-  const { colors, isDarkMode: isDark } = useTheme();
-  const [groups, setGroups] = useState<ExtendedGroup[]>([]);
+  const { colors, isDarkMode } = useTheme();
+  const [friends, setFriends] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const loadGroups = async () => {
+  const loadFriends = async () => {
     try {
-      const fetchedGroups = await groupService.getAllGroups();
-      const extendedGroups: ExtendedGroup[] = fetchedGroups.map(group => ({
-        ...group,
-        lastActive: new Date().toLocaleDateString(),
-        type: 'Fitness',
-        memberCount: group.members?.length || 0,
+      setError(null);
+      setLoading(true);
+      
+      const currentUserId = userService.getCurrentUserId();
+      if (!currentUserId) {
+        setError('You must be logged in to view connections');
+        setLoading(false);
+        return;
+      }
+      
+      const connections = await userService.getConnections();
+      
+      // Add a default status and goals for any connections that don't have them
+      const enhancedConnections = connections.map((user: any) => ({
+        ...user,
+        status: user.status || 'Active fitness enthusiast',
+        goals: user.goals || ['Weight Loss', 'Muscle Gain'],
+        last_active: user.last_active || new Date().toISOString(),
       }));
-      setGroups(extendedGroups);
-    } catch (error) {
-      console.error('Error loading groups:', error);
+      
+      setFriends(enhancedConnections);
+    } catch (err) {
+      console.error('Error loading friends:', err);
+      setError('Failed to load connections. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -49,23 +69,19 @@ export const GroupsSection: React.FC = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadGroups();
+    await loadFriends();
     setRefreshing(false);
   };
 
   useEffect(() => {
-    loadGroups();
+    loadFriends();
   }, []);
 
-  const handleCreateGroup = () => {
-    navigation.navigate('CreateGroup');
+  const handleAddFriend = () => {
+    navigation.navigate('FriendSearch');
   };
 
-  const handleGroupPress = (group: ExtendedGroup) => {
-    navigation.navigate('GroupDetails', { groupId: group.id });
-  };
-
-  if (loading) {
+  if (loading && friends.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -73,16 +89,34 @@ export const GroupsSection: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={[styles.errorText, { color: colors.primary }]}>
+          {error}
+        </Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => loadFriends()}
+        >
+          <Text style={[styles.retryText, { color: colors.primary }]}>
+            Retry
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: isDarkMode ? colors.background : '#F9FAFB' }]}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
       <TouchableOpacity
         style={styles.createGroupButton}
-        onPress={handleCreateGroup}
+        onPress={handleAddFriend}
       >
         <LinearGradient
           colors={[colors.primary, colors.primary + '80']}
@@ -90,54 +124,35 @@ export const GroupsSection: React.FC = () => {
           end={{ x: 1, y: 0 }}
           style={styles.createGroupGradient}
         >
-          <Ionicons name="add-circle-outline" size={24} color={colors.card} />
-          <Text style={[styles.createGroupText, { color: colors.card }]}>
-            Create New Group
+          <Ionicons name="person-add-outline" size={24} color="#FFFFFF" />
+          <Text style={styles.createGroupText}>
+            Add Friend
           </Text>
         </LinearGradient>
       </TouchableOpacity>
 
-      {groups.length === 0 ? (
+      {friends.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, { color: colors.text }]}>
-            No groups found
+            No friends found
           </Text>
-          <Text style={[styles.emptySubText, { color: colors.text + '80' }]}>
-            Create a group to start collaborating with others
+          <Text style={[styles.emptySubText, { color: isDarkMode ? '#94A3B8' : '#6B7280' }]}>
+            Add friends to connect and share your fitness journey
           </Text>
         </View>
       ) : (
-        groups.map((group) => (
-          <TouchableOpacity
-            key={group.id}
-            style={[styles.groupCard, { 
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            }]}
-            onPress={() => handleGroupPress(group)}
-          >
-            <View style={styles.groupHeader}>
-              <Text style={[styles.groupName, { color: colors.text }]}>
-                {group.name}
-              </Text>
-              <Text style={[styles.memberCount, { color: colors.text + '80' }]}>
-                {group.memberCount} members
-              </Text>
-            </View>
-            <Text style={[styles.groupDescription, { color: colors.text + '80' }]} numberOfLines={2}>
-              {group.description}
-            </Text>
-            <View style={styles.groupFooter}>
-              <Text style={[styles.lastActive, { color: colors.text + '80' }]}>
-                Last active: {group.lastActive}
-              </Text>
-              <View style={[styles.groupType, { backgroundColor: colors.primary + '20' }]}>
-                <Text style={[styles.groupTypeText, { color: colors.primary }]}>
-                  {group.type}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
+        friends.map((friend) => (
+          <IndividualProfileSection
+            key={friend.id}
+            profile={{
+              id: friend.id,
+              name: friend.name,
+              image: friend.image,
+              status: friend.status,
+              goals: friend.goals,
+            }}
+            navigation={navigation}
+          />
         ))
       )}
     </ScrollView>
@@ -153,6 +168,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    padding: 10,
+  },
+  retryText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   createGroupButton: {
     marginVertical: 16,
@@ -168,6 +202,7 @@ const styles = StyleSheet.create({
   createGroupText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -182,53 +217,5 @@ const styles = StyleSheet.create({
   emptySubText: {
     fontSize: 14,
     textAlign: 'center',
-  },
-  groupCard: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  groupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  groupName: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  memberCount: {
-    fontSize: 14,
-  },
-  groupDescription: {
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  groupFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  lastActive: {
-    fontSize: 12,
-  },
-  groupType: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  groupTypeText: {
-    fontSize: 12,
-    fontWeight: '500',
   },
 });

@@ -64,7 +64,11 @@ export const WeightTargetDateScreen = () => {
         weightTargetDate: targetDate
       });
 
-      navigation.navigate('Location');
+      // Navigate to username selection with current display name
+      const displayName = onboardingData?.name || 'User';
+      navigation.navigate('UsernameSelection', {
+        displayName
+      });
     } catch (error) {
       console.error('Error updating target date:', error);
       setError('Failed to save your target date. Please try again.');

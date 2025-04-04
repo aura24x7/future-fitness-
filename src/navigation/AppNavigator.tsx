@@ -27,6 +27,7 @@ import WeightTargetDateScreen from '../screens/onboarding/WeightTargetDateScreen
 import LocationScreen from '../screens/onboarding/LocationScreen';
 import WorkoutPreferenceScreen from '../screens/onboarding/WorkoutPreferenceScreen';
 import FinalSetupScreen from '../screens/onboarding/FinalSetupScreen';
+import UsernameSelectionScreen from '../screens/onboarding/UsernameSelectionScreen';
 
 // Main App
 import MainNavigator from './MainNavigator';
@@ -232,6 +233,7 @@ const AppNavigator = () => {
       <Stack.Screen name="WorkoutPreference" component={WorkoutPreferenceScreen} />
       <Stack.Screen name="ActivityLevel" component={ActivityLevelScreen} />
       <Stack.Screen name="FinalSetup" component={FinalSetupScreen} />
+      <Stack.Screen name="UsernameSelection" component={UsernameSelectionScreen} />
       
       {/* Main App - Always included for consistent navigation */}
       <Stack.Screen name="Main" component={MainNavigator} />

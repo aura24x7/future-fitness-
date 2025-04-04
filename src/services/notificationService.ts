@@ -13,17 +13,30 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Custom vibration pattern (3 seconds total)
+// Enhanced vibration pattern (4 seconds total with stronger vibrations)
 const VIBRATION_PATTERN = [
-  0, // Initial delay
-  500, // Vibrate
-  200, // Pause
-  500, // Vibrate
-  200, // Pause
-  500, // Vibrate
-  200, // Pause
-  500, // Vibrate
-  400, // Final pause
+  0,     // Initial delay
+  800,   // Vibrate (longer)
+  300,   // Pause
+  800,   // Vibrate (longer)
+  300,   // Pause
+  800,   // Vibrate (longer)
+  300,   // Pause
+  800,   // Vibrate (longer)
+  300,   // Final pause
+];
+
+// Stronger vibration pattern for workout invites (5 seconds total)
+const WORKOUT_VIBRATION_PATTERN = [
+  0,     // Initial delay
+  1000,  // Vibrate (very long)
+  200,   // Pause
+  1000,  // Vibrate (very long)
+  200,   // Pause
+  1000,  // Vibrate (very long)
+  200,   // Pause
+  1000,  // Vibrate (very long)
+  400,   // Final pause
 ];
 
 export class NotificationService {
@@ -57,17 +70,31 @@ export class NotificationService {
           await firebaseCore.ensureInitialized();
           console.log('[NotificationService] Firebase initialization confirmed');
 
+          // Set up notification categories for actionable notifications
+          await this.setupNotificationCategories();
+
           // Set up notification channel for Android
           if (Platform.OS === 'android') {
             try {
               console.log('[NotificationService] Setting up Android notification channel...');
+              // Default channel
               await Notifications.setNotificationChannelAsync('default', {
-                name: 'default',
+                name: 'Default',
                 importance: Notifications.AndroidImportance.MAX,
-                vibrationPattern: [0, 250, 250, 250],
+                vibrationPattern: VIBRATION_PATTERN,
                 lightColor: '#FF231F7C',
               });
-              console.log('[NotificationService] Android notification channel setup complete');
+              
+              // Workout invites channel with stronger vibration
+              await Notifications.setNotificationChannelAsync('workout_invites', {
+                name: 'Workout Invites',
+                importance: Notifications.AndroidImportance.MAX,
+                vibrationPattern: WORKOUT_VIBRATION_PATTERN,
+                lightColor: '#4f46e5', // Indigo color
+                sound: 'default',
+              });
+              
+              console.log('[NotificationService] Android notification channels setup complete');
             } catch (channelError) {
               console.warn('[NotificationService] Failed to set up notification channel:', channelError);
               // Continue initialization - app can work without custom channel
@@ -81,7 +108,15 @@ export class NotificationService {
             finalStatus = existingStatus;
             
             if (existingStatus !== 'granted') {
-              const { status } = await Notifications.requestPermissionsAsync();
+              const { status } = await Notifications.requestPermissionsAsync({
+                ios: {
+                  allowAlert: true,
+                  allowBadge: true,
+                  allowSound: true,
+                  allowAnnouncements: true,
+                  providesAppNotificationSettings: true,
+                }
+              });
               finalStatus = status;
             }
           } catch (permissionError) {
@@ -108,35 +143,80 @@ export class NotificationService {
     return this.initializationPromise;
   }
 
-  private async setupAndroidNotifications() {
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: VIBRATION_PATTERN,
-        lightColor: '#FF231F7C',
-      });
+  /**
+   * Set up notification categories with action buttons
+   */
+  private async setupNotificationCategories() {
+    try {
+      console.log('[NotificationService] Setting up notification categories...');
+      
+      // For workout invitations with Accept/Decline buttons
+      await Notifications.setNotificationCategoryAsync('workout_invite', [
+        {
+          identifier: 'accept',
+          buttonTitle: 'Accept',
+          options: {
+            isDestructive: false,
+            isAuthenticationRequired: false,
+          }
+        },
+        {
+          identifier: 'decline',
+          buttonTitle: 'Decline',
+          options: {
+            isDestructive: true,
+            isAuthenticationRequired: false,
+          }
+        }
+      ]);
+      
+      // For meal reminders with simple acknowledgment
+      await Notifications.setNotificationCategoryAsync('meal_reminder', [
+        {
+          identifier: 'acknowledge',
+          buttonTitle: 'Got it',
+          options: {
+            isDestructive: false,
+            isAuthenticationRequired: false,
+          }
+        }
+      ]);
+      
+      console.log('[NotificationService] Notification categories setup complete');
+    } catch (error) {
+      console.warn('[NotificationService] Failed to set up notification categories:', error);
+      // Continue anyway, functionality will degrade gracefully
     }
   }
 
-  private triggerVibration() {
-    if (Platform.OS === 'android') {
-      // Android requires the pattern to be specified
-      Vibration.vibrate(VIBRATION_PATTERN);
-    } else {
-      // iOS doesn't support patterns, so we'll do multiple vibrations
-      const duration = 3000; // 3 seconds
-      const interval = 500; // 500ms between vibrations
-      let elapsed = 0;
+  /**
+   * Trigger a vibration pattern based on notification type
+   */
+  private triggerVibration(isWorkoutInvite: boolean = false) {
+    try {
+      const pattern = isWorkoutInvite ? WORKOUT_VIBRATION_PATTERN : VIBRATION_PATTERN;
       
-      const vibrateInterval = setInterval(() => {
-        if (elapsed >= duration) {
-          clearInterval(vibrateInterval);
-          return;
-        }
-        Vibration.vibrate(100);
-        elapsed += interval;
-      }, interval);
+      if (Platform.OS === 'android') {
+        // Android requires the pattern to be specified
+        Vibration.vibrate(pattern);
+      } else {
+        // iOS doesn't support patterns, so we'll do multiple vibrations
+        const duration = isWorkoutInvite ? 5000 : 3000; // 5 or 3 seconds
+        const interval = 400; // 400ms between vibrations
+        let elapsed = 0;
+        
+        const vibrateInterval = setInterval(() => {
+          if (elapsed >= duration) {
+            clearInterval(vibrateInterval);
+            return;
+          }
+          Vibration.vibrate(isWorkoutInvite ? 400 : 200);
+          elapsed += interval;
+        }, interval);
+      }
+    } catch (error) {
+      console.warn('[NotificationService] Vibration error:', error);
+      // Fail silently - vibration is a nice-to-have
     }
   }
 
@@ -153,26 +233,55 @@ export class NotificationService {
     }
 
     try {
-      // Trigger vibration immediately
-      this.triggerVibration();
+      // Determine notification type
+      const isTestNotification = data.isTest || (data.type === 'other' && body.includes('test notification'));
+      const isWorkoutInvite = data.type === 'workout' && body.includes('workout');
+      
+      // Trigger appropriate vibration pattern
+      this.triggerVibration(isWorkoutInvite);
 
-      const notificationContent = {
-        title,
+      // Special handling for test notifications
+      if (isTestNotification) {
+        // More aggressive vibration for test notifications
+        if (Platform.OS === 'android') {
+          Vibration.vibrate([0, 500, 200, 500, 200, 500]);
+        } else {
+          Vibration.vibrate(1000);
+          setTimeout(() => Vibration.vibrate(1000), 1500);
+        }
+        console.log('📱 TEST NOTIFICATION DETAILS:', { title, body, data });
+      }
+
+      // Determine the appropriate notification category
+      let categoryIdentifier: string | undefined;
+      if (isWorkoutInvite) {
+        categoryIdentifier = 'workout_invite';
+      } else if (data.type === 'meal') {
+        categoryIdentifier = 'meal_reminder';
+      } else if (data.type === 'GYM_INVITE') {
+        categoryIdentifier = 'workout_invite';
+      }
+      
+      // Create notification content with proper typing
+      const notificationContent: Notifications.NotificationContentInput = {
+        title: isTestNotification ? `🔔 ${title} 🔔` : isWorkoutInvite ? `🏋️ ${title}` : title,
         body,
-        data,
+        data: {
+          ...data,
+          timestamp: new Date().toISOString(),
+          _displayInForeground: true
+        },
         sound: true,
-        priority: 'high',
-        vibrationPattern: VIBRATION_PATTERN,
-        categoryIdentifier: data.type === 'GYM_INVITE' ? 'gym_invite' : undefined,
+        badge: 1,
+        priority: Notifications.AndroidNotificationPriority.HIGH,
+        categoryIdentifier,
+        // Android specific settings
+        androidChannelId: isWorkoutInvite ? 'workout_invites' : 'default',
       };
 
       // In Expo Go, we need to handle notifications differently
       if (Constants.appOwnership === 'expo') {
         console.log('Running in Expo Go, using local notifications only');
-        notificationContent.data = {
-          ...notificationContent.data,
-          _displayInForeground: true,
-        };
       }
 
       console.log('Notification content:', notificationContent);
@@ -182,6 +291,15 @@ export class NotificationService {
         trigger: null, // null means send immediately
       });
       console.log('Notification scheduled with ID:', notificationId);
+
+      // For test notifications in foreground, show an additional console message
+      if (isTestNotification) {
+        console.log('\n\n==================================');
+        console.log('🔔 TEST NOTIFICATION SENT 🔔');
+        console.log('ID:', notificationId);
+        console.log('BODY:', body);
+        console.log('==================================\n\n');
+      }
 
       return notificationId;
     } catch (error) {
@@ -195,8 +313,15 @@ export class NotificationService {
   ): Notifications.Subscription {
     console.log('Adding notification received listener');
     const subscription = Notifications.addNotificationReceivedListener((notification) => {
+      // Check notification type for vibration pattern
+      const data = notification.request.content.data;
+      const isWorkoutInvite = 
+        (data?.type === 'workout' && notification.request.content.body.includes('workout')) ||
+        data?.type === 'GYM_INVITE';
+      
       // Trigger vibration on notification receive
-      this.triggerVibration();
+      this.triggerVibration(isWorkoutInvite);
+      
       callback(notification);
     });
     return subscription;

@@ -1,0 +1,4 @@
+  backup/onboarding-cleanup[m 26c85bf3 feat: add splash screen and persistent login
+  backup/phase1-cleanup    [m d1a4c4e4 Update UI components and add documentation files
+  backup_branch            [m 00ba9901 Complete authentication and onboarding flow implementation with profile management
+* [32mmain                     [m 0989f38d [ahead 1] fix: Onboarding Flow and User Authentication - Fixed onboarding process for new/existing users, improved profile validation, fixed state management

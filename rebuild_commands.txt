@@ -1,0 +1,1 @@
+"# Build commands to run:\n\nnpx expo install --check\nnpx expo prebuild --clean\neas build --profile development --platform android" 

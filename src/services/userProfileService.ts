@@ -28,6 +28,7 @@ export interface UserProfile {
   email: string;
   name: string;
   displayName: string;
+  username?: string;
   birthday?: Date | null;
   gender?: "MALE" | "FEMALE" | "OTHER" | null;
   height?: {
@@ -264,6 +265,7 @@ class UserProfileService {
         email: currentUser.email || '',
         name: onboardingData.name || '',
         displayName: onboardingData.name || '',
+        username: currentUser.displayName || undefined,
         birthday: onboardingData.birthday || null,
         gender: onboardingData.gender || null,
         height: onboardingData.height || null,

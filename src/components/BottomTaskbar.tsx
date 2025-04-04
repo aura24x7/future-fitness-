@@ -18,10 +18,7 @@ const BottomTaskbar = () => {
   const navigation = useNavigation<NavigationProp>();
 
   const handleWorkoutsPress = () => {
-    Alert.alert(
-      "Coming Soon!",
-      "The workouts feature will be available in future updates."
-    );
+    navigation.navigate('Workouts');
   };
 
   const handleFoodLogPress = () => {

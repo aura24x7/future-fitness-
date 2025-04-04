@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Dimensions, Platform, Switch, ViewStyle, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Dimensions, Platform, Switch, ViewStyle, Alert, ActivityIndicator, Clipboard, Share } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native';
@@ -451,9 +451,24 @@ const ProfileScreen = () => {
   const renderUserInfo = () => (
     <View style={styles.userInfoSection}>
       <Text style={[styles.userName, { color: colors.text }]}>{profile?.name || 'User'}</Text>
-      <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
-        {profile?.email || '@user'}
-      </Text>
+      <View style={styles.usernameContainer}>
+        <Text style={[styles.userUsername, { color: colors.textSecondary }]}>
+          @{profile?.username || 'username'}
+        </Text>
+        <TouchableOpacity 
+          style={styles.copyButton} 
+          onPress={() => {
+            Clipboard.setString(profile?.username || 'username');
+            Alert.alert('Copied', 'Username copied to clipboard');
+          }}
+        >
+          <Ionicons 
+            name="copy-outline" 
+            size={16} 
+            color={colors.primary} 
+          />
+        </TouchableOpacity>
+      </View>
       <View style={styles.joinedSection}>
         <Ionicons 
           name="calendar-outline" 
@@ -464,6 +479,110 @@ const ProfileScreen = () => {
           New Member
         </Text>
       </View>
+    </View>
+  );
+
+  // Add share profile button in the Settings section
+  const SettingsSection = () => (
+    <View
+      style={[
+        styles.section,
+        styles.glassEffect,
+        {
+          backgroundColor: isDarkMode ? colors.cardBackground : colors.background,
+          borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+          borderWidth: 1,
+        }
+      ]}
+    >
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>
+        <Ionicons name="settings-outline" size={20} color={colors.primary} /> Settings
+      </Text>
+      
+      <TouchableOpacity 
+        style={styles.menuItem}
+        onPress={() => {
+          Share.share({
+            message: `Add me on Future Fitness! My username is @${profile?.username || 'username'}`,
+          });
+        }}
+      >
+        <View style={styles.menuItemContent}>
+          <Ionicons name="share-social-outline" size={24} color={colors.primary} />
+          <Text style={[styles.menuItemText, { color: colors.text }]}>Share Profile</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.menuItem}>
+        <View style={styles.menuItemContent}>
+          <Ionicons name="moon-outline" size={24} color={colors.primary} />
+          <Text style={[styles.menuItemText, { color: colors.text }]}>Dark Mode</Text>
+        </View>
+        <Switch
+          value={isDarkMode}
+          onValueChange={toggleTheme}
+          trackColor={{ false: '#767577', true: colors.primary }}
+          thumbColor={isDarkMode ? '#fff' : '#f4f3f4'}
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.menuItem}
+        onPress={handleResetOnboarding}
+      >
+        <View style={styles.menuItemContent}>
+          <Ionicons name="refresh-outline" size={24} color={colors.primary} />
+          <Text style={[styles.menuItemText, { color: colors.text }]}>Reset Onboarding</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.menuItem}>
+        <View style={styles.menuItemContent}>
+          <Ionicons name="person-outline" size={24} color={colors.primary} />
+          <Text style={[styles.menuItemText, { color: colors.text }]}>Edit Profile</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.menuItem}
+        onPress={() => navigation.navigate('ChangeUsername')}
+      >
+        <View style={styles.menuItemContent}>
+          <Ionicons name="at-outline" size={24} color={colors.primary} />
+          <Text style={[styles.menuItemText, { color: colors.text }]}>Change Username</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.menuItem}
+        onPress={() => navigation.navigate('ConnectionRequests')}
+      >
+        <View style={styles.menuItemContent}>
+          <Ionicons name="people-outline" size={24} color={colors.primary} />
+          <Text style={[styles.menuItemText, { color: colors.text }]}>Connection Requests</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.menuItem}>
+        <View style={styles.menuItemContent}>
+          <Ionicons name="notifications-outline" size={24} color={colors.primary} />
+          <Text style={[styles.menuItemText, { color: colors.text }]}>Notifications</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.menuItem}>
+        <View style={styles.menuItemContent}>
+          <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
+          <Text style={[styles.menuItemText, { color: colors.text }]}>Privacy</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+      </TouchableOpacity>
     </View>
   );
 
@@ -610,69 +729,7 @@ const ProfileScreen = () => {
           </View>
         </View>
 
-        <View
-          style={[
-            styles.section,
-            styles.glassEffect,
-            {
-              backgroundColor: isDarkMode ? colors.cardBackground : colors.background,
-              borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-              borderWidth: 1,
-            }
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            <Ionicons name="settings-outline" size={20} color={colors.primary} /> Settings
-          </Text>
-          
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuItemContent}>
-              <Ionicons name="moon-outline" size={24} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.text }]}>Dark Mode</Text>
-            </View>
-            <Switch
-              value={isDarkMode}
-              onValueChange={toggleTheme}
-              trackColor={{ false: '#767577', true: colors.primary }}
-              thumbColor={isDarkMode ? '#fff' : '#f4f3f4'}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={handleResetOnboarding}
-          >
-            <View style={styles.menuItemContent}>
-              <Ionicons name="refresh-outline" size={24} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.text }]}>Reset Onboarding</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuItemContent}>
-              <Ionicons name="person-outline" size={24} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.text }]}>Edit Profile</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuItemContent}>
-              <Ionicons name="notifications-outline" size={24} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.text }]}>Notifications</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuItemContent}>
-              <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.text }]}>Privacy</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
+        <SettingsSection />
 
         <TouchableOpacity 
           style={[
@@ -767,11 +824,19 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  userEmail: {
+  usernameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  userUsername: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.7)',
-    marginBottom: 6,
     letterSpacing: 0.2,
+  },
+  copyButton: {
+    marginLeft: 8,
+    padding: 4,
   },
   joinedSection: {
     flexDirection: 'row',
