@@ -26,9 +26,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest",
-    "prepare": "npx expo prebuild --clean",
     "prebuild": "npx expo prebuild --clean",
-    "eas-build-pre-install": "npx expo doctor"
+    "eas-build-pre-install": "npx expo-doctor"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^10.0.0",

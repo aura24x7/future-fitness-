@@ -22,8 +22,7 @@
       },
       "env": {
         "EAS_SKIP_AUTO_FINGERPRINT": "1"
-      },
-      "prebuildCommand": "npx expo prebuild --platform android --clean"
+      }
     },
     "preview": {
       "distribution": "internal",
