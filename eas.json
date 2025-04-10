@@ -10,7 +10,6 @@
       "android": {
         "gradleCommand": ":app:assembleDebug",
         "buildType": "apk",
-        "prebuildCommand": "chmod +x ./android/gradlew",
         "env": {
           "EXPO_DEBUG": "true"
         },
@@ -24,26 +23,42 @@
       },
       "env": {
         "EAS_SKIP_AUTO_FINGERPRINT": "1"
-      }
+      },
+      "channel": "development",
+      "extends": "base"
     },
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk",
-        "prebuildCommand": "chmod +x ./android/gradlew"
+        "buildType": "apk"
       },
       "cache": {
         "disabled": true
-      }
+      },
+      "channel": "preview",
+      "extends": "base"
     },
     "production": {
       "android": {
-        "buildType": "app-bundle",
-        "prebuildCommand": "chmod +x ./android/gradlew"
+        "buildType": "app-bundle"
       },
       "cache": {
         "disabled": false
-      }
+      },
+      "channel": "production",
+      "extends": "base"
+    },
+    "base": {
+      "node": "18.18.0",
+      "yarn": "1.22.19",
+      "android": {
+        "image": "ubuntu-22.04-jdk-17-ndk-r21e"
+      },
+      "ios": {
+        "image": "latest"
+      },
+      "env": {},
+      "buildCommand": "cd android && chmod +x gradlew && ./gradlew assembleDebug && cd .. && mkdir -p build-output && cp android/app/build/outputs/apk/debug/app-debug.apk build-output/"
     }
   }
 }
