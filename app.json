@@ -57,6 +57,10 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "ios": {
+      "bundleIdentifier": "com.aifit.aifitness",
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
