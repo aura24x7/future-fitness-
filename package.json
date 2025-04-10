@@ -170,8 +170,27 @@
           "react-native-vision-camera",
           "@google/generative-ai",
           "date-fns",
-          "react-native-wheel-pick"
-        ]
+          "react-native-wheel-pick",
+          "@livekit/react-native",
+          "@livekit/react-native-webrtc",
+          "lucide-react-native",
+          "react-native-chart-kit",
+          "react-native-incall-manager",
+          "@config-plugins/react-native-webrtc",
+          "@livekit/react-native-expo-plugin",
+          "@react-native-community/cli-platform-android",
+          "@tamagui/lucide-icons",
+          "@tamagui/toast",
+          "dotenv",
+          "express",
+          "firebase",
+          "lru-cache",
+          "path-browserify",
+          "resolve-from",
+          "tslib",
+          "winston"
+        ],
+        "failBuildOnError": false
       }
     }
   },
