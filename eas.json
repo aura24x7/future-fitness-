@@ -10,46 +10,33 @@
       "android": {
         "gradleCommand": ":app:assembleDebug",
         "buildType": "apk",
+        "image": "ubuntu-22.04-jdk-17-ndk-r21e",
         "env": {
           "EXPO_DEBUG": "true"
         },
         "withoutCredentials": false
       },
       "ios": {
-        "buildConfiguration": "Debug"
-      },
-      "cache": {
-        "disabled": true
+        "buildConfiguration": "Debug",
+        "image": "latest"
       },
       "env": {
         "EAS_SKIP_AUTO_FINGERPRINT": "1"
-      },
-      "extends": "base"
+      }
     },
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "image": "ubuntu-22.04-jdk-17-ndk-r21e"
       },
-      "cache": {
-        "disabled": true
-      },
-      "extends": "base"
+      "ios": {
+        "image": "latest"
+      }
     },
     "production": {
       "android": {
-        "buildType": "app-bundle"
-      },
-      "cache": {
-        "disabled": false
-      },
-      "extends": "base"
-    },
-    "base": {
-      "hooks": {
-        "postInstall": "npx expo prebuild"
-      },
-      "android": {
+        "buildType": "app-bundle",
         "image": "ubuntu-22.04-jdk-17-ndk-r21e"
       },
       "ios": {
