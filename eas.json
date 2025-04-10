@@ -10,6 +10,7 @@
       "android": {
         "gradleCommand": ":app:assembleDebug",
         "buildType": "apk",
+        "prebuildCommand": "chmod +x ./android/gradlew",
         "env": {
           "EXPO_DEBUG": "true"
         },
@@ -28,7 +29,8 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "prebuildCommand": "chmod +x ./android/gradlew"
       },
       "cache": {
         "disabled": true
@@ -36,7 +38,8 @@
     },
     "production": {
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "prebuildCommand": "chmod +x ./android/gradlew"
       },
       "cache": {
         "disabled": false
