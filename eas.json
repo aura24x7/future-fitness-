@@ -23,8 +23,7 @@
       "env": {
         "EAS_SKIP_AUTO_FINGERPRINT": "1"
       },
-      "prebuildCommand": "node ./eas-hooks/prebuild.js",
-      "postinstallCommand": "node ./eas-hooks/postinstall.js"
+      "prebuildCommand": "node ./eas-hooks/prebuild.js"
     },
     "preview": {
       "distribution": "internal",
@@ -35,8 +34,7 @@
       "ios": {
         "image": "latest"
       },
-      "prebuildCommand": "node ./eas-hooks/prebuild.js",
-      "postinstallCommand": "node ./eas-hooks/postinstall.js"
+      "prebuildCommand": "node ./eas-hooks/prebuild.js"
     },
     "production": {
       "android": {
@@ -46,8 +44,7 @@
       "ios": {
         "image": "latest"
       },
-      "prebuildCommand": "node ./eas-hooks/prebuild.js",
-      "postinstallCommand": "node ./eas-hooks/postinstall.js"
+      "prebuildCommand": "node ./eas-hooks/prebuild.js"
     }
   }
 }
