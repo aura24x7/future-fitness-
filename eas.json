@@ -24,7 +24,6 @@
       "env": {
         "EAS_SKIP_AUTO_FINGERPRINT": "1"
       },
-      "channel": "development",
       "extends": "base"
     },
     "preview": {
@@ -35,7 +34,6 @@
       "cache": {
         "disabled": true
       },
-      "channel": "preview",
       "extends": "base"
     },
     "production": {
@@ -45,20 +43,18 @@
       "cache": {
         "disabled": false
       },
-      "channel": "production",
       "extends": "base"
     },
     "base": {
-      "node": "18.18.0",
-      "yarn": "1.22.19",
+      "hooks": {
+        "postInstall": "npx expo prebuild"
+      },
       "android": {
         "image": "ubuntu-22.04-jdk-17-ndk-r21e"
       },
       "ios": {
         "image": "latest"
-      },
-      "env": {},
-      "buildCommand": "cd android && chmod +x gradlew && ./gradlew assembleDebug && cd .. && mkdir -p build-output && cp android/app/build/outputs/apk/debug/app-debug.apk build-output/"
+      }
     }
   }
 }
