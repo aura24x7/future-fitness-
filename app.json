@@ -12,10 +12,12 @@
       "backgroundColor": "#4c669f"
     },
     "plugins": [
+      "@livekit/react-native-expo-plugin",
+      "@config-plugins/react-native-webrtc",
       ["expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "1.9.25"
+            "kotlinVersion": "2.1.0"
           }
         }
       ],
@@ -32,6 +34,12 @@
         "expo-camera",
         {
           "cameraPermission": "Allow Future Fitness to access your camera."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow Future Fitness to access your microphone"
         }
       ],
       [
