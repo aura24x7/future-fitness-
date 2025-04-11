@@ -1,3 +1,7 @@
+// Pre-initialize mock modules first to prevent WebRTC errors in Expo Go
+// This must happen before any imports that might use WebRTC/LiveKit
+import './src/utils/initializeMocks';
+
 // Import Firebase initialization FIRST - before anything else
 // This ensures Firebase is initialized synchronously before any component tries to use it
 import './src/firebase/firebaseInit';

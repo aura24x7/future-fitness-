@@ -25,7 +25,7 @@ buildscript {
         compileSdkVersion = 35
         targetSdkVersion = 34
         ndkVersion = "26.1.10909125"
-        kotlinVersion = "1.9.22"
+        kotlinVersion = "1.9.25"
         firebaseBomVersion = "33.9.0"
     }
     repositories {
@@ -60,15 +60,6 @@ allprojects {
         }
         mavenLocal()
         maven { url 'https://www.jitpack.io' }
-    }
-
-    // Force consistent versions of Firebase dependencies
-    configurations.all {
-        resolutionStrategy {
-            // Force a specific version of Firebase Common
-            force "com.google.firebase:firebase-common:20.3.3"
-            force "com.google.firebase:firebase-annotations:16.2.0"
-        }
     }
 }`;
 

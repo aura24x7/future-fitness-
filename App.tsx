@@ -2,19 +2,40 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
+import Constants from 'expo-constants';
 
-// STEP 1: Import Firebase web initialization first to avoid the native module error
-// Web Firebase doesn't have the _nativeModule.getAppModule() issue
+// Import module resolver utility
+import { preResolvedModules, isExpoGo } from './src/utils/moduleResolver';
+
+// Use pre-resolved WebRTC module (real or mock based on environment)
+if (!isExpoGo) {
+  try {
+    // Only call registerGlobals when we have the real WebRTC module
+    // and not running in Expo Go
+    const { registerGlobals } = preResolvedModules.webrtc;
+    if (typeof registerGlobals === 'function') {
+      registerGlobals();
+      console.log('LiveKit WebRTC globals registered successfully');
+    } else {
+      console.warn('Invalid registerGlobals function');
+    }
+  } catch (error) {
+    console.warn('Failed to register LiveKit WebRTC globals:', error);
+  }
+} else {
+  console.log('Running in Expo Go - Using mocked LiveKit modules');
+}
+
+// STEP 1: Initialize the web version of Firebase first
 import './src/firebase/firebaseInit';
 
-// STEP 2: After web Firebase is initialized, import native modules WITHOUT initializing
-// This resolves conflicts with initializeApp from native modules
-import firebase from '@react-native-firebase/app';
-import '@react-native-firebase/auth';
-import '@react-native-firebase/firestore';
+// STEP 2: Initialize the compatibility layer
+import './src/firebase/firebaseCompat';
 
-// STEP 3: Set flag to silence deprecation warnings
-// This avoids console clutter during the transition period
+// STEP 3: Import the Compatibility API layer which safely handles both implementations
+import { firestore, auth } from './src/firebase/firebaseInstances';
+
+// STEP 4: Set flag to silence deprecation warnings
 console.log('📱 Setting up Firebase compatibility mode...');
 // @ts-ignore
 global.RNFB_SILENCE_MODULAR_DEPRECATION_WARNINGS = true;
@@ -38,6 +59,7 @@ import ErrorBoundary from './src/components/ErrorBoundary';
 import { isFirebaseInitialized } from './src/firebase/firebaseInit';
 import { TamaguiProvider } from './src/providers/TamaguiProvider';
 import { WorkoutProvider } from './src/contexts/WorkoutContext';
+import { LiveKitProvider } from './src/contexts/LiveKitContext';
 
 // Declare the global property for TypeScript
 declare global {
@@ -69,6 +91,16 @@ const AppContent = () => {
           }
         } else {
           console.log('[App] Firebase already initialized successfully');
+        }
+        
+        // Test Firebase compatibility layer by accessing firestore and auth
+        try {
+          const firestoreInstance = firestore();
+          const authInstance = auth();
+          console.log('[App] Firebase compatibility layer working correctly');
+        } catch (fbError) {
+          console.warn('[App] Firebase compatibility layer error (non-critical):', fbError);
+          // Continue anyway as we'll fall back to web Firebase
         }
         
         setIsInitialized(true);
@@ -119,7 +151,9 @@ const App = () => {
                         <SimpleFoodLogProvider>
                           <GymBuddyAlertProvider>
                             <WorkoutProvider>
-                              <AppContent />
+                              <LiveKitProvider>
+                                <AppContent />
+                              </LiveKitProvider>
                             </WorkoutProvider>
                           </GymBuddyAlertProvider>
                         </SimpleFoodLogProvider>

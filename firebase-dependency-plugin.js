@@ -19,6 +19,29 @@ const withFirebaseDependencyFix = (config) => {
         }
       }
     }
+    
+    // Add Firebase configurations
+    if (!config.modResults.contents.includes('configurations.all')) {
+      const allProjectsEndIndex = config.modResults.contents.lastIndexOf('}');
+      if (allProjectsEndIndex !== -1) {
+        const configBlock = `
+
+    // Force consistent versions of Firebase dependencies
+    configurations.all {
+        resolutionStrategy {
+            // Force a specific version of Firebase Common
+            force "com.google.firebase:firebase-common:20.3.3"
+            force "com.google.firebase:firebase-annotations:16.2.0"
+        }
+    }`;
+        
+        config.modResults.contents = 
+          config.modResults.contents.substring(0, allProjectsEndIndex) +
+          configBlock +
+          config.modResults.contents.substring(allProjectsEndIndex);
+      }
+    }
+    
     return config;
   });
 
@@ -45,26 +68,32 @@ repositories {
       }
     }
 
-    // Find and modify the dependencies block
-    if (config.modResults.contents.includes('dependencies {')) {
-      // Define our Firebase BoM implementation
-      const bomImplementation = `
+    // Add Firebase dependencies if they don't exist
+    if (!config.modResults.contents.includes('firebase-bom')) {
+      const dependenciesMatch = config.modResults.contents.match(/dependencies\s*\{/);
+      if (dependenciesMatch) {
+        const firebase = `
     // Firebase BoM (managed by Expo Config Plugin)
     implementation platform('com.google.firebase:firebase-bom:${firebaseBomVersion}')
     
     // Declare Firebase dependencies without version numbers
     implementation 'com.google.firebase:firebase-analytics'
-      `;
-
-      // Add it to the dependencies block
-      const dependenciesMatch = config.modResults.contents.match(/dependencies\s*\{/);
-      if (dependenciesMatch) {
+    implementation 'com.google.firebase:firebase-auth'
+    implementation 'com.google.firebase:firebase-firestore'
+    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'com.google.firebase:firebase-storage'
+`;
         const index = dependenciesMatch.index + dependenciesMatch[0].length;
         config.modResults.contents = 
           config.modResults.contents.substring(0, index) +
-          bomImplementation +
+          firebase +
           config.modResults.contents.substring(index);
       }
+    }
+
+    // Add the Google Services plugin application if it doesn't exist
+    if (!config.modResults.contents.includes("apply plugin: 'com.google.gms.google-services'")) {
+      config.modResults.contents += "\napply plugin: 'com.google.gms.google-services'";
     }
 
     return config;

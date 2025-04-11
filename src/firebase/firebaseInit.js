@@ -26,7 +26,8 @@ const firebaseConfig = {
   databaseURL: `https://${Platform.OS === 'web' ? '' : Platform.OS + '.'}ai-calories-150d7.firebaseio.com`
 };
 
-// This flag helps manage compatibility between native and web Firebase
+// Flag to track if we're using native Firebase
+// IMPORTANT: Set to false by default - we'll only use web Firebase in this module
 let isNativeFirebaseAvailable = false;
 
 // Synchronously initialize Firebase
@@ -65,16 +66,9 @@ const firestore = getFirestore(firebaseApp);
 const storage = getStorage(firebaseApp);
 const functions = getFunctions(firebaseApp);
 
-// Handle Native Firebase initialization - but do NOT initialize it directly
-// This prevents the _nativeModule.getAppModule().initializeApp issue
-try {
-  // DO NOT try to initialize Native Firebase here.
-  // Native Firebase will be imported in the main App.tsx file.
-  // This approach avoids the initializeApp errors from _nativeModule.getAppModule
-  console.log('🔍 Web Firebase modules initialized, Native modules will be imported separately');
-} catch (error) {
-  console.log('⚠️ Native Firebase detection error (non-critical):', error);
-}
+// We DO NOT attempt to initialize native Firebase modules here
+// This change prevents the error with _nativeModule.getAppModule().initializeApp
+console.log('🔍 Web Firebase modules initialized, Native modules will be imported separately');
 
 // Export the initialized services - THESE ARE READY TO USE IMMEDIATELY
 export { firebaseApp, auth, firestore, storage, functions, firebaseConfig };

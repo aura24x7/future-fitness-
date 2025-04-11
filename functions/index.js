@@ -1,5 +1,9 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const { AccessToken } = require('livekit-server-sdk');
+// Load environment variables
+require('dotenv').config();
+
 admin.initializeApp();
 
 /**
@@ -128,4 +132,37 @@ exports.onConnectionCreated = functions.firestore
       console.error('Error creating connection notification:', error);
       return { success: false };
     }
-  }); 
+  });
+
+/**
+ * Cloud function to generate LiveKit tokens for voice agent
+ */
+exports.createLiveKitToken = functions.https.onCall(async (data, context) => {
+  // Ensure user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const { userId } = data;
+  
+  // Create LiveKit token
+  const at = new AccessToken(
+    process.env.LIVEKIT_API_KEY,
+    process.env.LIVEKIT_API_SECRET,
+    {
+      identity: userId,
+    }
+  );
+  
+  // Define room for onboarding
+  at.addGrant({ 
+    roomJoin: true, 
+    room: 'onboarding-room',
+    canPublish: true,
+    canSubscribe: true
+  });
+
+  // Generate token
+  const token = at.toJwt();
+  return { token };
+}); 

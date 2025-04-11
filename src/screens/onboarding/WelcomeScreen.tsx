@@ -64,8 +64,14 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
       console.error('[WelcomeScreen] Error checking onboarding status:', error);
     }
     
-    console.log('[WelcomeScreen] Navigating to NameInput');
-    navigation.navigate('NameInput');
+    console.log('[WelcomeScreen] Navigating to OnboardingChoice');
+    navigation.navigate('OnboardingChoice');
+  };
+
+  // Add a back button handler to navigate back to OnboardingChoice
+  const handleBackToChoice = () => {
+    console.log('[WelcomeScreen] Navigating back to OnboardingChoice');
+    navigation.navigate('OnboardingChoice');
   };
 
   return (
@@ -82,6 +88,19 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.content}>
+        {/* Add a back button at the top left */}
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={handleBackToChoice}
+        >
+          <Text style={[
+            styles.backButtonText, 
+            { color: isDarkMode ? colors.primaryLight : colors.primary }
+          ]}>
+            ← Back
+          </Text>
+        </TouchableOpacity>
+
         <View style={styles.logoContainer}>
           <View style={[
             styles.logoBackground,
@@ -186,6 +205,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 20,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    padding: 10,
+    zIndex: 10,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   logoContainer: {
     marginTop: 20,

@@ -16,7 +16,9 @@ import RegisterScreen from '../screens/RegisterScreen';
 
 // Onboarding Screens
 import WelcomeScreen from '../screens/onboarding/WelcomeScreen';
+import OnboardingChoiceScreen from '../screens/onboarding/OnboardingChoiceScreen';
 import NameInputScreen from '../screens/onboarding/NameInputScreen';
+import VoiceOnboardingScreen from '../screens/onboarding/VoiceOnboardingScreen';
 import BirthdayScreen from '../screens/onboarding/BirthdayScreen';
 import GenderScreen from '../screens/onboarding/GenderScreen';
 import HeightWeightScreen from '../screens/onboarding/HeightWeightScreen';
@@ -196,9 +198,6 @@ const AppNavigator = () => {
   } else if (isAuthenticated && isOnboardingComplete) {
     // If user is authenticated and onboarding is complete, route to Main
     safeInitialRouteName = 'Main';
-  } else if (initialRouteName === 'Welcome') {
-    // For new users who need onboarding, preserve the Welcome route
-    safeInitialRouteName = 'Welcome';
   } else if (initialRouteName === 'Main') {
     safeInitialRouteName = 'Main';
   } else {
@@ -222,6 +221,8 @@ const AppNavigator = () => {
       
       {/* Onboarding Flow */}
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      <Stack.Screen name="OnboardingChoice" component={OnboardingChoiceScreen} />
+      <Stack.Screen name="VoiceOnboarding" component={VoiceOnboardingScreen} />
       <Stack.Screen name="NameInput" component={NameInputScreen} />
       <Stack.Screen name="Birthday" component={BirthdayScreen} />
       <Stack.Screen name="Gender" component={GenderScreen} />

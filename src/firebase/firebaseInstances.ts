@@ -12,11 +12,15 @@ import {
   firebaseApp
 } from './firebaseInit';
 
-// Import native Firebase as fallback
-import nativeFirebase from '@react-native-firebase/app';
-import nativeFirestore from '@react-native-firebase/firestore';
-import nativeAuth from '@react-native-firebase/auth';
+// Use the safer import method from the compatibility module
+import { 
+  getNativeFirebaseApp, 
+  getNativeFirestore, 
+  getNativeAuth, 
+  isNativeFirebaseAvailable 
+} from './firebaseCompat';
 
+// Import Firebase web SDK for types
 import {
   collection, doc, getDoc, getDocs, setDoc, 
   updateDoc, deleteDoc, query, where, onSnapshot,
@@ -37,7 +41,8 @@ import {
 } from 'firebase/auth';
 
 // Detect which Firebase implementation to use
-const useNative = !webFirestore || !webAuth;
+// Only use native if web Firebase is unavailable or if native is explicitly available
+const useNative = (!webFirestore || !webAuth) && isNativeFirebaseAvailable();
 console.log('[FirebaseCompat] Using', useNative ? 'native' : 'web', 'Firebase implementation');
 
 // Type definitions to match React Native Firebase patterns
@@ -95,10 +100,15 @@ export interface AuthType {
 
 // Legacy pattern compatibility for firestore()
 export const firestore = (): FirestoreType => {
-  // Use native Firestore if web Firestore is not available
+  // Use native Firestore if web Firestore is not available and native is available
   if (useNative) {
-    console.log('[FirebaseCompat] Using native Firestore');
-    return nativeFirestore();
+    const nativeFirestoreInstance = getNativeFirestore();
+    if (nativeFirestoreInstance) {
+      console.log('[FirebaseCompat] Using native Firestore');
+      return nativeFirestoreInstance;
+    } else {
+      console.log('[FirebaseCompat] Native Firestore unavailable, falling back to web');
+    }
   }
   
   console.log('[FirebaseCompat] Using web Firestore with compatibility layer');
@@ -251,10 +261,15 @@ export const firestore = (): FirestoreType => {
 
 // Legacy pattern compatibility for auth()
 export const auth = (): AuthType => {
-  // Use native Auth if web Auth is not available
+  // Use native Auth if web Auth is not available and native is available
   if (useNative) {
-    console.log('[FirebaseCompat] Using native Auth');
-    return nativeAuth();
+    const nativeAuthInstance = getNativeAuth();
+    if (nativeAuthInstance) {
+      console.log('[FirebaseCompat] Using native Auth');
+      return nativeAuthInstance;
+    } else {
+      console.log('[FirebaseCompat] Native Auth unavailable, falling back to web');
+    }
   }
   
   console.log('[FirebaseCompat] Using web Auth with compatibility layer');

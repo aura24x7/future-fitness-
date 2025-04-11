@@ -154,7 +154,7 @@ android {
 }
 
 dependencies {
-    // Using a recent Firebase BoM compatible with Kotlin 2.1.0
+    // Firebase BoM (managed by Expo Config Plugin)
     implementation platform('com.google.firebase:firebase-bom:33.9.0')
     
     // Declare Firebase dependencies without version numbers

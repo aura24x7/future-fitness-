@@ -123,6 +123,11 @@ future-fitness/
     ├── .env                  # Environment variables
     └── .env.development      # Development environment
 ```
+
+## package manager
+- Use yarn as the package manager
+## how to start the project
+- run `npx expo start --clear` to start the project
 ## Tech Stack
 - React Native
 - Expo (SDK 52)
@@ -132,6 +137,7 @@ future-fitness/
 - Zustand (State Management)
 - React Navigation
 - Expo Notifications
+- Nativewind
 - React Native Reanimated
 - React Native Gifted Charts
 - React Native Vision Camera
